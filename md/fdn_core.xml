@@ -6,7 +6,7 @@
       $Overrides : table of settings the player has changed (saved). Empty means "all defaults".
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
-      Read a setting with: $CfgKey = 'Name'; include_actions ref="Cfg_Get"; result is in $CfgValue.
+      Read a setting from any file with run_actions ref="md.FDN_Core.Cfg_Get" (see below).
     -->
     <cue name="Init" version="2">
       <conditions>
@@ -15,7 +15,10 @@
       <actions>
         <set_value name="$Overrides" exact="table[]" />
         <include_actions ref="Cfg_LoadDefaults" />
-        <debug_text text="'FDN X4: core loaded, version 1.0.0 (step 2, %1 default settings)'.[$Defaults.keys.list.count]" filter="general" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'core loaded, version 1.0.0 (step 3), %1 default settings'.[$Defaults.keys.list.count]" />
+        </run_actions>
       </actions>
       <patch sinceversion="2">
         <!-- Saves made with version 1 had no config tables -->
@@ -31,7 +34,10 @@
           </conditions>
           <actions>
             <include_actions ref="Cfg_LoadDefaults" />
-            <debug_text text="'FDN X4: defaults reloaded (%1 settings, %2 overridden)'.[$Defaults.keys.list.count, $Overrides.keys.list.count]" filter="general" />
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="4" />
+              <param name="Text" value="'defaults reloaded, %1 settings, %2 overridden'.[$Defaults.keys.list.count, $Overrides.keys.list.count]" />
+            </run_actions>
           </actions>
         </cue>
 
@@ -46,6 +52,7 @@
 
             <!-- ===== General / logging (step 3) ===== -->
             <set_value name="$Defaults.{'DebugLog'}" exact="1" comment="1 = write FDN debug lines to the game log" />
+            <set_value name="$Defaults.{'LogLevel'}" exact="3" comment="1 = errors, 2 = +warnings, 3 = +info, 4 = +debug detail" />
 
             <!-- ===== Polling (step 5) ===== -->
             <set_value name="$Defaults.{'PollInterval'}" exact="60" comment="seconds between supply passes" />
@@ -63,19 +70,68 @@
           </actions>
         </library>
 
-        <!-- Input: $CfgKey (string). Output: $CfgValue. Override wins, then default, else null. -->
-        <library name="Cfg_Get" purpose="include_actions">
-          <actions>
-            <set_value name="$CfgValue" exact="null" />
-            <do_if value="$Overrides.{$CfgKey}?">
-              <set_value name="$CfgValue" exact="$Overrides.{$CfgKey}" />
-            </do_if>
-            <do_elseif value="$Defaults.{$CfgKey}?">
-              <set_value name="$CfgValue" exact="$Defaults.{$CfgKey}" />
-            </do_elseif>
-          </actions>
-        </library>
       </cues>
     </cue>
+
+    <!--
+      Read a setting from any FDN file:
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Value">
+          <param name="Key" value="'TransferOwn'" />
+        </run_actions>
+      Override wins, then default, else null.
+    -->
+    <library name="Cfg_Get" purpose="run_actions">
+      <params>
+        <param name="Key" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="@$Init.$Overrides.{$Key}?">
+          <return value="$Init.$Overrides.{$Key}" />
+        </do_if>
+        <do_elseif value="@$Init.$Defaults.{$Key}?">
+          <return value="$Init.$Defaults.{$Key}" />
+        </do_elseif>
+        <return value="null" />
+      </actions>
+    </library>
+
+    <!--
+      Write a log line from any FDN file:
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'something happened'" />
+        </run_actions>
+      Levels: 1 error (always logged), 2 warning, 3 info, 4 debug detail.
+      Lines 2-4 are written only when DebugLog = 1 and Level is at or below LogLevel.
+      Note: debug_text output only reaches the log when X4 runs with -debug and -logfile.
+    -->
+    <library name="Log" purpose="run_actions">
+      <params>
+        <param name="Level" default="3" />
+        <param name="Text" />
+      </params>
+      <actions>
+        <set_value name="$Prefix" exact="'FDN INFO'" />
+        <do_if value="$Level le 1"><set_value name="$Prefix" exact="'FDN ERROR'" /></do_if>
+        <do_elseif value="$Level == 2"><set_value name="$Prefix" exact="'FDN WARN'" /></do_elseif>
+        <do_elseif value="$Level ge 4"><set_value name="$Prefix" exact="'FDN DEBUG'" /></do_elseif>
+        <do_if value="$Level le 1">
+          <debug_text text="player.age + ' ' + $Prefix + ' ' + $Text" filter="general" />
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Enabled">
+          <param name="Key" value="'DebugLog'" />
+        </run_actions>
+        <do_if value="$Enabled">
+          <run_actions ref="md.FDN_Core.Cfg_Get" result="$MaxLevel">
+            <param name="Key" value="'LogLevel'" />
+          </run_actions>
+          <do_if value="$Level le $MaxLevel">
+            <debug_text text="player.age + ' ' + $Prefix + ' ' + $Text" filter="general" />
+          </do_if>
+        </do_if>
+      </actions>
+    </library>
   </cues>
 </mdscript>
