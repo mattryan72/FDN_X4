@@ -4,7 +4,7 @@
     <!--
       Step 5: polling skeleton. Every PollInterval seconds, purge the registry then walk
       PollStationsPerPass stations (round robin) so the whole list is covered over several passes.
-      Per-station work is added in steps 6 and 7. For now each visited station is only logged (level 4).
+      Each visited station is scanned read-only (step 6, Scan_Station). Step 7 adds shortfall ranking.
       The poll is the safety net for stalled modules; production-finished events are the main trigger.
     -->
     <cue name="Start" version="1" checktime="5s" checkinterval="5s">
@@ -48,7 +48,10 @@
                     <param name="Level" value="4" />
                     <param name="Text" value="'poll visit: %1 (%2)'.[$Station.knownname, $Station]" />
                   </run_actions>
-                  <!-- Step 6 and 7: stalled-module scan and shortfall check go here -->
+                  <run_actions ref="md.FDN_Supply.Scan_Station">
+                    <param name="Station" value="$Station" />
+                  </run_actions>
+                  <!-- Step 7: shortfall ranking goes here -->
                   <set_value name="$Index" operation="add" />
                   <do_if value="$Index gt $Count">
                     <set_value name="$Index" exact="1" />
@@ -68,5 +71,62 @@
         </cue>
       </cues>
     </cue>
+
+    <!--
+      Step 6, read-only. Logs the state of every operational production module on a station.
+      For a module that is waiting for resources, logs each resource the station holds less of than one
+      production cycle needs. Changes nothing.
+      Properties used: .iswaitingforresources .iswaitingforstorage .isproducing .ispaused .products .resources
+      (all from scriptproperties.xml), ware.resources.{$res}.count (amount per cycle, as in factionsubgoal_buildstation.xml),
+      station.cargo.{$ware}.count.
+    -->
+    <library name="Scan_Station" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <do_if value="not $Station.exists">
+          <return />
+        </do_if>
+        <find_object_component object="$Station" name="$Modules" class="class.production" checkoperational="true" multiple="true" />
+        <do_all exact="$Modules.count" counter="$m">
+          <set_value name="$Module" exact="$Modules.{$m}" />
+          <do_if value="$Module.iswaitingforresources">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="3" />
+              <param name="Text" value="'STALLED (resources): %1, module %2, makes %3'.[$Station.knownname, $Module.knownname, $Module.products.list]" />
+            </run_actions>
+            <set_value name="$Products" exact="$Module.products.list" />
+            <do_all exact="$Products.count" counter="$p">
+              <set_value name="$Product" exact="$Products.{$p}" />
+              <set_value name="$Resources" exact="$Product.resources.list" comment="ware.resources is the default production method recipe (confirmed in scriptproperties.xml). VERIFY: race-specific methods can differ, see ware.raceresources" />
+              <do_all exact="$Resources.count" counter="$r">
+                <set_value name="$Resource" exact="$Resources.{$r}" />
+                <set_value name="$Need" exact="$Product.resources.{$Resource}.count" />
+                <set_value name="$Have" exact="$Station.cargo.{$Resource}.count" />
+                <do_if value="$Have lt $Need">
+                  <run_actions ref="md.FDN_Core.Log">
+                    <param name="Level" value="3" />
+                    <param name="Text" value="'  missing %1: need %2 per cycle, station has %3'.[$Resource.name, $Need, $Have]" />
+                  </run_actions>
+                </do_if>
+              </do_all>
+            </do_all>
+          </do_if>
+          <do_elseif value="$Module.iswaitingforstorage">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="3" />
+              <param name="Text" value="'STALLED (output full): %1, module %2'.[$Station.knownname, $Module.knownname]" />
+            </run_actions>
+          </do_elseif>
+          <do_else>
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="4" />
+              <param name="Text" value="'ok: %1, module %2, producing %3, paused %4'.[$Station.knownname, $Module.knownname, $Module.isproducing, $Module.ispaused]" />
+            </run_actions>
+          </do_else>
+        </do_all>
+      </actions>
+    </library>
   </cues>
 </mdscript>
