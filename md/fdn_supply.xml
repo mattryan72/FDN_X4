@@ -4,7 +4,7 @@
     <!--
       Step 5: polling skeleton. Every PollInterval seconds, purge the registry then walk
       PollStationsPerPass stations (round robin) so the whole list is covered over several passes.
-      Each visited station is scanned read-only (step 6, Scan_Station). Step 7 adds shortfall ranking.
+      Each visited station is scanned read-only (step 6, Scan_Station) and its shortfalls ranked (step 7, Rank_Shortfalls).
       The poll is the safety net for stalled modules; production-finished events are the main trigger.
     -->
     <cue name="Start" version="1" checktime="5s" checkinterval="5s">
@@ -51,7 +51,9 @@
                   <run_actions ref="md.FDN_Supply.Scan_Station">
                     <param name="Station" value="$Station" />
                   </run_actions>
-                  <!-- Step 7: shortfall ranking goes here -->
+                  <run_actions ref="md.FDN_Supply.Rank_Shortfalls">
+                    <param name="Station" value="$Station" />
+                  </run_actions>
                   <set_value name="$Index" operation="add" />
                   <do_if value="$Index gt $Count">
                     <set_value name="$Index" exact="1" />
@@ -128,5 +130,52 @@
         </do_all>
       </actions>
     </library>
+    <!--
+      Step 7, read-only. For one station, finds every resource ware its operational production modules use,
+      compares stock with the station's target stock, and logs the shortfalls ranked emptiest first.
+      Fill % = stock * 100 / target. A ware with no target (0) is skipped. Returns the ranked ware list.
+      Properties used: station.cargo.{$ware}.count, station.cargo.{$ware}.target (scriptproperties.xml, container),
+      table .keys.sorted (sorted by value, ascending, values must be numeric).
+      Compare this log with what MWE mules deliver to see whether the ranking agrees.
+    -->
+    <library name="Rank_Shortfalls" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <set_value name="$Ranked" exact="[]" />
+        <do_if value="not $Station.exists">
+          <return value="$Ranked" />
+        </do_if>
+        <find_object_component object="$Station" name="$Modules" class="class.production" checkoperational="true" multiple="true" />
+        <set_value name="$Fill" exact="table[]" comment="ware -> fill percent" />
+        <do_all exact="$Modules.count" counter="$m">
+          <set_value name="$Products" exact="$Modules.{$m}.products.list" />
+          <do_all exact="$Products.count" counter="$p">
+            <set_value name="$Resources" exact="$Products.{$p}.resources.list" comment="VERIFY: race-specific recipes can differ, see ware.raceresources" />
+            <do_all exact="$Resources.count" counter="$r">
+              <set_value name="$Resource" exact="$Resources.{$r}" />
+              <set_value name="$Target" exact="$Station.cargo.{$Resource}.target" />
+              <set_value name="$Have" exact="$Station.cargo.{$Resource}.count" />
+              <do_if value="$Target gt 0 and $Have lt $Target">
+                <set_value name="$Fill.{$Resource}" exact="($Have * 100) / $Target" comment="VERIFY: integer division result is fine for sorting" />
+              </do_if>
+            </do_all>
+          </do_all>
+        </do_all>
+        <do_if value="$Fill.keys.count gt 0">
+          <set_value name="$Ranked" exact="$Fill.keys.sorted" />
+          <do_all exact="$Ranked.count" counter="$k">
+            <set_value name="$Ware" exact="$Ranked.{$k}" />
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="3" />
+              <param name="Text" value="'SHORTFALL #%1: %2, %3, stock %4 of target %5 (%6%)'.[$k, $Station.knownname, $Ware.name, $Station.cargo.{$Ware}.count, $Station.cargo.{$Ware}.target, $Fill.{$Ware}]" />
+            </run_actions>
+          </do_all>
+        </do_if>
+        <return value="$Ranked" />
+      </actions>
+    </library>
+
   </cues>
 </mdscript>
