@@ -1,0 +1,10 @@
+# Egosoft game files: never commit
+x4unpacked/
+unpacked/
+vanilla/
+*.cat
+*.dat
+# local index / tooling
+.kilo/index/
+.lancedb/
+*.log
