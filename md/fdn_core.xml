@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mdscript name="FDN_Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <cues>
+    <cue name="Init" version="1">
+      <conditions>
+        <event_cue_signalled cue="md.Setup.Start" />
+      </conditions>
+      <actions>
+        <debug_text text="'FDN X4: core loaded, version 1.0.0 (step 1)'" filter="general" />
+      </actions>
+    </cue>
+  </cues>
+</mdscript>
