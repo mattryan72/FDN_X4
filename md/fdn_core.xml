@@ -55,7 +55,8 @@
             <set_value name="$Defaults.{'TransferFeePercent'}" exact="2" comment="fee as percent of transfer value (Matt: 2 is OK as a placeholder)" />
             <set_value name="$Defaults.{'TransferDelay'}" exact="0" comment="1 = delay transfers by gate distance. Instant when 0" />
             <set_value name="$Defaults.{'TransferDelayMult'}" exact="8" comment="seconds of delay per gate jump (Matt: start at 8)" />
-            <set_value name="$Defaults.{'TransferDelayMax'}" exact="600" comment="VERIFY: cap on delay in seconds, Matt to confirm" />
+            <set_value name="$Defaults.{'RangeLimit'}" exact="1" comment="1 = only use stations within RangeMaxJumps gate jumps. 0 = no distance limit" />
+            <set_value name="$Defaults.{'RangeMaxJumps'}" exact="5" comment="max gate jumps when RangeLimit is on. Minimum 1, no upper maximum" />
 
             <!-- ===== NPC fallback (step 10) ===== -->
             <set_value name="$Defaults.{'NpcFallback'}" exact="0" comment="1 = buy shortfalls from NPC offers when no own station can cover. OFF until tested" />
