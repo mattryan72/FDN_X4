@@ -1,13 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
 <mdscript name="FDN_Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
   <cues>
-    <cue name="Init" version="1">
+    <!--
+      Persistent root cue. Its variables are saved with the game.
+      $Overrides : table of settings the player has changed (saved). Empty means "all defaults".
+      $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
+                   every load (see OnLoad) so new settings added in updates appear in old saves.
+      Read a setting with: $CfgKey = 'Name'; include_actions ref="Cfg_Get"; result is in $CfgValue.
+    -->
+    <cue name="Init" version="2">
       <conditions>
         <event_cue_signalled cue="md.Setup.Start" />
       </conditions>
       <actions>
-        <debug_text text="'FDN X4: core loaded, version 1.0.0 (step 1)'" filter="general" />
+        <set_value name="$Overrides" exact="table[]" />
+        <include_actions ref="Cfg_LoadDefaults" />
+        <debug_text text="'FDN X4: core loaded, version 1.0.0 (step 2, %1 default settings)'.[$Defaults.keys.list.count]" filter="general" />
       </actions>
+      <patch sinceversion="2">
+        <!-- Saves made with version 1 had no config tables -->
+        <set_value name="$Overrides" exact="table[]" />
+        <include_actions ref="Cfg_LoadDefaults" />
+      </patch>
+      <cues>
+        <!-- Rebuild defaults on every load so settings added by newer versions get their default. -->
+        <cue name="OnLoad" instantiate="true">
+          <conditions>
+            <!-- Only fires after a save has been loaded (same as vanilla drain_stations.xml) -->
+            <event_game_loaded />
+          </conditions>
+          <actions>
+            <include_actions ref="Cfg_LoadDefaults" />
+            <debug_text text="'FDN X4: defaults reloaded (%1 settings, %2 overridden)'.[$Defaults.keys.list.count, $Overrides.keys.list.count]" filter="general" />
+          </actions>
+        </cue>
+
+        <!--
+          DEFAULTS TABLE. To add a setting: add ONE set_value line in the right group below.
+          Key names are strings. Flags are 0/1. Times are in seconds. Do not rename keys later
+          (saved overrides use the key name).
+        -->
+        <library name="Cfg_LoadDefaults" purpose="include_actions">
+          <actions>
+            <set_value name="$Defaults" exact="table[]" />
+
+            <!-- ===== General / logging (step 3) ===== -->
+            <set_value name="$Defaults.{'DebugLog'}" exact="1" comment="1 = write FDN debug lines to the game log" />
+
+            <!-- ===== Polling (step 5) ===== -->
+            <set_value name="$Defaults.{'PollInterval'}" exact="60" comment="seconds between supply passes" />
+
+            <!-- ===== Own-station transfers (step 9) ===== -->
+            <set_value name="$Defaults.{'TransferOwn'}" exact="0" comment="1 = move wares between own stations. OFF until tested" />
+            <set_value name="$Defaults.{'TransferFeePercent'}" exact="2" comment="fee as percent of transfer value (Matt: 2 is OK as a placeholder)" />
+            <set_value name="$Defaults.{'TransferDelay'}" exact="0" comment="1 = delay transfers by gate distance. Instant when 0" />
+            <set_value name="$Defaults.{'TransferDelayMult'}" exact="8" comment="seconds of delay per gate jump (Matt: start at 8)" />
+            <set_value name="$Defaults.{'TransferDelayMax'}" exact="600" comment="VERIFY: cap on delay in seconds, Matt to confirm" />
+
+            <!-- ===== NPC fallback (step 10) ===== -->
+            <set_value name="$Defaults.{'NpcFallback'}" exact="0" comment="1 = buy shortfalls from NPC offers when no own station can cover. OFF until tested" />
+          </actions>
+        </library>
+
+        <!-- Input: $CfgKey (string). Output: $CfgValue. Override wins, then default, else null. -->
+        <library name="Cfg_Get" purpose="include_actions">
+          <actions>
+            <set_value name="$CfgValue" exact="null" />
+            <do_if value="$Overrides.{$CfgKey}?">
+              <set_value name="$CfgValue" exact="$Overrides.{$CfgKey}" />
+            </do_if>
+            <do_elseif value="$Defaults.{$CfgKey}?">
+              <set_value name="$CfgValue" exact="$Defaults.{$CfgKey}" />
+            </do_elseif>
+          </actions>
+        </library>
+      </cues>
     </cue>
   </cues>
 </mdscript>
