@@ -21,6 +21,7 @@
             <set_value name="$Reg" exact="md.FDN_Stations.Registry" />
             <do_if value="@$Reg.$Stations?">
               <run_actions ref="md.FDN_Stations.Purge" />
+              <run_actions ref="md.FDN_Core.Claim_Purge" />
 
               <run_actions ref="md.FDN_Core.Cfg_Get" result="$PerPass">
                 <param name="Key" value="'PollStationsPerPass'" />
@@ -167,9 +168,13 @@
           <set_value name="$Ranked" exact="$Fill.keys.sorted" />
           <do_all exact="$Ranked.count" counter="$k">
             <set_value name="$Ware" exact="$Ranked.{$k}" />
+            <run_actions ref="md.FDN_Core.Claim_Get" result="$Claimed">
+              <param name="Station" value="$Station" />
+              <param name="Ware" value="$Ware" />
+            </run_actions>
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="3" />
-              <param name="Text" value="'SHORTFALL #%1: %2, %3, stock %4 of target %5 (%6%)'.[$k, $Station.knownname, $Ware.name, $Station.cargo.{$Ware}.count, $Station.cargo.{$Ware}.target, $Fill.{$Ware}]" />
+              <param name="Text" value="'SHORTFALL #%1: %2, %3, stock %4 of target %5 (%6%), claimed %7'.[$k, $Station.knownname, $Ware.name, $Station.cargo.{$Ware}.count, $Station.cargo.{$Ware}.target, $Fill.{$Ware}, $Claimed]" />
             </run_actions>
           </do_all>
         </do_if>

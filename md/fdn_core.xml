@@ -4,26 +4,32 @@
     <!--
       Persistent root cue. Its variables are saved with the game.
       $Overrides : table of settings the player has changed (saved). Empty means "all defaults".
+      $Claims    : saved table of reserved ware amounts, station -> ware -> amount (see Claim_* libraries).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
       Read a setting from any file with run_actions ref="md.FDN_Core.Cfg_Get" (see below).
     -->
-    <cue name="Init" version="2">
+    <cue name="Init" version="3">
       <conditions>
         <event_cue_signalled cue="md.Setup.Start" />
       </conditions>
       <actions>
         <set_value name="$Overrides" exact="table[]" />
+        <set_value name="$Claims" exact="table[]" />
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'core loaded, version 1.0.0 (step 3), %1 default settings'.[$Defaults.keys.list.count]" />
+          <param name="Text" value="'core loaded, version 1.0.0 (step 8), %1 default settings'.[$Defaults.keys.list.count]" />
         </run_actions>
       </actions>
       <patch sinceversion="2">
         <!-- Saves made with version 1 had no config tables -->
         <set_value name="$Overrides" exact="table[]" />
         <include_actions ref="Cfg_LoadDefaults" />
+      </patch>
+      <patch sinceversion="3">
+        <!-- Saves made with version 2 had no claims table -->
+        <set_value name="$Claims" exact="table[]" />
       </patch>
       <cues>
         <!-- Rebuild defaults on every load so settings added by newer versions get their default. -->
@@ -134,5 +140,169 @@
         </do_if>
       </actions>
     </library>
+    <!--
+      PER-STATION SETTINGS (step 8). A station may carry its own table $Station.$fdn_cfg holding overrides
+      of any key in the defaults table. Lookup order: station table, then player override, then default.
+      The table lives on the station object, so it goes away when the station is destroyed.
+        Station_Cfg_Get   params Station, Key        returns the effective value
+        Station_Cfg_Set   params Station, Key, Value creates the table if needed, writes the key
+        Station_Cfg_Reset params Station, Key        removes one key. Leave Key out (null) to remove the whole table
+      Station_Cfg_Setup creates an empty table on the station if it has none.
+    -->
+    <library name="Station_Cfg_Setup" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <do_if value="$Station.exists and not @$Station.$fdn_cfg?">
+          <set_value name="$Station.$fdn_cfg" exact="table[]" />
+        </do_if>
+      </actions>
+    </library>
+
+    <library name="Station_Cfg_Get" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Key" />
+      </params>
+      <actions>
+        <do_if value="@$Station.$fdn_cfg.{$Key}?">
+          <return value="$Station.$fdn_cfg.{$Key}" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Value">
+          <param name="Key" value="$Key" />
+        </run_actions>
+        <return value="$Value" />
+      </actions>
+    </library>
+
+    <library name="Station_Cfg_Set" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Key" />
+        <param name="Value" />
+      </params>
+      <actions>
+        <do_if value="not $Station.exists">
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Setup">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <set_value name="$Station.$fdn_cfg.{$Key}" exact="$Value" />
+      </actions>
+    </library>
+
+    <library name="Station_Cfg_Reset" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Key" default="null" />
+      </params>
+      <actions>
+        <do_if value="not $Station.exists or not @$Station.$fdn_cfg?">
+          <return />
+        </do_if>
+        <do_if value="$Key == null">
+          <remove_value name="$Station.$fdn_cfg" />
+        </do_if>
+        <do_else>
+          <remove_value name="$Station.$fdn_cfg.{$Key}" />
+        </do_else>
+      </actions>
+    </library>
+
+    <!--
+      CLAIMS / LOCK (step 8). A claim reserves an amount of a ware at a station so two transfers
+      (or a transfer and an NPC buy) do not use the same stock or fill the same gap twice.
+      Stored in md.FDN_Core.Init.$Claims as station -> ware -> amount.
+        Claim_Get     params Station, Ware          returns the amount currently claimed
+        Claim_Add     params Station, Ware, Amount  adds to the claim (Amount must be above 0)
+        Claim_Release params Station, Ware, Amount  subtracts, never below 0, removes empty entries
+        Claim_Purge   no params                     drops claims for stations that no longer exist
+      Nothing makes a claim yet. Step 9 will, when it queues a transfer.
+    -->
+    <library name="Claim_Get" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="@$Init.$Claims.{$Station}.{$Ware}?">
+          <return value="$Init.$Claims.{$Station}.{$Ware}" />
+        </do_if>
+        <return value="0" />
+      </actions>
+    </library>
+
+    <library name="Claim_Add" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="Amount" />
+      </params>
+      <actions>
+        <do_if value="$Amount le 0">
+          <return />
+        </do_if>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not @$Init.$Claims.{$Station}?">
+          <set_value name="$Init.$Claims.{$Station}" exact="table[]" comment="VERIFY: a station object works as a table key and nested tables can be written like this" />
+        </do_if>
+        <set_value name="$Current" exact="0" />
+        <do_if value="@$Init.$Claims.{$Station}.{$Ware}?">
+          <set_value name="$Current" exact="$Init.$Claims.{$Station}.{$Ware}" />
+        </do_if>
+        <set_value name="$Init.$Claims.{$Station}.{$Ware}" exact="$Current + $Amount" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="4" />
+          <param name="Text" value="'claim +%1 %2 at %3, now %4'.[$Amount, $Ware.name, $Station.knownname, $Current + $Amount]" />
+        </run_actions>
+      </actions>
+    </library>
+
+    <library name="Claim_Release" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="Amount" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not @$Init.$Claims.{$Station}.{$Ware}?">
+          <return />
+        </do_if>
+        <set_value name="$Left" exact="$Init.$Claims.{$Station}.{$Ware} - $Amount" />
+        <do_if value="$Left gt 0">
+          <set_value name="$Init.$Claims.{$Station}.{$Ware}" exact="$Left" />
+        </do_if>
+        <do_else>
+          <remove_value name="$Init.$Claims.{$Station}.{$Ware}" />
+          <do_if value="$Init.$Claims.{$Station}.keys.count == 0">
+            <remove_value name="$Init.$Claims.{$Station}" />
+          </do_if>
+        </do_else>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="4" />
+          <param name="Text" value="'claim -%1 %2 at %3, left %4'.[$Amount, $Ware.name, $Station.knownname, [$Left, 0].max]" />
+        </run_actions>
+      </actions>
+    </library>
+
+    <library name="Claim_Purge" purpose="run_actions">
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not @$Init.$Claims?">
+          <return />
+        </do_if>
+        <set_value name="$Keys" exact="$Init.$Claims.keys.list" />
+        <do_all exact="$Keys.count" counter="$k">
+          <do_if value="not $Keys.{$k}.exists">
+            <remove_value name="$Init.$Claims.{$Keys.{$k}}" />
+          </do_if>
+        </do_all>
+      </actions>
+    </library>
+
   </cues>
 </mdscript>
