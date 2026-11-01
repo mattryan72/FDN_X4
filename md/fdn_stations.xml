@@ -6,7 +6,7 @@
       $Stations (saved list) is read from other FDN files as: md.FDN_Stations.Registry.$Stations
       Kept current by: a full rescan on game load, event_player_built_station (add),
       event_player_owned_destroyed (remove). Ownership changes (captured or sold stations) are
-      caught by the purge, which also runs on load. The purge will run on each poll from step 5.
+      caught by the purge, which also runs on load. The purge (md.FDN_Stations.Purge) runs on each poll.
       The production-finished trigger below is log-only for now; step 6 and 7 hook the supply check in.
     -->
     <cue name="Registry" version="1" checktime="5s" checkinterval="5s">
@@ -58,8 +58,9 @@
           </conditions>
           <actions>
             <do_if value="$Stations.indexof.{event.param}">
-              <set_value name="$Skip" exact="event.param" />
-              <include_actions ref="Purge_Stations" />
+              <run_actions ref="md.FDN_Stations.Purge">
+                <param name="Skip" value="event.param" />
+              </run_actions>
               <run_actions ref="md.FDN_Core.Log">
                 <param name="Level" value="3" />
                 <param name="Text" value="'station destroyed, now %1 stations'.[$Stations.count]" />
@@ -95,21 +96,27 @@
           </actions>
         </library>
 
-        <!-- Purge: keep only stations that still exist and are player-owned. $Skip (optional) is also dropped. -->
-        <library name="Purge_Stations" purpose="include_actions">
-          <actions>
-            <set_value name="$Kept" exact="[]" />
-            <do_for_each name="$s" in="$Stations">
-              <do_if value="$s.exists and $s.owner == faction.player and $s != $Skip">
-                <append_to_list name="$Kept" exact="$s" />
-              </do_if>
-            </do_for_each>
-            <set_value name="$Stations" exact="$Kept" />
-            <remove_value name="$Kept" />
-            <set_value name="$Skip" exact="null" />
-          </actions>
-        </library>
       </cues>
     </cue>
+
+    <!--
+      Purge: keep only stations that still exist and are player-owned. Optional Skip is dropped too.
+      Callable from any FDN file: <run_actions ref="md.FDN_Stations.Purge"/>
+    -->
+    <library name="Purge" purpose="run_actions">
+      <params>
+        <param name="Skip" default="null" />
+      </params>
+      <actions>
+        <set_value name="$Reg" exact="md.FDN_Stations.Registry" />
+        <set_value name="$Kept" exact="[]" />
+        <do_for_each name="$s" in="$Reg.$Stations">
+          <do_if value="$s.exists and $s.owner == faction.player and $s != $Skip">
+            <append_to_list name="$Kept" exact="$s" />
+          </do_if>
+        </do_for_each>
+        <set_value name="$Reg.$Stations" exact="$Kept" />
+      </actions>
+    </library>
   </cues>
 </mdscript>

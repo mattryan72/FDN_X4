@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mdscript name="FDN_Supply" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <cues>
+    <!--
+      Step 5: polling skeleton. Every PollInterval seconds, purge the registry then walk
+      PollStationsPerPass stations (round robin) so the whole list is covered over several passes.
+      Per-station work is added in steps 6 and 7. For now each visited station is only logged (level 4).
+      The poll is the safety net for stalled modules; production-finished events are the main trigger.
+    -->
+    <cue name="Start" version="1" checktime="5s" checkinterval="5s">
+      <conditions>
+        <cue_is_complete cue="md.Setup.GameStart" />
+      </conditions>
+      <actions>
+        <set_value name="$Index" exact="1" comment="round-robin position in the registry list" />
+        <set_value name="$Interval" exact="60" />
+      </actions>
+      <cues>
+        <cue name="Loop">
+          <actions>
+            <set_value name="$Reg" exact="md.FDN_Stations.Registry" />
+            <do_if value="@$Reg.$Stations?">
+              <run_actions ref="md.FDN_Stations.Purge" />
+
+              <run_actions ref="md.FDN_Core.Cfg_Get" result="$PerPass">
+                <param name="Key" value="'PollStationsPerPass'" />
+              </run_actions>
+              <run_actions ref="md.FDN_Core.Cfg_Get" result="$NewInterval">
+                <param name="Key" value="'PollInterval'" />
+              </run_actions>
+              <do_if value="$NewInterval and $NewInterval ge 5">
+                <set_value name="$Interval" exact="$NewInterval" />
+              </do_if>
+
+              <set_value name="$Count" exact="$Reg.$Stations.count" />
+              <do_if value="$Count gt 0">
+                <do_if value="$Index gt $Count">
+                  <set_value name="$Index" exact="1" />
+                </do_if>
+                <set_value name="$Visit" exact="[[$PerPass, 1].max, $Count].min" />
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="4" />
+                  <param name="Text" value="'poll pass: %1 of %2 stations, starting at %3'.[$Visit, $Count, $Index]" />
+                </run_actions>
+                <do_all exact="$Visit" counter="$n">
+                  <set_value name="$Station" exact="$Reg.$Stations.{$Index}" />
+                  <run_actions ref="md.FDN_Core.Log">
+                    <param name="Level" value="4" />
+                    <param name="Text" value="'poll visit: %1 (%2)'.[$Station.knownname, $Station]" />
+                  </run_actions>
+                  <!-- Step 6 and 7: stalled-module scan and shortfall check go here -->
+                  <set_value name="$Index" operation="add" />
+                  <do_if value="$Index gt $Count">
+                    <set_value name="$Index" exact="1" />
+                  </do_if>
+                </do_all>
+              </do_if>
+            </do_if>
+          </actions>
+          <cues>
+            <cue name="Reset">
+              <delay exact="$Interval * 1s" comment="VERIFY: delay accepts a parent variable and a time expression like this" />
+              <actions>
+                <reset_cue cue="Loop" />
+              </actions>
+            </cue>
+          </cues>
+        </cue>
+      </cues>
+    </cue>
+  </cues>
+</mdscript>

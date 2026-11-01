@@ -56,6 +56,7 @@
 
             <!-- ===== Polling (step 5) ===== -->
             <set_value name="$Defaults.{'PollInterval'}" exact="60" comment="seconds between supply passes" />
+            <set_value name="$Defaults.{'PollStationsPerPass'}" exact="3" comment="how many stations each supply pass looks at" />
 
             <!-- ===== Own-station transfers (step 9) ===== -->
             <set_value name="$Defaults.{'TransferOwn'}" exact="0" comment="1 = move wares between own stations. OFF until tested" />
