@@ -396,7 +396,7 @@
             </run_actions>
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="3" />
-              <param name="Text" value="'NEED #%1: %2, %3, need %4 for %5 cycle(s) (required %6, stock %7 = %8%, claimed %9)'.[$k, $Station.knownname, $Ware.name, $Needs.{$Ware}.{1}, $Cycles, $Needs.{$Ware}.{2}, $Station.cargo.{$Ware}.count, $Score.{$Ware}, $Claimed]" />
+              <param name="Text" value="'NEED #%1: %2, %3, need %4 for %5 cycle(s) (required %6, stock %7 = %8 pct, claimed %9)'.[$k, $Station.knownname, $Ware.name, $Needs.{$Ware}.{1}, $Cycles, $Needs.{$Ware}.{2}, $Station.cargo.{$Ware}.count, $Score.{$Ware}, $Claimed]" />
             </run_actions>
           </do_all>
         </do_if>
