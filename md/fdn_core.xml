@@ -98,7 +98,7 @@
             <set_value name="$Defaults.{'$DCKeepPercent'}" exact="10" comment="percent of each ware a DC always keeps (used from card 9b)" />
             <set_value name="$Defaults.{'$DCKeepWare'}" exact="table[]" comment="per-ware keep percent override, ware -> percent (used from card 9b)" />
             <set_value name="$Defaults.{'$LedgerMax'}" exact="200" comment="max ledger entries kept per DC (used from card 9b)" />
-            <set_value name="$Defaults.{'$FeeRangeMult'}" exact="1.0" comment="fee range factor: fee x (1 + jumps x this). Decimals allowed" />
+            <set_value name="$Defaults.{'$FeeRangeMult'}" exact="0.2" comment="fee range factor: fee x (1 + jumps x this). Default 0.2 (3 jumps = 1.6x base). Decimals allowed" />
             <set_value name="$Defaults.{'$FeeVolumeMult'}" exact="1.0" comment="fee volume factor, flat for now. Decimals allowed" />
             <set_value name="$Defaults.{'$FeeTypeMult'}" exact="1.0" comment="fee ware-type factor, flat for now. Decimals allowed" />
             <set_value name="$Defaults.{'$LogbookSkipInterval'}" exact="600" comment="seconds before the same skipped station and ware is written to the logbook again" />
