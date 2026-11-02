@@ -83,6 +83,26 @@
                   <run_actions ref="md.FDN_Supply.Rank_Shortfalls" result="$Ranked">
                     <param name="Station" value="$Station" />
                   </run_actions>
+                  <do_if value="$n == 1" comment="DIAG X4-09b-diag: first station of each poll only">
+                    <set_value name="$DiagWares" exact="$Station.cargo.list" comment="VERIFY: cargo.list = wares held" />
+                    <run_actions ref="md.FDN_Core.Log">
+                      <param name="Level" value="3" />
+                      <param name="Text" value="'DIAG cargo-held: %1 holds %2 ware(s)'.[$Station.knownname, $DiagWares.count]" />
+                    </run_actions>
+                    <do_all exact="$DiagWares.count" counter="$d">
+                      <run_actions ref="md.FDN_Core.Log">
+                        <param name="Level" value="3" />
+                        <param name="Text" value="'DIAG cargo-held: %1, %2 count %3'.[$Station.knownname, $DiagWares.{$d}.name, $Station.cargo.{$DiagWares.{$d}}.count]" />
+                      </run_actions>
+                    </do_all>
+                    <set_value name="$DiagWares" exact="$Station.resources.list" comment="VERIFY: resources.list = resource wares of the station" />
+                    <do_all exact="$DiagWares.count" counter="$d">
+                      <run_actions ref="md.FDN_Core.Log">
+                        <param name="Level" value="3" />
+                        <param name="Text" value="'DIAG resource: %1, %2 count %3, free %4, max %5, target %6'.[$Station.knownname, $DiagWares.{$d}.name, $Station.cargo.{$DiagWares.{$d}}.count, $Station.cargo.{$DiagWares.{$d}}.free, $Station.cargo.{$DiagWares.{$d}}.max, $Station.cargo.{$DiagWares.{$d}}.target]" />
+                      </run_actions>
+                    </do_all>
+                  </do_if>
                   <!-- Step 9b: supply the ranked needs from DCs in range -->
                   <do_if value="$Ranked.count gt 0 and $DCs.count gt 0">
                     <run_actions ref="md.FDN_Supply.Supply_Station">
@@ -362,6 +382,10 @@
             <param name="Ware" value="$Ware" />
           </run_actions>
           <set_value name="$Need" exact="$Req.{$Ware} - $Station.cargo.{$Ware}.count - $Claimed" />
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'DIAG need-read: %1, %2, required %3, raw cargo count %4, claimed %5'.[$Station.knownname, $Ware.name, $Req.{$Ware}, $Station.cargo.{$Ware}.count, $Claimed]" />
+          </run_actions>
           <do_if value="$Need gt 0">
             <set_value name="$Out.{$Ware}" exact="[$Need, $Req.{$Ware}]" />
           </do_if>
@@ -627,7 +651,12 @@
           <param name="Ware" value="$Ware" />
           <param name="Amount" value="$Qty" />
         </run_actions>
+        <set_value name="$DiagDCBefore" exact="$DC.cargo.{$Ware}.count" />
         <remove_cargo object="$DC" ware="$Ware" exact="$Qty" result="$Removed" comment="VERIFY: result is the amount removed" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'DIAG remove: DC %1, %2, qty %3, DC count before %4, remove_cargo result %5, DC count after %6'.[$DC.knownname, $Ware.name, $Qty, $DiagDCBefore, $Removed, $DC.cargo.{$Ware}.count]" />
+        </run_actions>
         <do_if value="$Removed lt $Qty">
           <do_if value="$Removed gt 0">
             <add_cargo object="$DC" ware="$Ware" exact="$Removed" />
@@ -694,7 +723,16 @@
       <actions>
         <set_value name="$Added" exact="0" />
         <do_if value="$Station.exists and $Station.owner == faction.player">
+          <set_value name="$DiagBefore" exact="$Station.cargo.{$Ware}.count" />
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'DIAG add-before: %1, %2, qty %3, count %4, free %5, max %6, target %7'.[$Station.knownname, $Ware.name, $Qty, $DiagBefore, $Station.cargo.{$Ware}.free, $Station.cargo.{$Ware}.max, $Station.cargo.{$Ware}.target]" />
+          </run_actions>
           <add_cargo object="$Station" ware="$Ware" exact="$Qty" result="$Added" comment="VERIFY: result is the amount added" />
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'DIAG add-after: %1, %2, add_cargo result %3, count before %4, count after %5, free %6, max %7'.[$Station.knownname, $Ware.name, $Added, $DiagBefore, $Station.cargo.{$Ware}.count, $Station.cargo.{$Ware}.free, $Station.cargo.{$Ware}.max]" />
+          </run_actions>
         </do_if>
         <run_actions ref="md.FDN_Core.Claim_Release">
           <param name="Station" value="$Station" />
