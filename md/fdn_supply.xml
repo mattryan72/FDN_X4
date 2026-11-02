@@ -19,7 +19,7 @@
         <cue name="Loop">
           <actions>
             <set_value name="$Reg" exact="md.FDN_Stations.Registry" />
-            <do_if value="@$Reg.$Stations?">
+            <do_if value="$Reg.$Stations?">
               <run_actions ref="md.FDN_Stations.Purge" />
               <run_actions ref="md.FDN_Core.Claim_Purge" />
 
@@ -170,7 +170,7 @@
           <param name="Key" value="'DCMacros'" />
         </run_actions>
         <set_value name="$Reg" exact="md.FDN_Stations.Registry" />
-        <do_if value="not $Macros or not @$Reg.$Stations?">
+        <do_if value="not $Macros or not $Reg.$Stations?">
           <return value="$DCs" />
         </do_if>
         <do_for_each name="$S" in="$Reg.$Stations">

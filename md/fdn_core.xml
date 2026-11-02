@@ -2,6 +2,11 @@
 <mdscript name="FDN_Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
   <cues>
     <!--
+      X4-09a-fix VERIFY: '@' prefixes were removed where combined with '?' (game rejects that).
+      Behaviour of '?' when an intermediate key/variable is missing (e.g. $Init.$Claims.{$Station}.{$Ware}?)
+      is to be confirmed in the next debug log (look for new errors on those lines).
+    -->
+    <!--
       Persistent root cue. Its variables are saved with the game.
       $Overrides : table of settings the player has changed (saved). Empty means "all defaults".
       $Claims    : saved table of reserved ware amounts, station -> ware -> amount (see Claim_* libraries).
@@ -11,15 +16,26 @@
     -->
     <cue name="Init" version="3">
       <conditions>
-        <event_cue_signalled cue="md.Setup.Start" />
+        <!-- X4-09a-fix: also start on game load, so saves that began before FDN was added get set up.
+             VERIFY: the 'Failed to set table[].<Key>' errors in the 9a log are believed (not confirmed)
+             to come from Init never having run on Matt's existing save; check the next log. -->
+        <check_any>
+          <event_cue_signalled cue="md.Setup.Start" />
+          <event_game_loaded />
+        </check_any>
       </conditions>
       <actions>
-        <set_value name="$Overrides" exact="table[]" />
-        <set_value name="$Claims" exact="table[]" />
+        <!-- Only create the saved tables if they do not exist yet -->
+        <do_if value="not $Overrides?">
+          <set_value name="$Overrides" exact="table[]" />
+        </do_if>
+        <do_if value="not $Claims?">
+          <set_value name="$Claims" exact="table[]" />
+        </do_if>
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'core loaded, version 1.0.0 (step 9a), %1 default settings'.[$Defaults.keys.list.count]" />
+          <param name="Text" value="'core loaded, version 1.0.0 (step 9a-fix), %1 default settings'.[$Defaults.keys.count]" />
         </run_actions>
       </actions>
       <patch sinceversion="2">
@@ -42,7 +58,7 @@
             <include_actions ref="Cfg_LoadDefaults" />
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="4" />
-              <param name="Text" value="'defaults reloaded, %1 settings, %2 overridden'.[$Defaults.keys.list.count, $Overrides.keys.list.count]" />
+              <param name="Text" value="'defaults reloaded, %1 settings, %2 overridden'.[$Defaults.keys.count, $Overrides.keys.count]" />
             </run_actions>
           </actions>
         </cue>
@@ -105,10 +121,10 @@
       </params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
-        <do_if value="@$Init.$Overrides.{$Key}?">
+        <do_if value="$Init.$Overrides.{$Key}?">
           <return value="$Init.$Overrides.{$Key}" />
         </do_if>
-        <do_elseif value="@$Init.$Defaults.{$Key}?">
+        <do_elseif value="$Init.$Defaults.{$Key}?">
           <return value="$Init.$Defaults.{$Key}" />
         </do_elseif>
         <return value="null" />
@@ -166,7 +182,7 @@
         <param name="Station" />
       </params>
       <actions>
-        <do_if value="$Station.exists and not @$Station.$fdn_cfg?">
+        <do_if value="$Station.exists and not $Station.$fdn_cfg?">
           <set_value name="$Station.$fdn_cfg" exact="table[]" />
         </do_if>
       </actions>
@@ -178,7 +194,7 @@
         <param name="Key" />
       </params>
       <actions>
-        <do_if value="@$Station.$fdn_cfg.{$Key}?">
+        <do_if value="$Station.$fdn_cfg.{$Key}?">
           <return value="$Station.$fdn_cfg.{$Key}" />
         </do_if>
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Value">
@@ -211,7 +227,7 @@
         <param name="Key" default="null" />
       </params>
       <actions>
-        <do_if value="not $Station.exists or not @$Station.$fdn_cfg?">
+        <do_if value="not $Station.exists or not $Station.$fdn_cfg?">
           <return />
         </do_if>
         <do_if value="$Key == null">
@@ -240,7 +256,7 @@
       </params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
-        <do_if value="@$Init.$Claims.{$Station}.{$Ware}?">
+        <do_if value="$Init.$Claims.{$Station}.{$Ware}?">
           <return value="$Init.$Claims.{$Station}.{$Ware}" />
         </do_if>
         <return value="0" />
@@ -258,11 +274,11 @@
           <return />
         </do_if>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
-        <do_if value="not @$Init.$Claims.{$Station}?">
+        <do_if value="not $Init.$Claims.{$Station}?">
           <set_value name="$Init.$Claims.{$Station}" exact="table[]" comment="VERIFY: a station object works as a table key and nested tables can be written like this" />
         </do_if>
         <set_value name="$Current" exact="0" />
-        <do_if value="@$Init.$Claims.{$Station}.{$Ware}?">
+        <do_if value="$Init.$Claims.{$Station}.{$Ware}?">
           <set_value name="$Current" exact="$Init.$Claims.{$Station}.{$Ware}" />
         </do_if>
         <set_value name="$Init.$Claims.{$Station}.{$Ware}" exact="$Current + $Amount" />
@@ -281,7 +297,7 @@
       </params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
-        <do_if value="not @$Init.$Claims.{$Station}.{$Ware}?">
+        <do_if value="not $Init.$Claims.{$Station}.{$Ware}?">
           <return />
         </do_if>
         <set_value name="$Left" exact="$Init.$Claims.{$Station}.{$Ware} - $Amount" />
@@ -304,7 +320,7 @@
     <library name="Claim_Purge" purpose="run_actions">
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
-        <do_if value="not @$Init.$Claims?">
+        <do_if value="not $Init.$Claims?">
           <return />
         </do_if>
         <set_value name="$Keys" exact="$Init.$Claims.keys.list" />
