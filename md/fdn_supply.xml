@@ -22,6 +22,8 @@
             <do_if value="$Reg.$Stations?">
               <run_actions ref="md.FDN_Stations.Purge" />
               <run_actions ref="md.FDN_Core.Claim_Purge" />
+              <!-- Step 9b: deliver delayed transfers that are due (only used when TransferDelay is 1) -->
+              <run_actions ref="md.FDN_Supply.Process_Pending" />
 
               <!-- Step 9a, read-only: find DCs and build networks once per pass -->
               <run_actions ref="md.FDN_Supply.Find_DCs" result="$DCs" />
@@ -78,9 +80,18 @@
                   <run_actions ref="md.FDN_Supply.Scan_Station">
                     <param name="Station" value="$Station" />
                   </run_actions>
-                  <run_actions ref="md.FDN_Supply.Rank_Shortfalls">
+                  <run_actions ref="md.FDN_Supply.Rank_Shortfalls" result="$Ranked">
                     <param name="Station" value="$Station" />
                   </run_actions>
+                  <!-- Step 9b: supply the ranked needs from DCs in range -->
+                  <do_if value="$Ranked.count gt 0 and $DCs.count gt 0">
+                    <run_actions ref="md.FDN_Supply.Supply_Station">
+                      <param name="Station" value="$Station" />
+                      <param name="DCs" value="$DCs" />
+                      <param name="Networks" value="$Networks" />
+                      <param name="Ranked" value="$Ranked" />
+                    </run_actions>
+                  </do_if>
                   <set_value name="$Index" operation="add" />
                   <do_if value="$Index gt $Count">
                     <set_value name="$Index" exact="1" />
@@ -401,6 +412,449 @@
           </do_all>
         </do_if>
         <return value="$Ranked" />
+      </actions>
+    </library>
+
+    <!--
+      Step 9b. DCs that may supply a station, nearest first.
+      Order (Matt's design): the nearest DC in range, then the other DCs of that DC's network that are also in range.
+      A DC never supplies itself, and own non-DC stations are never sources (TransferOwn is ignored).
+      Range per station: RangeLimit / RangeMaxJumps (Station_Cfg_Get), same rule as Nearest_DC.
+      Returns a list of [DC, jumps].
+      VERIFY: two stations in the same sector give gatedistance 0.
+    -->
+    <library name="Candidate_DCs" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="DCs" />
+        <param name="Networks" />
+      </params>
+      <actions>
+        <set_value name="$Out" exact="[]" />
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Limit">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'RangeLimit'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$MaxJumps">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'RangeMaxJumps'" />
+        </run_actions>
+        <set_value name="$InRange" exact="table[]" comment="DC -> jumps, only DCs in range and not the station itself" />
+        <do_all exact="$DCs.count" counter="$i">
+          <set_value name="$DC" exact="$DCs.{$i}" />
+          <do_if value="$DC.exists and $DC != $Station">
+            <set_value name="$Jumps" exact="$Station.gatedistance.{$DC}" />
+            <do_if value="$Jumps ge 0 and (not $Limit or $Jumps le $MaxJumps)">
+              <set_value name="$InRange.{$DC}" exact="$Jumps" />
+            </do_if>
+          </do_if>
+        </do_all>
+        <do_if value="$InRange.keys.count == 0">
+          <return value="$Out" />
+        </do_if>
+        <set_value name="$Sorted" exact="$InRange.keys.sorted" comment="sorted by jumps, nearest first (keys.sorted proven in Rank_Shortfalls)" />
+        <set_value name="$First" exact="$Sorted.{1}" />
+        <set_value name="$Net" exact="[$First]" />
+        <do_for_each name="$N" in="$Networks">
+          <do_if value="$N.indexof.{$First}">
+            <set_value name="$Net" exact="$N" />
+          </do_if>
+        </do_for_each>
+        <do_all exact="$Sorted.count" counter="$s">
+          <set_value name="$DC" exact="$Sorted.{$s}" />
+          <do_if value="$Net.indexof.{$DC}">
+            <append_to_list name="$Out" exact="[$DC, $InRange.{$DC}]" />
+          </do_if>
+        </do_all>
+        <return value="$Out" />
+      </actions>
+    </library>
+
+    <!--
+      Step 9b. Supplies one station's ranked needs from its candidate DCs.
+      For each ware, emptiest first:
+        available = DC stock - reserve, reserve = DC stock x keep / 100 rounded up,
+                    keep = DCKeepWare.{ware} if set, else DCKeepPercent.
+                    (Choice: reserve is a percent of the DC's current STOCK, not of its storage capacity, because
+                    capacity is shared per transport type and has no clean per-ware value.)
+        qty       = min(need still open, available, free space for the ware at the station)
+        fee       = averageprice x qty x TransferFeePercent / 100 x (1 + jumps x FeeRangeMult) x FeeVolumeMult x FeeTypeMult
+      The DC pays. Skips are logged (WARN) and written to the logbook (throttled by LogbookSkipInterval).
+    -->
+    <library name="Supply_Station" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="DCs" />
+        <param name="Networks" />
+        <param name="Ranked" />
+      </params>
+      <actions>
+        <do_if value="not $Station.exists">
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Supply.Candidate_DCs" result="$Cands">
+          <param name="Station" value="$Station" />
+          <param name="DCs" value="$DCs" />
+          <param name="Networks" value="$Networks" />
+        </run_actions>
+        <do_if value="$Cands.count == 0">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'supply: %1 has no other DC in range'.[$Station.knownname]" />
+          </run_actions>
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Supply.Calc_Need" result="$Needs">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Pct">
+          <param name="Key" value="'TransferFeePercent'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$RangeMult">
+          <param name="Key" value="'FeeRangeMult'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$VolMult">
+          <param name="Key" value="'FeeVolumeMult'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$TypeMult">
+          <param name="Key" value="'FeeTypeMult'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$KeepPct">
+          <param name="Key" value="'DCKeepPercent'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$KeepTbl">
+          <param name="Key" value="'DCKeepWare'" />
+        </run_actions>
+        <do_all exact="$Ranked.count" counter="$w">
+          <set_value name="$Ware" exact="$Ranked.{$w}" />
+          <do_if value="$Needs.{$Ware}?">
+            <set_value name="$Left" exact="$Needs.{$Ware}.{1}" />
+            <set_value name="$Moved" exact="0" />
+            <set_value name="$Reason" exact="'no DC in range has spare stock'" />
+            <do_all exact="$Cands.count" counter="$c">
+              <do_if value="$Left gt 0">
+                <set_value name="$DC" exact="$Cands.{$c}.{1}" />
+                <set_value name="$Jumps" exact="$Cands.{$c}.{2}" />
+                <set_value name="$Keep" exact="$KeepPct" />
+                <do_if value="$KeepTbl and $KeepTbl.{$Ware}?" comment="VERIFY: a table setting read through Cfg_Get keeps ware keys">
+                  <set_value name="$Keep" exact="$KeepTbl.{$Ware}" />
+                </do_if>
+                <set_value name="$Stock" exact="$DC.cargo.{$Ware}.count" />
+                <set_value name="$Reserve" exact="($Stock * $Keep + 99) / 100" comment="integer maths, rounds up. VERIFY: integer division truncates" />
+                <set_value name="$Avail" exact="$Stock - $Reserve" />
+                <set_value name="$Free" exact="$Station.cargo.{$Ware}.free" comment="VERIFY: per-ware free amount (used like this in vanilla aiscripts)" />
+                <set_value name="$Qty" exact="[$Left, $Avail, $Free].min" />
+                <do_if value="$Free le 0">
+                  <set_value name="$Reason" exact="'station has no free storage for it'" />
+                </do_if>
+                <do_if value="$Qty gt 0">
+                  <set_value name="$Fee" exact="($Ware.averageprice * $Qty * $Pct * (1.0 + $Jumps * $RangeMult) * $VolMult * $TypeMult) / 100" comment="VERIFY: money x float stays money; averageprice is type money (scriptproperties)" />
+                  <do_if value="$Fee lt 0Cr">
+                    <set_value name="$Fee" exact="0Cr" />
+                  </do_if>
+                  <do_if value="$DC.money lt $Fee">
+                    <set_value name="$Reason" exact="'DC %1 cannot pay the fee (%2 needed, %3 in account)'.[$DC.knownname, $Fee, $DC.money]" />
+                  </do_if>
+                  <do_else>
+                    <run_actions ref="md.FDN_Supply.Start_Transfer" result="$Ok">
+                      <param name="DC" value="$DC" />
+                      <param name="Station" value="$Station" />
+                      <param name="Ware" value="$Ware" />
+                      <param name="Qty" value="$Qty" />
+                      <param name="Fee" value="$Fee" />
+                      <param name="Jumps" value="$Jumps" />
+                    </run_actions>
+                    <do_if value="$Ok">
+                      <set_value name="$Left" exact="$Left - $Qty" />
+                      <set_value name="$Moved" exact="$Moved + $Qty" />
+                    </do_if>
+                    <do_else>
+                      <set_value name="$Reason" exact="'transfer from %1 failed and was refunded'.[$DC.knownname]" />
+                    </do_else>
+                  </do_else>
+                </do_if>
+              </do_if>
+            </do_all>
+            <do_if value="$Moved == 0">
+              <run_actions ref="md.FDN_Supply.Skip_Report">
+                <param name="Station" value="$Station" />
+                <param name="Ware" value="$Ware" />
+                <param name="Need" value="$Needs.{$Ware}.{1}" />
+                <param name="Reason" value="$Reason" />
+              </run_actions>
+            </do_if>
+          </do_if>
+        </do_all>
+      </actions>
+    </library>
+
+    <!--
+      Step 9b. All-or-nothing start of one transfer. Order: fee, claim, take the cargo out of the DC.
+      Then delivers at once (TransferDelay 0) or queues it (TransferDelay 1, jumps x TransferDelayMult seconds).
+      Fee: transfer_money from the DC station's account to faction.ownerless (the money sink vanilla diplomacy.xml uses;
+      vanilla lib_generic.xml uses a station as 'from'). On any failure everything done so far is undone and the fee refunded.
+      Returns true when the cargo left the DC.
+    -->
+    <library name="Start_Transfer" purpose="run_actions">
+      <params>
+        <param name="DC" />
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="Qty" />
+        <param name="Fee" />
+        <param name="Jumps" />
+      </params>
+      <actions>
+        <set_value name="$Before" exact="$DC.money" />
+        <do_if value="$Fee gt 0Cr">
+          <transfer_money from="$DC" to="faction.ownerless" amount="$Fee" comment="VERIFY: fee leaves the DC account" />
+          <do_if value="$DC.money gt $Before - $Fee">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'fee not taken from DC %1 (before %2, now %3, fee %4); transfer cancelled'.[$DC.knownname, $Before, $DC.money, $Fee]" />
+            </run_actions>
+            <do_if value="$DC.money lt $Before">
+              <transfer_money from="faction.ownerless" to="$DC" amount="$Before - $DC.money" />
+            </do_if>
+            <return value="false" />
+          </do_if>
+        </do_if>
+        <run_actions ref="md.FDN_Core.Claim_Add">
+          <param name="Station" value="$Station" />
+          <param name="Ware" value="$Ware" />
+          <param name="Amount" value="$Qty" />
+        </run_actions>
+        <remove_cargo object="$DC" ware="$Ware" exact="$Qty" result="$Removed" comment="VERIFY: result is the amount removed" />
+        <do_if value="$Removed lt $Qty">
+          <do_if value="$Removed gt 0">
+            <add_cargo object="$DC" ware="$Ware" exact="$Removed" />
+          </do_if>
+          <run_actions ref="md.FDN_Supply.Undo_Fee">
+            <param name="DC" value="$DC" />
+            <param name="Fee" value="$Fee" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.Claim_Release">
+            <param name="Station" value="$Station" />
+            <param name="Ware" value="$Ware" />
+            <param name="Amount" value="$Qty" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'could not take %1 %2 from DC %3 (got %4); put back and fee refunded'.[$Qty, $Ware.name, $DC.knownname, $Removed]" />
+          </run_actions>
+          <return value="false" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Delay">
+          <param name="Key" value="'TransferDelay'" />
+        </run_actions>
+        <do_if value="$Delay">
+          <run_actions ref="md.FDN_Core.Cfg_Get" result="$DelayMult">
+            <param name="Key" value="'TransferDelayMult'" />
+          </run_actions>
+          <set_value name="$Init" exact="md.FDN_Core.Init" />
+          <do_if value="not $Init.$Pending?">
+            <set_value name="$Init.$Pending" exact="[]" />
+          </do_if>
+          <set_value name="$Due" exact="player.age + $Jumps * $DelayMult" />
+          <append_to_list name="$Init.$Pending" exact="[$Due, $DC, $Station, $Ware, $Qty, $Fee, $Jumps]" />
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'QUEUED: %1 %2 from DC %3 to %4, %5 jumps, fee %6, due in %7 s'.[$Qty, $Ware.name, $DC.knownname, $Station.knownname, $Jumps, $Fee, $Jumps * $DelayMult]" />
+          </run_actions>
+          <return value="true" />
+        </do_if>
+        <run_actions ref="md.FDN_Supply.Deliver" result="$Ok">
+          <param name="DC" value="$DC" />
+          <param name="Station" value="$Station" />
+          <param name="Ware" value="$Ware" />
+          <param name="Qty" value="$Qty" />
+          <param name="Fee" value="$Fee" />
+          <param name="Jumps" value="$Jumps" />
+        </run_actions>
+        <return value="$Ok" />
+      </actions>
+    </library>
+
+    <!--
+      Step 9b. Puts the cargo (already taken from the DC) into the station. On failure the cargo goes back to the DC,
+      the fee is refunded and the claim released. On success the claim is released and a ledger entry added.
+    -->
+    <library name="Deliver" purpose="run_actions">
+      <params>
+        <param name="DC" />
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="Qty" />
+        <param name="Fee" />
+        <param name="Jumps" />
+      </params>
+      <actions>
+        <set_value name="$Added" exact="0" />
+        <do_if value="$Station.exists and $Station.owner == faction.player">
+          <add_cargo object="$Station" ware="$Ware" exact="$Qty" result="$Added" comment="VERIFY: result is the amount added" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Claim_Release">
+          <param name="Station" value="$Station" />
+          <param name="Ware" value="$Ware" />
+          <param name="Amount" value="$Qty" />
+        </run_actions>
+        <do_if value="$Added lt $Qty">
+          <do_if value="$Added gt 0">
+            <remove_cargo object="$Station" ware="$Ware" exact="$Added" />
+          </do_if>
+          <do_if value="$DC.exists">
+            <add_cargo object="$DC" ware="$Ware" exact="$Qty" />
+          </do_if>
+          <run_actions ref="md.FDN_Supply.Undo_Fee">
+            <param name="DC" value="$DC" />
+            <param name="Fee" value="$Fee" />
+          </run_actions>
+          <run_actions ref="md.FDN_Supply.Skip_Report">
+            <param name="Station" value="$Station" />
+            <param name="Ware" value="$Ware" />
+            <param name="Need" value="$Qty" />
+            <param name="Reason" value="'delivery failed (station gone or full), cargo returned to DC and fee refunded'" />
+          </run_actions>
+          <return value="false" />
+        </do_if>
+        <run_actions ref="md.FDN_Supply.Ledger_Add">
+          <param name="DC" value="$DC" />
+          <param name="Entry" value="[player.age, $Station, $Ware, $Qty, $Fee, $Jumps]" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'TRANSFER: %1 %2 from DC %3 to %4, %5 jumps, fee %6'.[$Qty, $Ware.name, $DC.knownname, $Station.knownname, $Jumps, $Fee]" />
+        </run_actions>
+        <return value="true" />
+      </actions>
+    </library>
+
+    <!-- Step 9b. Refunds a fee to the DC (to the player's own account if the DC is gone). -->
+    <library name="Undo_Fee" purpose="run_actions">
+      <params>
+        <param name="DC" />
+        <param name="Fee" />
+      </params>
+      <actions>
+        <do_if value="$Fee gt 0Cr">
+          <do_if value="$DC.exists">
+            <transfer_money from="faction.ownerless" to="$DC" amount="$Fee" />
+          </do_if>
+          <do_else>
+            <transfer_money from="faction.ownerless" to="faction.player" amount="$Fee" />
+          </do_else>
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'fee %1 refunded'.[$Fee]" />
+          </run_actions>
+        </do_if>
+      </actions>
+    </library>
+
+    <!--
+      Step 9b. Delivers queued transfers whose time has come (TransferDelay 1). Runs at the start of each poll pass,
+      so delivery can be up to PollInterval seconds late. Choice: a saved list checked by the poll is simpler and
+      safer across save/load than one delayed cue per transfer.
+    -->
+    <library name="Process_Pending" purpose="run_actions">
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$Pending?">
+          <return />
+        </do_if>
+        <do_if value="$Init.$Pending.count == 0">
+          <return />
+        </do_if>
+        <set_value name="$Keep" exact="[]" />
+        <set_value name="$All" exact="$Init.$Pending" />
+        <set_value name="$Init.$Pending" exact="[]" />
+        <do_all exact="$All.count" counter="$i">
+          <set_value name="$E" exact="$All.{$i}" />
+          <do_if value="player.age ge $E.{1}">
+            <run_actions ref="md.FDN_Supply.Deliver">
+              <param name="DC" value="$E.{2}" />
+              <param name="Station" value="$E.{3}" />
+              <param name="Ware" value="$E.{4}" />
+              <param name="Qty" value="$E.{5}" />
+              <param name="Fee" value="$E.{6}" />
+              <param name="Jumps" value="$E.{7}" />
+            </run_actions>
+          </do_if>
+          <do_else>
+            <append_to_list name="$Keep" exact="$E" />
+          </do_else>
+        </do_all>
+        <do_all exact="$Keep.count" counter="$k">
+          <append_to_list name="$Init.$Pending" exact="$Keep.{$k}" />
+        </do_all>
+      </actions>
+    </library>
+
+    <!--
+      Step 9b. Supply ledger, saved in md.FDN_Core.Init.$Ledger: DC -> list of [time, station, ware, qty, fee, jumps].
+      Oldest entries are dropped above LedgerMax per DC.
+      VERIFY: a station object works as a table key (same open point as $Claims).
+    -->
+    <library name="Ledger_Add" purpose="run_actions">
+      <params>
+        <param name="DC" />
+        <param name="Entry" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$Ledger?">
+          <set_value name="$Init.$Ledger" exact="table[]" />
+        </do_if>
+        <do_if value="not $Init.$Ledger.{$DC}?">
+          <set_value name="$Init.$Ledger.{$DC}" exact="[]" />
+        </do_if>
+        <append_to_list name="$Init.$Ledger.{$DC}" exact="$Entry" />
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Max">
+          <param name="Key" value="'LedgerMax'" />
+        </run_actions>
+        <do_while value="$Max gt 0 and $Init.$Ledger.{$DC}.count gt $Max">
+          <remove_value name="$Init.$Ledger.{$DC}.{1}" comment="removes the oldest entry (vanilla uses remove_value on list index 1)" />
+        </do_while>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="4" />
+          <param name="Text" value="'ledger: DC %1 now has %2 entries'.[$DC.knownname, $Init.$Ledger.{$DC}.count]" />
+        </run_actions>
+      </actions>
+    </library>
+
+    <!--
+      Step 9b. Reports a skipped (or failed) supply: always a WARN log line, plus a logbook entry the player can see.
+      The logbook entry for the same station and ware is written at most once per LogbookSkipInterval seconds,
+      remembered in $Station.$fdn_skiplog (ware -> time), so a long shortage does not flood the logbook.
+    -->
+    <library name="Skip_Report" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="Need" />
+        <param name="Reason" />
+      </params>
+      <actions>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="2" />
+          <param name="Text" value="'SKIP: %1, %2 (need %3): %4'.[$Station.knownname, $Ware.name, $Need, $Reason]" />
+        </run_actions>
+        <do_if value="not $Station.exists">
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Gap">
+          <param name="Key" value="'LogbookSkipInterval'" />
+        </run_actions>
+        <do_if value="not $Station.$fdn_skiplog?">
+          <set_value name="$Station.$fdn_skiplog" exact="table[]" />
+        </do_if>
+        <do_if value="$Station.$fdn_skiplog.{$Ware}?">
+          <do_if value="player.age lt $Station.$fdn_skiplog.{$Ware} + $Gap">
+            <return />
+          </do_if>
+        </do_if>
+        <set_value name="$Station.$fdn_skiplog.{$Ware}" exact="player.age" />
+        <write_to_logbook category="upkeep" title="'FDN: supply skipped at %1'.[$Station.knownname]" text="'%1 (need %2): %3'.[$Ware.name, $Need, $Reason]" interaction="showonmap" object="$Station" comment="VERIFY: text attribute shows under the title, as in vanilla diplomacy.xml" />
       </actions>
     </library>
 
