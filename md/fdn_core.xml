@@ -25,6 +25,8 @@
         </check_any>
       </conditions>
       <actions>
+        <!-- X4-09a-diag: TEMPORARY - remove -->
+        <debug_text text="'FDN DIAG Init actions started ' + player.age" filter="general" />
         <!-- Only create the saved tables if they do not exist yet -->
         <do_if value="not $Overrides?">
           <set_value name="$Overrides" exact="table[]" />
@@ -55,6 +57,8 @@
             <event_game_loaded />
           </conditions>
           <actions>
+            <!-- X4-09a-diag: TEMPORARY - remove -->
+            <debug_text text="'FDN DIAG OnLoad actions started ' + player.age" filter="general" />
             <include_actions ref="Cfg_LoadDefaults" />
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="4" />

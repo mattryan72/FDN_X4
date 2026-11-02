@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- X4-09a-diag: TEMPORARY - remove (whole file) -->
+<mdscript name="FDN_Diag" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <cues>
+    <!-- X4-09a-diag: TEMPORARY - remove. Fires once on new game or first load. -->
+    <cue name="Diag">
+      <conditions>
+        <check_any>
+          <event_cue_signalled cue="md.Setup.Start" />
+          <event_game_loaded />
+        </check_any>
+      </conditions>
+      <actions>
+        <debug_text text="'FDN DIAG T1 fired Diag age=' + player.age" filter="general" />
+        <include_actions ref="md.FDN_Diag.Tests" />
+      </actions>
+    </cue>
+
+    <!-- X4-09a-diag: TEMPORARY - remove. Fires on every load. -->
+    <cue name="Diag_Load" instantiate="true">
+      <conditions>
+        <event_game_loaded />
+      </conditions>
+      <actions>
+        <debug_text text="'FDN DIAG T1 fired Diag_Load age=' + player.age" filter="general" />
+        <include_actions ref="md.FDN_Diag.Tests" />
+        <!-- T7: does md.FDN_Core.Init resolve, and does it hold the tables -->
+        <do_all exact="1">
+          <debug_text text="'FDN DIAG T7 Init exists=' + (md.FDN_Core.Init?) " filter="general" />
+          <do_if value="md.FDN_Core.Init?">
+            <debug_text text="'FDN DIAG T7 Init state=' + md.FDN_Core.Init.state + ' Overrides=' + (md.FDN_Core.Init.$Overrides?) + ' Defaults=' + (md.FDN_Core.Init.$Defaults?) + ' Claims=' + (md.FDN_Core.Init.$Claims?)" filter="general" />
+          </do_if>
+          <do_if value="md.FDN_Core.Init.$Defaults?">
+            <debug_text text="'FDN DIAG T7 Init Defaults count=' + md.FDN_Core.Init.$Defaults.keys.count" filter="general" />
+          </do_if>
+        </do_all>
+        <debug_text text="'FDN DIAG done Diag_Load'" filter="general" />
+      </actions>
+    </cue>
+
+    <!-- X4-09a-diag: TEMPORARY - remove. Shared test body. -->
+    <library name="Tests" purpose="include_actions">
+      <actions>
+        <!-- T2: quoted string key -->
+        <do_all exact="1">
+          <set_value name="$T" exact="table[]" />
+          <set_value name="$T.{'a'}" exact="1" />
+          <debug_text text="'FDN DIAG T2 quoted key count=' + $T.keys.count + ' (expect 1)'" filter="general" />
+        </do_all>
+        <!-- T3: bare-name key -->
+        <do_all exact="1">
+          <set_value name="$T.$b" exact="2" />
+          <debug_text text="'FDN DIAG T3 bare key count=' + $T.keys.count + ' has=' + ($T.$b?)" filter="general" />
+        </do_all>
+        <!-- T4: variable key -->
+        <do_all exact="1">
+          <set_value name="$K" exact="'c'" />
+          <set_value name="$T.{$K}" exact="3" />
+          <debug_text text="'FDN DIAG T4 var key count=' + $T.keys.count + ' has=' + ($T.{$K}?)" filter="general" />
+          <do_if value="$T.{$K}?">
+            <debug_text text="'FDN DIAG T4 value=' + $T.{$K}" filter="general" />
+          </do_if>
+        </do_all>
+        <!-- T8 (extra): quoted key that starts with $ -->
+        <do_all exact="1">
+          <set_value name="$T.{'$d'}" exact="4" />
+          <debug_text text="'FDN DIAG T8 dollar-quoted key count=' + $T.keys.count + ' has=' + ($T.$d?)" filter="general" />
+        </do_all>
+        <!-- T5: same tests on a variable named $Defaults -->
+        <do_all exact="1">
+          <set_value name="$Defaults" exact="table[]" />
+          <set_value name="$Defaults.{'a'}" exact="1" />
+          <debug_text text="'FDN DIAG T5 Defaults quoted count=' + $Defaults.keys.count" filter="general" />
+          <set_value name="$Defaults.$b" exact="2" />
+          <debug_text text="'FDN DIAG T5 Defaults bare count=' + $Defaults.keys.count" filter="general" />
+          <set_value name="$Defaults.{$K}" exact="3" />
+          <debug_text text="'FDN DIAG T5 Defaults var count=' + $Defaults.keys.count" filter="general" />
+        </do_all>
+        <!-- T6: table stored on the Diag cue by full path -->
+        <do_all exact="1">
+          <set_value name="md.FDN_Diag.Diag.$Persist" exact="table[]" />
+          <set_value name="md.FDN_Diag.Diag.$Persist.{'a'}" exact="1" />
+          <set_value name="md.FDN_Diag.Diag.$Persist.$b" exact="2" />
+          <set_value name="md.FDN_Diag.Diag.$Persist.{$K}" exact="3" />
+          <debug_text text="'FDN DIAG T6 cue-path table count=' + md.FDN_Diag.Diag.$Persist.keys.count + ' (expect 3)'" filter="general" />
+        </do_all>
+      </actions>
+    </library>
+  </cues>
+</mdscript>
