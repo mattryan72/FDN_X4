@@ -608,16 +608,18 @@
         <set_value name="$Before" exact="$DC.money" />
         <do_if value="$Fee gt 0Cr">
           <transfer_money from="$DC" to="faction.ownerless" amount="$Fee" comment="VERIFY: fee leaves the DC account" />
-          <do_if value="$DC.money gt $Before - $Fee">
+          <set_value name="$Taken" exact="$Before - $DC.money" comment="what really left the DC account; the game rounds the fee to whole credits" />
+          <do_if value="$Taken lt $Fee - 1Cr" comment="VERIFY: 1Cr (100 units) tolerance covers the game's rounding">
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="2" />
-              <param name="Text" value="'fee not taken from DC %1 (before %2, now %3, fee %4); transfer cancelled'.[$DC.knownname, $Before, $DC.money, $Fee]" />
+              <param name="Text" value="'fee not taken from DC %1 (before %2, now %3, fee %4, taken %5); transfer cancelled'.[$DC.knownname, $Before, $DC.money, $Fee, $Taken]" />
             </run_actions>
             <do_if value="$DC.money lt $Before">
               <transfer_money from="faction.ownerless" to="$DC" amount="$Before - $DC.money" />
             </do_if>
             <return value="false" />
           </do_if>
+          <set_value name="$Fee" exact="$Taken" comment="VERIFY: from here on (refund, queue, ledger, TRANSFER log) the fee is what was really taken" />
         </do_if>
         <run_actions ref="md.FDN_Core.Claim_Add">
           <param name="Station" value="$Station" />
@@ -825,7 +827,8 @@
     <!--
       Step 9b. Reports a skipped (or failed) supply: always a WARN log line, plus a logbook entry the player can see.
       The logbook entry for the same station and ware is written at most once per LogbookSkipInterval seconds,
-      remembered in $Station.$fdn_skiplog (ware -> time), so a long shortage does not flood the logbook.
+      remembered in md.FDN_Core.Init.$SkipLog, a list of [station, ware, time] searched in order (no component keys,
+      nothing stored on the station). Entries for stations that no longer exist are dropped and the list is capped at 100.
     -->
     <library name="Skip_Report" purpose="run_actions">
       <params>
@@ -845,15 +848,42 @@
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Gap">
           <param name="Key" value="'LogbookSkipInterval'" />
         </run_actions>
-        <do_if value="not $Station.$fdn_skiplog?">
-          <set_value name="$Station.$fdn_skiplog" exact="table[]" />
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$SkipLog?">
+          <set_value name="$Init.$SkipLog" exact="[]" />
         </do_if>
-        <do_if value="$Station.$fdn_skiplog.{$Ware}?">
-          <do_if value="player.age lt $Station.$fdn_skiplog.{$Ware} + $Gap">
-            <return />
+        <set_value name="$Keep" exact="[]" />
+        <set_value name="$Last" exact="null" />
+        <do_all exact="$Init.$SkipLog.count" counter="$k">
+          <set_value name="$E" exact="$Init.$SkipLog.{$k}" />
+          <do_if value="$E.{1}.exists" comment="VERIFY: .exists is false (no error) for a destroyed station kept in a list">
+            <do_if value="$E.{1} == $Station and $E.{2} == $Ware">
+              <set_value name="$Last" exact="$E.{3}" />
+            </do_if>
+            <do_else>
+              <append_to_list name="$Keep" exact="$E" />
+            </do_else>
+          </do_if>
+        </do_all>
+        <set_value name="$Throttled" exact="false" />
+        <do_if value="$Last != null">
+          <do_if value="player.age lt $Last + $Gap">
+            <set_value name="$Throttled" exact="true" />
           </do_if>
         </do_if>
-        <set_value name="$Station.$fdn_skiplog.{$Ware}" exact="player.age" />
+        <do_if value="$Throttled">
+          <append_to_list name="$Keep" exact="[$Station, $Ware, $Last]" />
+        </do_if>
+        <do_else>
+          <append_to_list name="$Keep" exact="[$Station, $Ware, player.age]" />
+        </do_else>
+        <do_while value="$Keep.count gt 100">
+          <remove_value name="$Keep.{1}" comment="drops the oldest entry" />
+        </do_while>
+        <set_value name="$Init.$SkipLog" exact="$Keep" />
+        <do_if value="$Throttled">
+          <return />
+        </do_if>
         <write_to_logbook category="upkeep" title="'FDN: supply skipped at %1'.[$Station.knownname]" text="'%1 (need %2): %3'.[$Ware.name, $Need, $Reason]" interaction="showonmap" object="$Station" comment="VERIFY: text attribute shows under the title, as in vanilla diplomacy.xml" />
       </actions>
     </library>
