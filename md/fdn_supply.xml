@@ -478,7 +478,7 @@
                     (Choice: reserve is a percent of the DC's current STOCK, not of its storage capacity, because
                     capacity is shared per transport type and has no clean per-ware value.)
         qty       = min(need still open, available, free space for the ware at the station)
-        fee       = averageprice x qty x TransferFeePercent / 100 x (1 + jumps x FeeRangeMult) x FeeVolumeMult x FeeTypeMult
+        fee       = averageprice x qty x factor / 100000, factor = whole number of (TransferFeePercent x (1 + jumps x FeeRangeMult) x FeeVolumeMult x FeeTypeMult x 1000)
       The DC pays. Skips are logged (WARN) and written to the logbook (throttled by LogbookSkipInterval).
     -->
     <library name="Supply_Station" purpose="run_actions">
@@ -548,7 +548,8 @@
                   <set_value name="$Reason" exact="'station has no free storage for it'" />
                 </do_if>
                 <do_if value="$Qty gt 0">
-                  <set_value name="$Fee" exact="($Ware.averageprice * $Qty * $Pct * (1.0 + $Jumps * $RangeMult) * $VolMult * $TypeMult) / 100" comment="VERIFY: money x float stays money; averageprice is type money (scriptproperties)" />
+                  <set_value name="$FeeFactor" exact="($Pct * (1.0 + $Jumps * $RangeMult) * $VolMult * $TypeMult * 1000)i" comment="all multipliers as one whole number, percent x 1000 (2 pct x 1.6 = 3200). Money x float is not allowed (log: Loss of data ... 3840000ct * 1.6f). VERIFY: (x)i converts to integer, as vanilla crisis_xenon_khaak_combo.xml uses ($ValueFactor * 100)i" />
+                  <set_value name="$Fee" exact="($Ware.averageprice * $Qty * $FeeFactor) / 100000" comment="money x integer, then / 100 (percent) / 1000 (scale). Same pattern as vanilla ($MinTotalValue * ($ValueFactor * 100)i) / 100. VERIFY: averageprice is type money" />
                   <do_if value="$Fee lt 0Cr">
                     <set_value name="$Fee" exact="0Cr" />
                   </do_if>
