@@ -25,8 +25,6 @@
         </check_any>
       </conditions>
       <actions>
-        <!-- X4-09a-diag: TEMPORARY - remove -->
-        <debug_text text="'FDN DIAG Init actions started ' + player.age" filter="general" />
         <!-- Only create the saved tables if they do not exist yet -->
         <do_if value="not $Overrides?">
           <set_value name="$Overrides" exact="table[]" />
@@ -37,7 +35,7 @@
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'core loaded, version 1.0.0 (step 9a-fix), %1 default settings'.[$Defaults.keys.count]" />
+          <param name="Text" value="'core loaded, version 1.0.0 (step 9a-fix2), %1 default settings'.[$Defaults.keys.count]" />
         </run_actions>
       </actions>
       <patch sinceversion="2">
@@ -57,19 +55,18 @@
             <event_game_loaded />
           </conditions>
           <actions>
-            <!-- X4-09a-diag: TEMPORARY - remove -->
-            <debug_text text="'FDN DIAG OnLoad actions started ' + player.age" filter="general" />
             <include_actions ref="Cfg_LoadDefaults" />
             <run_actions ref="md.FDN_Core.Log">
-              <param name="Level" value="4" />
-              <param name="Text" value="'defaults reloaded, %1 settings, %2 overridden'.[$Defaults.keys.count, $Overrides.keys.count]" />
+              <param name="Level" value="3" />
+              <param name="Text" value="'defaults loaded on game load, %1 settings, %2 overridden'.[$Defaults.keys.count, $Overrides.keys.count]" />
             </run_actions>
           </actions>
         </cue>
 
         <!--
           DEFAULTS TABLE. To add a setting: add ONE set_value line in the right group below.
-          Key names are strings. Flags are 0/1. Times are in seconds. Do not rename keys later
+          Key names are strings and MUST start with '$' (X4 rejects table string keys without it,
+          proven by the 9a-diag log). Callers pass plain names; Cfg_Get / Station_Cfg_* add the '$'. Flags are 0/1. Times are in seconds. Do not rename keys later
           (saved overrides use the key name).
         -->
         <library name="Cfg_LoadDefaults" purpose="include_actions">
@@ -77,35 +74,35 @@
             <set_value name="$Defaults" exact="table[]" />
 
             <!-- ===== General / logging (step 3) ===== -->
-            <set_value name="$Defaults.{'DebugLog'}" exact="1" comment="1 = write FDN debug lines to the game log" />
-            <set_value name="$Defaults.{'LogLevel'}" exact="3" comment="1 = errors, 2 = +warnings, 3 = +info, 4 = +debug detail" />
+            <set_value name="$Defaults.{'$DebugLog'}" exact="1" comment="1 = write FDN debug lines to the game log" />
+            <set_value name="$Defaults.{'$LogLevel'}" exact="3" comment="1 = errors, 2 = +warnings, 3 = +info, 4 = +debug detail" />
 
             <!-- ===== Polling (step 5) ===== -->
-            <set_value name="$Defaults.{'PollInterval'}" exact="60" comment="seconds between supply passes" />
-            <set_value name="$Defaults.{'PollStationsPerPass'}" exact="3" comment="how many stations each supply pass looks at" />
+            <set_value name="$Defaults.{'$PollInterval'}" exact="60" comment="seconds between supply passes" />
+            <set_value name="$Defaults.{'$PollStationsPerPass'}" exact="3" comment="how many stations each supply pass looks at" />
 
             <!-- ===== Own-station transfers (step 9) ===== -->
-            <set_value name="$Defaults.{'TransferOwn'}" exact="0" comment="1 = move wares between own stations. OFF until tested" />
-            <set_value name="$Defaults.{'TransferFeePercent'}" exact="2" comment="fee as percent of transfer value (Matt: 2 is OK as a placeholder)" />
-            <set_value name="$Defaults.{'TransferDelay'}" exact="0" comment="1 = delay transfers by gate distance. Instant when 0" />
-            <set_value name="$Defaults.{'TransferDelayMult'}" exact="8" comment="seconds of delay per gate jump (Matt: start at 8)" />
-            <set_value name="$Defaults.{'RangeLimit'}" exact="1" comment="1 = only use stations within RangeMaxJumps gate jumps. 0 = no distance limit" />
-            <set_value name="$Defaults.{'RangeMaxJumps'}" exact="5" comment="max gate jumps when RangeLimit is on. Minimum 1, no upper maximum" />
+            <set_value name="$Defaults.{'$TransferOwn'}" exact="0" comment="1 = move wares between own stations. OFF until tested" />
+            <set_value name="$Defaults.{'$TransferFeePercent'}" exact="2" comment="fee as percent of transfer value (Matt: 2 is OK as a placeholder)" />
+            <set_value name="$Defaults.{'$TransferDelay'}" exact="0" comment="1 = delay transfers by gate distance. Instant when 0" />
+            <set_value name="$Defaults.{'$TransferDelayMult'}" exact="8" comment="seconds of delay per gate jump (Matt: start at 8)" />
+            <set_value name="$Defaults.{'$RangeLimit'}" exact="1" comment="1 = only use stations within RangeMaxJumps gate jumps. 0 = no distance limit" />
+            <set_value name="$Defaults.{'$RangeMaxJumps'}" exact="5" comment="max gate jumps when RangeLimit is on. Minimum 1, no upper maximum" />
 
             <!-- ===== NPC fallback (step 10) ===== -->
-            <set_value name="$Defaults.{'NpcFallback'}" exact="0" comment="1 = buy shortfalls from NPC offers when no own station can cover. OFF until tested" />
+            <set_value name="$Defaults.{'$NpcFallback'}" exact="0" comment="1 = buy shortfalls from NPC offers when no own station can cover. OFF until tested" />
 
             <!-- ===== Distribution Centres (step 9) ===== -->
-            <set_value name="$Defaults.{'DCMacros'}" exact="['dockarea_arg_m_02_tradestation_01_macro', 'pier_bor_tradestation_01_macro', 'pier_ter_tradestation_01_macro']" comment="macro ids of marker modules: a player station with one of these is a DC (Argon trade dock, Boron and Terran trade piers)" />
-            <set_value name="$Defaults.{'DCNetworkRange'}" exact="10" comment="max gate jumps between two DCs for them to join one network" />
-            <set_value name="$Defaults.{'DCKeepPercent'}" exact="10" comment="percent of each ware a DC always keeps (used from card 9b)" />
-            <set_value name="$Defaults.{'DCKeepWare'}" exact="table[]" comment="per-ware keep percent override, ware -> percent (used from card 9b)" />
-            <set_value name="$Defaults.{'LedgerMax'}" exact="200" comment="max ledger entries kept per DC (used from card 9b)" />
+            <set_value name="$Defaults.{'$DCMacros'}" exact="['dockarea_arg_m_02_tradestation_01_macro', 'pier_bor_tradestation_01_macro', 'pier_ter_tradestation_01_macro']" comment="macro ids of marker modules: a player station with one of these is a DC (Argon trade dock, Boron and Terran trade piers)" />
+            <set_value name="$Defaults.{'$DCNetworkRange'}" exact="10" comment="max gate jumps between two DCs for them to join one network" />
+            <set_value name="$Defaults.{'$DCKeepPercent'}" exact="10" comment="percent of each ware a DC always keeps (used from card 9b)" />
+            <set_value name="$Defaults.{'$DCKeepWare'}" exact="table[]" comment="per-ware keep percent override, ware -> percent (used from card 9b)" />
+            <set_value name="$Defaults.{'$LedgerMax'}" exact="200" comment="max ledger entries kept per DC (used from card 9b)" />
 
             <!-- ===== Station-side settings (step 9, each can be overridden per station with Station_Cfg_Set) ===== -->
-            <set_value name="$Defaults.{'CyclesToCover'}" exact="1" comment="production cycles of resources FDN supplies ahead" />
-            <set_value name="$Defaults.{'ResourcesFdnManaged'}" exact="1" comment="1 = FDN supplies this station's resources" />
-            <set_value name="$Defaults.{'ProductsFdnManaged'}" exact="1" comment="1 = this station's products go to its nearest DC (card 9c)" />
+            <set_value name="$Defaults.{'$CyclesToCover'}" exact="1" comment="production cycles of resources FDN supplies ahead" />
+            <set_value name="$Defaults.{'$ResourcesFdnManaged'}" exact="1" comment="1 = FDN supplies this station's resources" />
+            <set_value name="$Defaults.{'$ProductsFdnManaged'}" exact="1" comment="1 = this station's products go to its nearest DC (card 9c)" />
           </actions>
         </library>
 
@@ -125,11 +122,12 @@
       </params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
-        <do_if value="$Init.$Overrides.{$Key}?">
-          <return value="$Init.$Overrides.{$Key}" />
+        <set_value name="$K" exact="'$' + $Key" comment="X4-09a-fix2: table string keys must start with $" />
+        <do_if value="$Init.$Overrides.{$K}?">
+          <return value="$Init.$Overrides.{$K}" />
         </do_if>
-        <do_elseif value="$Init.$Defaults.{$Key}?">
-          <return value="$Init.$Defaults.{$Key}" />
+        <do_elseif value="$Init.$Defaults.{$K}?">
+          <return value="$Init.$Defaults.{$K}" />
         </do_elseif>
         <return value="null" />
       </actions>
@@ -198,9 +196,11 @@
         <param name="Key" />
       </params>
       <actions>
-        <do_if value="$Station.$fdn_cfg.{$Key}?">
-          <return value="$Station.$fdn_cfg.{$Key}" />
+        <set_value name="$K" exact="'$' + $Key" comment="X4-09a-fix2: table string keys must start with $" />
+        <do_if value="$Station.$fdn_cfg.{$K}?">
+          <return value="$Station.$fdn_cfg.{$K}" />
         </do_if>
+        <!-- Cfg_Get adds the $ itself, so pass the plain name -->
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Value">
           <param name="Key" value="$Key" />
         </run_actions>
@@ -221,7 +221,8 @@
         <run_actions ref="md.FDN_Core.Station_Cfg_Setup">
           <param name="Station" value="$Station" />
         </run_actions>
-        <set_value name="$Station.$fdn_cfg.{$Key}" exact="$Value" />
+        <set_value name="$K" exact="'$' + $Key" comment="X4-09a-fix2: table string keys must start with $" />
+        <set_value name="$Station.$fdn_cfg.{$K}" exact="$Value" />
       </actions>
     </library>
 
@@ -238,7 +239,8 @@
           <remove_value name="$Station.$fdn_cfg" />
         </do_if>
         <do_else>
-          <remove_value name="$Station.$fdn_cfg.{$Key}" />
+          <set_value name="$K" exact="'$' + $Key" comment="X4-09a-fix2: table string keys must start with $" />
+          <remove_value name="$Station.$fdn_cfg.{$K}" />
         </do_else>
       </actions>
     </library>
