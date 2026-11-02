@@ -23,6 +23,16 @@
               <run_actions ref="md.FDN_Stations.Purge" />
               <run_actions ref="md.FDN_Core.Claim_Purge" />
 
+              <!-- Step 9a, read-only: find DCs and build networks once per pass -->
+              <run_actions ref="md.FDN_Supply.Find_DCs" result="$DCs" />
+              <run_actions ref="md.FDN_Core.Cfg_Get" result="$NetRange">
+                <param name="Key" value="'DCNetworkRange'" />
+              </run_actions>
+              <run_actions ref="md.FDN_Supply.Build_Networks" result="$Networks">
+                <param name="DCs" value="$DCs" />
+                <param name="Range" value="$NetRange" />
+              </run_actions>
+
               <run_actions ref="md.FDN_Core.Cfg_Get" result="$PerPass">
                 <param name="Key" value="'PollStationsPerPass'" />
               </run_actions>
@@ -49,6 +59,22 @@
                     <param name="Level" value="4" />
                     <param name="Text" value="'poll visit: %1 (%2)'.[$Station.knownname, $Station]" />
                   </run_actions>
+                  <run_actions ref="md.FDN_Supply.Nearest_DC" result="$Near">
+                    <param name="Station" value="$Station" />
+                    <param name="DCs" value="$DCs" />
+                  </run_actions>
+                  <do_if value="$Near.{2} ge 0">
+                    <run_actions ref="md.FDN_Core.Log">
+                      <param name="Level" value="3" />
+                      <param name="Text" value="'nearest DC for %1: %2, %3 jumps'.[$Station.knownname, $Near.{1}.knownname, $Near.{2}]" />
+                    </run_actions>
+                  </do_if>
+                  <do_else>
+                    <run_actions ref="md.FDN_Core.Log">
+                      <param name="Level" value="3" />
+                      <param name="Text" value="'nearest DC for %1: none in range'.[$Station.knownname]" />
+                    </run_actions>
+                  </do_else>
                   <run_actions ref="md.FDN_Supply.Scan_Station">
                     <param name="Station" value="$Station" />
                   </run_actions>
@@ -132,12 +158,211 @@
       </actions>
     </library>
     <!--
-      Step 7, read-only. For one station, finds every resource ware its operational production modules use,
-      compares stock with the station's target stock, and logs the shortfalls ranked emptiest first.
-      Fill % = stock * 100 / target. A ware with no target (0) is skipped. Returns the ranked ware list.
-      Properties used: station.cargo.{$ware}.count, station.cargo.{$ware}.target (scriptproperties.xml, container),
-      table .keys.sorted (sorted by value, ascending, values must be numeric).
-      Compare this log with what MWE mules deliver to see whether the ranking agrees.
+      Step 9a, read-only. Distribution Centre (DC) detection.
+      A player station is a DC when it has an operational dock area or pier whose macro id is in the DCMacros setting.
+      Returns the list of DC stations. Uses component .macro.id (as vanilla npc_state_machines.xml) and list .indexof.
+      VERIFY: the three trade-station modules are class.dockarea or class.pier, and checkoperational works for them.
+    -->
+    <library name="Find_DCs" purpose="run_actions">
+      <actions>
+        <set_value name="$DCs" exact="[]" />
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Macros">
+          <param name="Key" value="'DCMacros'" />
+        </run_actions>
+        <set_value name="$Reg" exact="md.FDN_Stations.Registry" />
+        <do_if value="not $Macros or not @$Reg.$Stations?">
+          <return value="$DCs" />
+        </do_if>
+        <do_for_each name="$S" in="$Reg.$Stations">
+          <do_if value="$S.exists">
+            <find_object_component object="$S" name="$Docks" class="[class.dockarea, class.pier]" checkoperational="true" multiple="true" />
+            <set_value name="$Marker" exact="null" />
+            <do_for_each name="$D" in="$Docks">
+              <do_if value="not $Marker and $Macros.indexof.{$D.macro.id}">
+                <set_value name="$Marker" exact="$D" />
+              </do_if>
+            </do_for_each>
+            <do_if value="$Marker">
+              <append_to_list name="$DCs" exact="$S" />
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="3" />
+                <param name="Text" value="'DC: %1, marker %2'.[$S.knownname, $Marker.macro.id]" />
+              </run_actions>
+            </do_if>
+          </do_if>
+        </do_for_each>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'DCs found: %1'.[$DCs.count]" />
+        </run_actions>
+        <return value="$DCs" />
+      </actions>
+    </library>
+
+    <!--
+      Step 9a, read-only. Groups DCs into networks. Two DCs are linked when 0 le gatedistance le Range;
+      a network is every DC reachable through links (flood fill). A DC with no link is a network of one.
+      Returns a list of networks, each a list of DC stations. gatedistance is -1 when there is no route.
+      VERIFY: append_to_list with a list value adds it as one element (list of lists).
+    -->
+    <library name="Build_Networks" purpose="run_actions">
+      <params>
+        <param name="DCs" />
+        <param name="Range" default="10" />
+      </params>
+      <actions>
+        <set_value name="$Networks" exact="[]" />
+        <set_value name="$Done" exact="[]" />
+        <do_all exact="$DCs.count" counter="$i">
+          <set_value name="$Seed" exact="$DCs.{$i}" />
+          <do_if value="not $Done.indexof.{$Seed}">
+            <set_value name="$Net" exact="[$Seed]" />
+            <append_to_list name="$Done" exact="$Seed" />
+            <set_value name="$q" exact="1" />
+            <do_while value="$q le $Net.count">
+              <set_value name="$Cur" exact="$Net.{$q}" />
+              <do_all exact="$DCs.count" counter="$j">
+                <set_value name="$Other" exact="$DCs.{$j}" />
+                <do_if value="not $Done.indexof.{$Other}">
+                  <set_value name="$Jumps" exact="$Cur.gatedistance.{$Other}" />
+                  <do_if value="$Jumps ge 0 and $Jumps le $Range">
+                    <append_to_list name="$Net" exact="$Other" />
+                    <append_to_list name="$Done" exact="$Other" />
+                  </do_if>
+                </do_if>
+              </do_all>
+              <set_value name="$q" operation="add" />
+            </do_while>
+            <append_to_list name="$Networks" exact="$Net" />
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="3" />
+              <param name="Text" value="'DC network %1: %2 DC(s), first %3'.[$Networks.count, $Net.count, $Net.{1}.knownname]" />
+            </run_actions>
+            <do_all exact="$Net.count" counter="$k">
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="4" />
+                <param name="Text" value="'  network %1 member: %2'.[$Networks.count, $Net.{$k}.knownname]" />
+              </run_actions>
+            </do_all>
+          </do_if>
+        </do_all>
+        <return value="$Networks" />
+      </actions>
+    </library>
+
+    <!--
+      Step 9a, read-only. Nearest DC to a station, by gate jumps, within the station's range
+      (RangeLimit / RangeMaxJumps, read per station with Station_Cfg_Get). A DC serves itself at 0 jumps.
+      Returns [DC, jumps]; [null, -1] means no DC in range.
+      VERIFY: two stations in the same sector give gatedistance 0.
+    -->
+    <library name="Nearest_DC" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="DCs" />
+      </params>
+      <actions>
+        <set_value name="$Best" exact="null" />
+        <set_value name="$BestJumps" exact="-1" />
+        <do_if value="not $Station.exists">
+          <return value="[$Best, $BestJumps]" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Limit">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'RangeLimit'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$MaxJumps">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'RangeMaxJumps'" />
+        </run_actions>
+        <do_all exact="$DCs.count" counter="$i">
+          <set_value name="$DC" exact="$DCs.{$i}" />
+          <do_if value="$DC == $Station">
+            <set_value name="$Jumps" exact="0" />
+          </do_if>
+          <do_else>
+            <set_value name="$Jumps" exact="$Station.gatedistance.{$DC}" />
+          </do_else>
+          <do_if value="$Jumps ge 0 and (not $Limit or $Jumps le $MaxJumps) and ($BestJumps lt 0 or $Jumps lt $BestJumps)">
+            <set_value name="$Best" exact="$DC" />
+            <set_value name="$BestJumps" exact="$Jumps" />
+          </do_if>
+        </do_all>
+        <return value="[$Best, $BestJumps]" />
+      </actions>
+    </library>
+
+    <!--
+      Step 9a, read-only. Cycle-based need for one station (replaces the step 7 target-stock logic).
+      required(w) = sum over operational production modules and their products of resources-per-cycle(w) x CyclesToCover
+      need(w)     = required(w) - cargo.{w}.count - Claim_Get(w). Only wares with need gt 0 are returned.
+      Returns table ware -> [need, required]. Empty when ResourcesFdnManaged is 0 or CyclesToCover le 0.
+      CyclesToCover and ResourcesFdnManaged are read per station (Station_Cfg_Get). Never fills storage.
+      Recipe: ware.resources = default production method. VERIFY: race-specific methods (ware.raceresources) can differ.
+    -->
+    <library name="Calc_Need" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <set_value name="$Out" exact="table[]" />
+        <do_if value="not $Station.exists">
+          <return value="$Out" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Managed">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'ResourcesFdnManaged'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Cycles">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'CyclesToCover'" />
+        </run_actions>
+        <do_if value="not $Managed or not ($Cycles gt 0)">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'need: %1 skipped (ResourcesFdnManaged %2, CyclesToCover %3)'.[$Station.knownname, $Managed, $Cycles]" />
+          </run_actions>
+          <return value="$Out" />
+        </do_if>
+        <set_value name="$Req" exact="table[]" comment="ware -> required amount" />
+        <find_object_component object="$Station" name="$Modules" class="class.production" checkoperational="true" multiple="true" />
+        <do_all exact="$Modules.count" counter="$m">
+          <set_value name="$Products" exact="$Modules.{$m}.products.list" />
+          <do_all exact="$Products.count" counter="$p">
+            <set_value name="$Product" exact="$Products.{$p}" />
+            <set_value name="$Resources" exact="$Product.resources.list" />
+            <do_all exact="$Resources.count" counter="$r">
+              <set_value name="$Resource" exact="$Resources.{$r}" />
+              <set_value name="$PerCycle" exact="$Product.resources.{$Resource}.count * $Cycles" />
+              <do_if value="$Req.{$Resource}?">
+                <set_value name="$Req.{$Resource}" exact="$Req.{$Resource} + $PerCycle" />
+              </do_if>
+              <do_else>
+                <set_value name="$Req.{$Resource}" exact="$PerCycle" />
+              </do_else>
+            </do_all>
+          </do_all>
+        </do_all>
+        <set_value name="$Keys" exact="$Req.keys.list" />
+        <do_all exact="$Keys.count" counter="$k">
+          <set_value name="$Ware" exact="$Keys.{$k}" />
+          <run_actions ref="md.FDN_Core.Claim_Get" result="$Claimed">
+            <param name="Station" value="$Station" />
+            <param name="Ware" value="$Ware" />
+          </run_actions>
+          <set_value name="$Need" exact="$Req.{$Ware} - $Station.cargo.{$Ware}.count - $Claimed" />
+          <do_if value="$Need gt 0">
+            <set_value name="$Out.{$Ware}" exact="[$Need, $Req.{$Ware}]" />
+          </do_if>
+        </do_all>
+        <return value="$Out" />
+      </actions>
+    </library>
+
+    <!--
+      Step 7, rewritten in step 9a, read-only. Ranks the station's cycle-based needs (Calc_Need), emptiest first:
+      score = stock * 100 / required. Logs each need and returns the ranked ware list.
+      Properties used: station.cargo.{$ware}.count, table .keys.sorted (sorted by value, ascending).
     -->
     <library name="Rank_Shortfalls" purpose="run_actions">
       <params>
@@ -148,24 +373,21 @@
         <do_if value="not $Station.exists">
           <return value="$Ranked" />
         </do_if>
-        <find_object_component object="$Station" name="$Modules" class="class.production" checkoperational="true" multiple="true" />
-        <set_value name="$Fill" exact="table[]" comment="ware -> fill percent" />
-        <do_all exact="$Modules.count" counter="$m">
-          <set_value name="$Products" exact="$Modules.{$m}.products.list" />
-          <do_all exact="$Products.count" counter="$p">
-            <set_value name="$Resources" exact="$Products.{$p}.resources.list" comment="VERIFY: race-specific recipes can differ, see ware.raceresources" />
-            <do_all exact="$Resources.count" counter="$r">
-              <set_value name="$Resource" exact="$Resources.{$r}" />
-              <set_value name="$Target" exact="$Station.cargo.{$Resource}.target" />
-              <set_value name="$Have" exact="$Station.cargo.{$Resource}.count" />
-              <do_if value="$Target gt 0 and $Have lt $Target">
-                <set_value name="$Fill.{$Resource}" exact="($Have * 100) / $Target" comment="VERIFY: integer division result is fine for sorting" />
-              </do_if>
-            </do_all>
-          </do_all>
+        <run_actions ref="md.FDN_Supply.Calc_Need" result="$Needs">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Cycles">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'CyclesToCover'" />
+        </run_actions>
+        <set_value name="$Score" exact="table[]" comment="ware -> stock percent of required" />
+        <set_value name="$Keys" exact="$Needs.keys.list" />
+        <do_all exact="$Keys.count" counter="$k">
+          <set_value name="$Ware" exact="$Keys.{$k}" />
+          <set_value name="$Score.{$Ware}" exact="($Station.cargo.{$Ware}.count * 100) / [$Needs.{$Ware}.{2}, 1].max" />
         </do_all>
-        <do_if value="$Fill.keys.count gt 0">
-          <set_value name="$Ranked" exact="$Fill.keys.sorted" />
+        <do_if value="$Score.keys.count gt 0">
+          <set_value name="$Ranked" exact="$Score.keys.sorted" />
           <do_all exact="$Ranked.count" counter="$k">
             <set_value name="$Ware" exact="$Ranked.{$k}" />
             <run_actions ref="md.FDN_Core.Claim_Get" result="$Claimed">
@@ -174,7 +396,7 @@
             </run_actions>
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="3" />
-              <param name="Text" value="'SHORTFALL #%1: %2, %3, stock %4 of target %5 (%6%), claimed %7'.[$k, $Station.knownname, $Ware.name, $Station.cargo.{$Ware}.count, $Station.cargo.{$Ware}.target, $Fill.{$Ware}, $Claimed]" />
+              <param name="Text" value="'NEED #%1: %2, %3, need %4 for %5 cycle(s) (required %6, stock %7 = %8%, claimed %9)'.[$k, $Station.knownname, $Ware.name, $Needs.{$Ware}.{1}, $Cycles, $Needs.{$Ware}.{2}, $Station.cargo.{$Ware}.count, $Score.{$Ware}, $Claimed]" />
             </run_actions>
           </do_all>
         </do_if>

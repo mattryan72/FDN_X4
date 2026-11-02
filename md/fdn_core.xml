@@ -19,7 +19,7 @@
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'core loaded, version 1.0.0 (step 8), %1 default settings'.[$Defaults.keys.list.count]" />
+          <param name="Text" value="'core loaded, version 1.0.0 (step 9a), %1 default settings'.[$Defaults.keys.list.count]" />
         </run_actions>
       </actions>
       <patch sinceversion="2">
@@ -74,6 +74,18 @@
 
             <!-- ===== NPC fallback (step 10) ===== -->
             <set_value name="$Defaults.{'NpcFallback'}" exact="0" comment="1 = buy shortfalls from NPC offers when no own station can cover. OFF until tested" />
+
+            <!-- ===== Distribution Centres (step 9) ===== -->
+            <set_value name="$Defaults.{'DCMacros'}" exact="['dockarea_arg_m_02_tradestation_01_macro', 'pier_bor_tradestation_01_macro', 'pier_ter_tradestation_01_macro']" comment="macro ids of marker modules: a player station with one of these is a DC (Argon trade dock, Boron and Terran trade piers)" />
+            <set_value name="$Defaults.{'DCNetworkRange'}" exact="10" comment="max gate jumps between two DCs for them to join one network" />
+            <set_value name="$Defaults.{'DCKeepPercent'}" exact="10" comment="percent of each ware a DC always keeps (used from card 9b)" />
+            <set_value name="$Defaults.{'DCKeepWare'}" exact="table[]" comment="per-ware keep percent override, ware -> percent (used from card 9b)" />
+            <set_value name="$Defaults.{'LedgerMax'}" exact="200" comment="max ledger entries kept per DC (used from card 9b)" />
+
+            <!-- ===== Station-side settings (step 9, each can be overridden per station with Station_Cfg_Set) ===== -->
+            <set_value name="$Defaults.{'CyclesToCover'}" exact="1" comment="production cycles of resources FDN supplies ahead" />
+            <set_value name="$Defaults.{'ResourcesFdnManaged'}" exact="1" comment="1 = FDN supplies this station's resources" />
+            <set_value name="$Defaults.{'ProductsFdnManaged'}" exact="1" comment="1 = this station's products go to its nearest DC (card 9c)" />
           </actions>
         </library>
 

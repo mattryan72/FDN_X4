@@ -44,6 +44,7 @@
           <actions>
             <do_if value="not $Stations.indexof.{event.param}">
               <append_to_list name="$Stations" exact="event.param" />
+              <add_to_group groupname="$StationGroup" object="event.param" />
             </do_if>
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="3" />
@@ -69,10 +70,14 @@
           </actions>
         </cue>
 
-        <!-- Log-only for now. param = production module, param2 = product ware, param3 = research flag. VERIFY: that a production module has .container (station) -->
+        <!--
+          Log-only for now (step 9a). Object-level event on the registry group $StationGroup.
+          event.object = station or production module, param = production module, param2 = product ware, param3 = research flag.
+          VERIFY: the event fires for stations in the group, and a production module has .container (station)
+        -->
         <cue name="OnProductionFinished" instantiate="true">
           <conditions>
-            <event_player_production_finished />
+            <event_object_production_finished group="$StationGroup" />
           </conditions>
           <actions>
             <do_if value="not event.param3">
@@ -89,8 +94,10 @@
           <actions>
             <find_station name="$Found" space="player.galaxy" multiple="true" owner="faction.player" />
             <set_value name="$Stations" exact="[]" />
+            <create_group groupname="$StationGroup" comment="group copy of $Stations, used by the production-finished event" />
             <do_for_each name="$s" in="$Found">
               <append_to_list name="$Stations" exact="$s" />
+              <add_to_group groupname="$StationGroup" object="$s" />
             </do_for_each>
             <remove_value name="$Found" />
           </actions>
@@ -116,6 +123,10 @@
           </do_if>
         </do_for_each>
         <set_value name="$Reg.$Stations" exact="$Kept" />
+        <do_if value="$Reg.$StationGroup?">
+          <clear_group group="$Reg.$StationGroup" />
+          <add_to_group groupname="$Reg.$StationGroup" list="$Kept" />
+        </do_if>
       </actions>
     </library>
   </cues>
