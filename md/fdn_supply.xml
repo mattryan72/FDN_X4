@@ -1728,6 +1728,18 @@
         <do_if value="$Kind == 'pull-fallback'">
           <set_value name="$LbTitle" exact="'fee fallback at %1'.[$Station.knownname]" />
         </do_if>
+        <do_elseif value="$Kind == 'npc-price'" comment="card 09r: plain words instead of the internal kind">
+          <set_value name="$LbTitle" exact="'NPC buy skipped at %1, station buy price too low'.[$Station.knownname]" />
+        </do_elseif>
+        <do_elseif value="$Kind == 'npc-money'">
+          <set_value name="$LbTitle" exact="'NPC buy skipped at %1, DC cannot pay'.[$Station.knownname]" />
+        </do_elseif>
+        <do_elseif value="$Kind == 'npc-failed'">
+          <set_value name="$LbTitle" exact="'NPC buy failed at %1'.[$Station.knownname]" />
+        </do_elseif>
+        <do_elseif value="$Kind == 'npc-none'">
+          <set_value name="$LbTitle" exact="'NPC stock short at %1'.[$Station.knownname]" />
+        </do_elseif>
         <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09o: upkeep + alerts, highlighted, title prefix and source FDN">
           <param name="Tier" value="'problem'" />
           <param name="Title" value="$LbTitle" />

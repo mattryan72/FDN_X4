@@ -90,7 +90,7 @@
             <set_value name="$Defaults.{'$RangeMaxJumps'}" exact="5" comment="max gate jumps when RangeLimit is on. Minimum 1, no upper maximum" />
 
             <!-- ===== NPC fallback (step 10) ===== -->
-            <set_value name="$Defaults.{'$NpcFallback'}" exact="0" comment="1 = buy shortfalls from NPC offers when no own station can cover. OFF until tested" />
+            <set_value name="$Defaults.{'$NpcFallback'}" exact="1" comment="1 = buy shortfalls from NPC offers when no own station can cover (card 09r: on by default, proven in game; 0 turns it off). NPCs only qualify when the station buy price is raised above the ware minimum" />
 
             <!-- ===== Distribution Centres (step 9) ===== -->
             <set_value name="$Defaults.{'$DCMacros'}" exact="['dockarea_arg_m_02_tradestation_01_macro', 'pier_bor_tradestation_01_macro', 'pier_ter_tradestation_01_macro']" comment="macro ids of marker modules: a player station with one of these is a DC (Argon trade dock, Boron and Terran trade piers)" />
