@@ -775,6 +775,7 @@
         <set_value name="$Sampled" exact="false" />
         <set_value name="$NEmpty" exact="0" />
         <set_value name="$NOver" exact="0" />
+        <set_value name="$BestAsk" exact="null" comment="09n: lowest unitprice of any available sell offer found, log only" />
         <set_value name="$Usable" exact="[]" comment="list of [seller, amount, unitprice, jumps, offer]" />
         <do_all exact="@$Sectors.count" counter="$s">
           <find_sell_offer result="$Offers" wares="$Ware" space="$Sectors.{$s}" tradepartner="$Home" multiple="true" comment="VERIFY: a station as tradepartner (vanilla gs_trade.xml uses player.station)" />
@@ -782,6 +783,9 @@
             <set_value name="$Of" exact="$Offers.{$o}" />
             <do_if value="$Of.available and $Of.isselloffer">
               <set_value name="$Found" exact="$Found + 1" />
+              <do_if value="$BestAsk == null or $Of.unitprice lt $BestAsk">
+                <set_value name="$BestAsk" exact="$Of.unitprice" />
+              </do_if>
               <set_value name="$Seller" exact="$Of.seller" />
               <do_if value="$Seller == null or not $Seller.exists">
                 <set_value name="$NBlocked" exact="$NBlocked + 1" />
@@ -853,6 +857,18 @@
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
           <param name="Text" value="'NPC CHECK: %1 needs %2 %3, home DC %4, %5 offer(s) found, %6 usable, %7 over price cap'.[$Station.knownname, $Need, $Ware.name, $HomeName, $Found, $Ranked.count, $NOver] + ' (blocked %1: player-owned %2, hostile %3, cannot-trade %5, restricted(info only) %4; out of range %6, empty %7)'.[$NBlocked, $NPlayer, $NHostile, $NRestricted, $NCantrade, $NRange, $NEmpty]" />
+        </run_actions>
+        <!-- 09n: LOG ONLY, the inputs behind the price cap, once per throttled check -->
+        <set_value name="$PBuy" exact="@$Station.buyprice.{$Ware}" />
+        <set_value name="$POvr" exact="@$Station.buypriceoverride.{$Ware}" />
+        <set_value name="$PSell" exact="@$Station.sellprice.{$Ware}" />
+        <set_value name="$PStock" exact="@$Station.cargo.{$Ware}.count" />
+        <set_value name="$PTarget" exact="@$Station.cargo.{$Ware}.target" />
+        <find_buy_offer result="$PBO" buyer="$Station" wares="$Ware" comment="09n: vanilla form, rml_supplyfactory.xml:279, gm_barterwares.xml:1413" />
+        <set_value name="$PBOU" exact="if $PBO != null and @$PBO.unitprice != null then $PBO.unitprice.formatted.default + ' Cr' else '?'" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'NPC PRICE: %1 %2: buyprice %3, buypriceoverride %4, sellprice %5'.[$Station.knownname, $Ware.name, (if $PBuy != null then $PBuy.formatted.default + ' Cr' else '?'), (if $POvr != null then $POvr.formatted.default + ' Cr' else '?'), (if $PSell != null then $PSell.formatted.default + ' Cr' else '?')] + ', ware min %1, avg %2, max %3, station stock %4, target %5'.[(if @$Ware.minprice != null then $Ware.minprice.formatted.default else '?'), (if @$Ware.averageprice != null then $Ware.averageprice.formatted.default else '?'), (if @$Ware.maxprice != null then $Ware.maxprice.formatted.default + ' Cr' else '?'), (if $PStock != null then $PStock else '?'), (if $PTarget != null then $PTarget else '?')] + ', best NPC ask %1, buy offer %2'.[(if $BestAsk != null then $BestAsk.formatted.default + ' Cr' else '?'), $PBOU]" />
         </run_actions>
         <do_if value="$Ranked.count == 0">
           <set_value name="$Why" exact="'mixed reasons'" />
