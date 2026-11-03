@@ -1,2 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<content id="fdn_x4" name="FDN X4" author="Matt" version="100" date="2026-11-01" save="1" description="X4 port of FDN: automatic station supply management. Early development build." />
+<content id="fdn_x4" name="FDN X4" author="Matt" version="100" date="2026-11-01" save="1" description="X4 port of FDN: automatic station supply management. Early development build." >
+  <dependency id="ws_2042901274" version="100" optional="true" />
+</content>

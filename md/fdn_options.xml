@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mdscript name="FDN_Options" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <!--
+    Card X4-10b. FDN settings page on the game's Extension Options menu, using SirNuke's
+    Mod Support APIs (Simple Menu Options). OPTIONAL: without that extension nothing here ever runs
+    and FDN keeps working with its defaults and saved overrides.
+
+    How values flow:
+    - The FDN save (md.FDN_Core.Init.$Overrides) is the only source of truth.
+    - Each time the API reloads (every game load / UI reload) every option is registered with
+      skip_initial_callback, then the API's stored copy is overwritten with FDN's current value
+      (Write_Option_Value does not call back). So the page always shows this save's real values,
+      and untouched settings never become overrides (later default changes still apply).
+    - Only when the player changes an option does On_Change call md.FDN_Core.Cfg_Set, which logs
+      the change in fdn.log and refuses unknown keys.
+    - Fee factors are decimals in FDN (0.2) and shown as whole percent on the page (20).
+  -->
+  <cues>
+    <cue name="Register" instantiate="true">
+      <conditions>
+        <event_cue_signalled cue="md.Simple_Menu_Options.Reloaded" />
+      </conditions>
+      <actions>
+        <!-- FDN not set up yet in this save (first load after adding FDN): try again on the next load -->
+        <do_if value="not md.FDN_Core.Init.$Defaults?">
+          <debug_text text="player.age + ' FDN WARN settings page not registered: FDN core not ready yet, reload the save'" filter="general" />
+        </do_if>
+        <do_else>
+        <include_actions ref="Option_List" />
+        <do_for_each name="$Opt" in="$List">
+          <run_actions ref="md.FDN_Core.Cfg_Get" result="$Cur">
+            <param name="Key" value="$Opt.$Key" />
+          </run_actions>
+          <do_if value="$Cur == null">
+            <continue />
+          </do_if>
+          <do_if value="$Opt.$Scale == 100">
+            <set_value name="$Show" exact="(($Cur * 100.0) + 0.5)i" />
+          </do_if>
+          <do_else>
+            <set_value name="$Show" exact="($Cur)i" />
+          </do_else>
+          <set_value name="$Reg" exact="table[
+            $id = 'fdn_' + $Opt.$Key,
+            $category = 'FDN',
+            $name = $Opt.$name,
+            $mouseover = $Opt.$mouseover,
+            $type = $Opt.$type,
+            $default = $Show,
+            $callback = On_Change,
+            $echo = table[$Key = $Opt.$Key, $Scale = $Opt.$Scale],
+            $skip_initial_callback = 1]" />
+          <do_if value="$Opt.$args?">
+            <set_value name="$Reg.$args" exact="$Opt.$args" />
+          </do_if>
+          <signal_cue_instantly cue="md.Simple_Menu_Options.Register_Option" param="$Reg" />
+          <signal_cue_instantly cue="md.Simple_Menu_Options.Write_Option_Value" param="table[$id = 'fdn_' + $Opt.$Key, $value = $Show]" />
+        </do_for_each>
+        <!-- Reset all: an on/off button that acts on any click, then shows off again -->
+        <signal_cue_instantly cue="md.Simple_Menu_Options.Register_Option" param="table[
+          $id = 'fdn_ResetAll',
+          $category = 'FDN',
+          $name = 'Reset all FDN settings',
+          $mouseover = 'Click to put every FDN setting back to its default. Reopen this page to see the new values',
+          $type = 'button',
+          $default = 0,
+          $callback = On_Reset_All,
+          $skip_initial_callback = 1]" />
+        <signal_cue_instantly cue="md.Simple_Menu_Options.Write_Option_Value" param="table[$id = 'fdn_ResetAll', $value = 0]" />
+        </do_else>
+      </actions>
+    </cue>
+
+    <!-- Player changed one option. event.param = table[$id, $value, $echo] (echo = $Key, $Scale) -->
+    <cue name="On_Change" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <do_if value="md.FDN_Core.Init.$Defaults? and event.param.$echo? and event.param.$value?">
+        <set_value name="$Echo" exact="event.param.$echo" />
+        <do_if value="$Echo.$Scale == 100">
+          <set_value name="$Value" exact="event.param.$value / 100.0" />
+        </do_if>
+        <do_else>
+          <set_value name="$Value" exact="(event.param.$value)i" />
+        </do_else>
+        <run_actions ref="md.FDN_Core.Cfg_Set" result="$Ok">
+          <param name="Key" value="$Echo.$Key" />
+          <param name="Value" value="$Value" />
+        </run_actions>
+        </do_if>
+      </actions>
+    </cue>
+
+    <!-- Player clicked Reset all -->
+    <cue name="On_Reset_All" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <do_if value="md.FDN_Core.Init.$Defaults?">
+        <run_actions ref="md.FDN_Core.Cfg_Reset_All" result="$Ok" />
+        <!-- Put the page's stored values back to the defaults (no callbacks) -->
+        <include_actions ref="Option_List" />
+        <do_for_each name="$Opt" in="$List">
+          <run_actions ref="md.FDN_Core.Cfg_Get" result="$Cur">
+            <param name="Key" value="$Opt.$Key" />
+          </run_actions>
+          <do_if value="$Cur != null">
+            <do_if value="$Opt.$Scale == 100">
+              <set_value name="$Show" exact="(($Cur * 100.0) + 0.5)i" />
+            </do_if>
+            <do_else>
+              <set_value name="$Show" exact="($Cur)i" />
+            </do_else>
+            <signal_cue_instantly cue="md.Simple_Menu_Options.Write_Option_Value" param="table[$id = 'fdn_' + $Opt.$Key, $value = $Show]" />
+          </do_if>
+        </do_for_each>
+        <signal_cue_instantly cue="md.Simple_Menu_Options.Write_Option_Value" param="table[$id = 'fdn_ResetAll', $value = 0]" />
+        </do_if>
+      </actions>
+    </cue>
+
+    <!-- The options shown on the page, in display order. $Scale 100 = shown as whole percent, stored as a decimal -->
+    <library name="Option_List">
+      <actions>
+        <set_value name="$List" exact="[]" />
+        <append_to_list name="$List" exact="table[$Key = 'NpcFallback', $type = 'button', $name = 'NPC purchase fallback', $mouseover = 'Buy shortfalls from NPC stations when no DC can supply them', $Scale = 1]" />
+        <append_to_list name="$List" exact="table[$Key = 'LogbookLevel', $type = 'slidercell', $name = 'Logbook detail', $mouseover = '0 = off, 1 = problems only, 2 = problems and one summary per supply run, 3 = problems and every transfer', $Scale = 1, $args = table[$min = 0, $max = 3, $step = 1, $suffix = '']]" />
+        <append_to_list name="$List" exact="table[$Key = 'NotifyMoneySkip', $type = 'button', $name = 'Notify when a DC cannot pay', $mouseover = 'Show an on-screen message when a transfer is skipped because the DC cannot pay the fee', $Scale = 1]" />
+        <append_to_list name="$List" exact="table[$Key = 'LogbookSkipInterval', $type = 'slidercell', $name = 'Repeat skip entries after', $mouseover = 'Seconds before the same skipped station and ware is written to the logbook again', $Scale = 1, $args = table[$min = 60, $max = 3600, $step = 60, $suffix = ' s']]" />
+        <append_to_list name="$List" exact="table[$Key = 'PollInterval', $type = 'slidercell', $name = 'Supply check interval', $mouseover = 'Seconds between FDN supply passes', $Scale = 1, $args = table[$min = 10, $max = 600, $step = 10, $suffix = ' s']]" />
+        <append_to_list name="$List" exact="table[$Key = 'PollStationsPerPass', $type = 'slidercell', $name = 'Stations per supply pass', $mouseover = 'How many stations each supply pass looks at', $Scale = 1, $args = table[$min = 1, $max = 20, $step = 1, $suffix = '']]" />
+        <append_to_list name="$List" exact="table[$Key = 'TriggerMinGap', $type = 'slidercell', $name = 'Minimum gap between checks', $mouseover = 'Minimum seconds between two production-finished checks of the same station', $Scale = 1, $args = table[$min = 0, $max = 300, $step = 5, $suffix = ' s']]" />
+        <append_to_list name="$List" exact="table[$Key = 'CyclesToCover', $type = 'slidercell', $name = 'Production cycles to cover', $mouseover = 'How many production cycles of resources FDN keeps stations supplied ahead', $Scale = 1, $args = table[$min = 0, $max = 10, $step = 1, $suffix = '']]" />
+        <append_to_list name="$List" exact="table[$Key = 'ResourcesFdnManaged', $type = 'button', $name = 'Supply station resources', $mouseover = 'FDN delivers the resources your production stations need', $Scale = 1]" />
+        <append_to_list name="$List" exact="table[$Key = 'ProductsFdnManaged', $type = 'button', $name = 'Send products to DC', $mouseover = 'Station products are moved to the nearest Distribution Centre', $Scale = 1]" />
+        <append_to_list name="$List" exact="table[$Key = 'ProductMinBatch', $type = 'slidercell', $name = 'Smallest product batch', $mouseover = 'Smallest amount of a product sent to the DC in one go', $Scale = 1, $args = table[$min = 0, $max = 5000, $step = 50, $suffix = '']]" />
+        <append_to_list name="$List" exact="table[$Key = 'DCNetworkRange', $type = 'slidercell', $name = 'DC network range', $mouseover = 'Maximum gate jumps between two DCs for them to share stock', $Scale = 1, $args = table[$min = 1, $max = 30, $step = 1, $suffix = ' jumps']]" />
+        <append_to_list name="$List" exact="table[$Key = 'DCKeepPercent', $type = 'slidercell', $name = 'DC reserve', $mouseover = 'Share of each ware a DC always keeps for itself', $Scale = 1, $args = table[$min = 0, $max = 90, $step = 5, $suffix = ' %']]" />
+        <append_to_list name="$List" exact="table[$Key = 'LedgerMax', $type = 'slidercell', $name = 'DC ledger size', $mouseover = 'Maximum ledger entries kept per DC', $Scale = 1, $args = table[$min = 50, $max = 1000, $step = 50, $suffix = '']]" />
+        <append_to_list name="$List" exact="table[$Key = 'RangeLimit', $type = 'button', $name = 'Limit supply range', $mouseover = 'Only supply stations within the maximum range below', $Scale = 1]" />
+        <append_to_list name="$List" exact="table[$Key = 'RangeMaxJumps', $type = 'slidercell', $name = 'Maximum supply range', $mouseover = 'Maximum gate jumps between a DC and the station it supplies', $Scale = 1, $args = table[$min = 1, $max = 30, $step = 1, $suffix = ' jumps']]" />
+        <append_to_list name="$List" exact="table[$Key = 'TransferDelay', $type = 'button', $name = 'Delay transfers by distance', $mouseover = 'Transfers take time per gate jump instead of arriving instantly', $Scale = 1]" />
+        <append_to_list name="$List" exact="table[$Key = 'TransferDelayMult', $type = 'slidercell', $name = 'Delay per jump', $mouseover = 'Seconds of delay per gate jump when transfers are delayed', $Scale = 1, $args = table[$min = 0, $max = 60, $step = 1, $suffix = ' s']]" />
+        <append_to_list name="$List" exact="table[$Key = 'TransferFeePercent', $type = 'slidercell', $name = 'Transfer fee', $mouseover = 'Fee as a percentage of the value of the wares moved', $Scale = 1, $args = table[$min = 0, $max = 20, $step = 1, $suffix = ' %']]" />
+        <append_to_list name="$List" exact="table[$Key = 'FeeRangeMult', $type = 'slidercell', $name = 'Fee increase per jump', $mouseover = 'Fee rises by this percentage of the base fee for every gate jump', $Scale = 100, $args = table[$min = 0, $max = 100, $step = 5, $suffix = ' %']]" />
+        <append_to_list name="$List" exact="table[$Key = 'FeeVolumeMult', $type = 'slidercell', $name = 'Fee volume factor', $mouseover = 'Multiplier on the fee for ware volume, in percent (100 = no change)', $Scale = 100, $args = table[$min = 0, $max = 300, $step = 5, $suffix = ' %']]" />
+        <append_to_list name="$List" exact="table[$Key = 'FeeTypeMult', $type = 'slidercell', $name = 'Fee ware type factor', $mouseover = 'Multiplier on the fee for ware type, in percent (100 = no change)', $Scale = 100, $args = table[$min = 0, $max = 300, $step = 5, $suffix = ' %']]" />
+        <append_to_list name="$List" exact="table[$Key = 'ReturnFeeMult', $type = 'slidercell', $name = 'Return fee', $mouseover = 'Fee for products returned to a DC, as a percentage of the normal fee. The DC pays', $Scale = 100, $args = table[$min = 0, $max = 100, $step = 5, $suffix = ' %']]" />
+        <append_to_list name="$List" exact="table[$Key = 'DCToDCFeeMult', $type = 'slidercell', $name = 'DC to DC fee', $mouseover = 'Fee for stock pulled between DCs, as a percentage of the normal fee. 0 makes pulls free', $Scale = 100, $args = table[$min = 0, $max = 100, $step = 5, $suffix = ' %']]" />
+        <append_to_list name="$List" exact="table[$Key = 'DebugLog', $type = 'button', $name = 'Write FDN debug log', $mouseover = 'Write FDN lines to the game debug log (fdn.log)', $Scale = 1]" />
+        <append_to_list name="$List" exact="table[$Key = 'LogLevel', $type = 'slidercell', $name = 'Debug log detail', $mouseover = '1 = errors, 2 = and warnings, 3 = and info, 4 = and debug detail', $Scale = 1, $args = table[$min = 1, $max = 4, $step = 1, $suffix = '']]" />
+      </actions>
+    </library>
+  </cues>
+</mdscript>
