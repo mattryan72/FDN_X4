@@ -9,6 +9,7 @@
     <!--
       Persistent root cue. Its variables are saved with the game.
       $Overrides : table of settings the player has changed (saved). Empty means "all defaults".
+      $StationCfg: saved table of per-station overrides, station -> key -> value (card 10a, created on first use).
       $Claims    : saved table of reserved ware amounts, station -> ware -> amount (see Claim_* libraries).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
@@ -82,7 +83,7 @@
             <set_value name="$Defaults.{'$PollStationsPerPass'}" exact="3" comment="how many stations each supply pass looks at" />
 
             <!-- ===== Own-station transfers (step 9) ===== -->
-            <set_value name="$Defaults.{'$TransferOwn'}" exact="0" comment="IGNORED from card 9b: own stations are never sources. Kept so old saves keep the key" />
+            <set_value name="$Defaults.{'$TransferOwn'}" exact="0" comment="IGNORED from card 9b: no code reads it, own stations are never sources. Kept so old saves keep the key" />
             <set_value name="$Defaults.{'$TransferFeePercent'}" exact="2" comment="fee as percent of transfer value (Matt: 2 is OK as a placeholder)" />
             <set_value name="$Defaults.{'$TransferDelay'}" exact="0" comment="1 = delay transfers by gate distance. Instant when 0" />
             <set_value name="$Defaults.{'$TransferDelayMult'}" exact="8" comment="seconds of delay per gate jump (Matt: start at 8)" />
@@ -102,7 +103,7 @@
             <set_value name="$Defaults.{'$FeeVolumeMult'}" exact="1.0" comment="fee volume factor, flat for now. Decimals allowed" />
             <set_value name="$Defaults.{'$FeeTypeMult'}" exact="1.0" comment="fee ware-type factor, flat for now. Decimals allowed" />
             <set_value name="$Defaults.{'$ReturnFeeMult'}" exact="0.5" comment="card 9c-fee: station-to-DC return fee = supply fee x this (Matt: half). The DC pays. Decimals allowed" />
-            <set_value name="$Defaults.{'$DCToDCFeeMult'}" exact="0.1" comment="card 9c-fee: reserved for DC to DC pulls where the requesting DC pays (supply fee x this). Setting only, no code uses it yet" />
+            <set_value name="$Defaults.{'$DCToDCFeeMult'}" exact="0.1" comment="card 9c-fee / 9f: DC to DC pull fee = supply fee x this, paid by the home DC (Supply_Station). 0 = pulls are free. Decimals allowed" />
             <set_value name="$Defaults.{'$TriggerMinGap'}" exact="20" comment="card 9e: min seconds between two production-finished checks of the same station. Later checks wait, they are not dropped" />
             <set_value name="$Defaults.{'$LogbookSkipInterval'}" exact="600" comment="seconds before the same skipped station and ware is written to the logbook again" />
             <set_value name="$Defaults.{'$LogbookLevel'}" exact="2" comment="card 09o: game logbook detail. 0 = off, 1 = problems only, 2 = problems + one summary per supply run and DC network changes, 3 = problems + every transfer (throttled per station and ware) and DC network changes" />
@@ -141,6 +142,70 @@
           <return value="$Init.$Defaults.{$K}" />
         </do_elseif>
         <return value="null" />
+      </actions>
+    </library>
+
+    <!--
+      Card 10a. Change or reset a player setting from any FDN file (the settings menu will use these).
+      Values are saved with the game in md.FDN_Core.Init.$Overrides. $Defaults is never changed.
+        Cfg_Set       params Key, Value  returns true, or false (WARN logged) when Key is not a known setting
+        Cfg_Reset     params Key         removes one override, so the default applies again. Returns true
+        Cfg_Reset_All no params          removes every override. Returns true
+    -->
+    <library name="Cfg_Set" purpose="run_actions">
+      <params>
+        <param name="Key" />
+        <param name="Value" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <set_value name="$K" exact="'$' + $Key" comment="table string keys must start with $" />
+        <do_if value="not $Init.$Defaults.{$K}?">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'setting %1 is not known, not changed'.[$Key]" />
+          </run_actions>
+          <return value="false" />
+        </do_if>
+        <do_if value="not $Init.$Overrides?">
+          <set_value name="$Init.$Overrides" exact="table[]" />
+        </do_if>
+        <set_value name="$Init.$Overrides.{$K}" exact="$Value" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'setting %1 set to %2'.[$Key, $Value]" />
+        </run_actions>
+        <return value="true" />
+      </actions>
+    </library>
+
+    <library name="Cfg_Reset" purpose="run_actions">
+      <params>
+        <param name="Key" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <set_value name="$K" exact="'$' + $Key" comment="table string keys must start with $" />
+        <do_if value="$Init.$Overrides? and $Init.$Overrides.{$K}?">
+          <remove_value name="$Init.$Overrides.{$K}" />
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'setting %1 reset to default'.[$Key]" />
+          </run_actions>
+        </do_if>
+        <return value="true" />
+      </actions>
+    </library>
+
+    <library name="Cfg_Reset_All" purpose="run_actions">
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <set_value name="$Init.$Overrides" exact="table[]" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'all settings reset to defaults'" />
+        </run_actions>
+        <return value="true" />
       </actions>
     </library>
 
@@ -328,34 +393,30 @@
       </actions>
     </library>
     <!--
-      PER-STATION SETTINGS (step 8). A station may carry its own table $Station.$fdn_cfg holding overrides
-      of any key in the defaults table. Lookup order: station table, then player override, then default.
-      The table lives on the station object, so it goes away when the station is destroyed.
+      PER-STATION SETTINGS (step 8, moved in card 10a). Card 10a: a table cannot live on a station component
+      (proven), so overrides are kept in md.FDN_Core.Init.$StationCfg as station -> key -> value, keyed by the
+      station object the same way $Claims and $ReturnLog are (proven in game by $ReturnLog). Saved with the game.
+      Lookup order: station override, then player override (Cfg_Get), then default.
         Station_Cfg_Get   params Station, Key        returns the effective value
-        Station_Cfg_Set   params Station, Key, Value creates the table if needed, writes the key
-        Station_Cfg_Reset params Station, Key        removes one key. Leave Key out (null) to remove the whole table
-      Station_Cfg_Setup creates an empty table on the station if it has none.
+        Station_Cfg_Set   params Station, Key, Value writes the key. Returns true, false if the station or key is unknown
+        Station_Cfg_Reset params Station, Key        removes one key. Leave Key out (null) to remove all of that station's keys. Returns true
+        Station_Cfg_Purge no params                  drops entries for stations that no longer exist (run each poll, like Claim_Purge)
+      Nothing calls Set or Reset yet; the settings menu will.
     -->
-    <library name="Station_Cfg_Setup" purpose="run_actions">
-      <params>
-        <param name="Station" />
-      </params>
-      <actions>
-        <do_if value="$Station.exists and not $Station.$fdn_cfg?">
-          <set_value name="$Station.$fdn_cfg" exact="table[]" />
-        </do_if>
-      </actions>
-    </library>
-
     <library name="Station_Cfg_Get" purpose="run_actions">
       <params>
         <param name="Station" />
         <param name="Key" />
       </params>
       <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
         <set_value name="$K" exact="'$' + $Key" comment="X4-09a-fix2: table string keys must start with $" />
-        <do_if value="$Station.$fdn_cfg.{$K}?">
-          <return value="$Station.$fdn_cfg.{$K}" />
+        <do_if value="$Init.$StationCfg?">
+          <do_if value="$Init.$StationCfg.{$Station}?">
+            <do_if value="$Init.$StationCfg.{$Station}.{$K}?">
+              <return value="$Init.$StationCfg.{$Station}.{$K}" />
+            </do_if>
+          </do_if>
         </do_if>
         <!-- Cfg_Get adds the $ itself, so pass the plain name -->
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Value">
@@ -372,14 +433,27 @@
         <param name="Value" />
       </params>
       <actions>
-        <do_if value="not $Station.exists">
-          <return />
-        </do_if>
-        <run_actions ref="md.FDN_Core.Station_Cfg_Setup">
-          <param name="Station" value="$Station" />
-        </run_actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
         <set_value name="$K" exact="'$' + $Key" comment="X4-09a-fix2: table string keys must start with $" />
-        <set_value name="$Station.$fdn_cfg.{$K}" exact="$Value" />
+        <do_if value="not $Station.exists or not $Init.$Defaults.{$K}?">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'station setting %1 not changed: station gone or setting not known'.[$Key]" />
+          </run_actions>
+          <return value="false" />
+        </do_if>
+        <do_if value="not $Init.$StationCfg?">
+          <set_value name="$Init.$StationCfg" exact="table[]" />
+        </do_if>
+        <do_if value="not $Init.$StationCfg.{$Station}?">
+          <set_value name="$Init.$StationCfg.{$Station}" exact="table[]" comment="station object as table key, same as $Claims / $ReturnLog" />
+        </do_if>
+        <set_value name="$Init.$StationCfg.{$Station}.{$K}" exact="$Value" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'station setting %1 at %2 set to %3'.[$Key, $Station.knownname, $Value]" />
+        </run_actions>
+        <return value="true" />
       </actions>
     </library>
 
@@ -389,16 +463,41 @@
         <param name="Key" default="null" />
       </params>
       <actions>
-        <do_if value="not $Station.exists or not $Station.$fdn_cfg?">
-          <return />
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$StationCfg?">
+          <return value="true" />
+        </do_if>
+        <do_if value="not $Init.$StationCfg.{$Station}?">
+          <return value="true" />
         </do_if>
         <do_if value="$Key == null">
-          <remove_value name="$Station.$fdn_cfg" />
+          <remove_value name="$Init.$StationCfg.{$Station}" />
         </do_if>
         <do_else>
           <set_value name="$K" exact="'$' + $Key" comment="X4-09a-fix2: table string keys must start with $" />
-          <remove_value name="$Station.$fdn_cfg.{$K}" />
+          <do_if value="$Init.$StationCfg.{$Station}.{$K}?">
+            <remove_value name="$Init.$StationCfg.{$Station}.{$K}" />
+          </do_if>
+          <do_if value="$Init.$StationCfg.{$Station}.keys.count == 0">
+            <remove_value name="$Init.$StationCfg.{$Station}" />
+          </do_if>
         </do_else>
+        <return value="true" />
+      </actions>
+    </library>
+
+    <library name="Station_Cfg_Purge" purpose="run_actions">
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$StationCfg?">
+          <return />
+        </do_if>
+        <set_value name="$Keys" exact="$Init.$StationCfg.keys.list" />
+        <do_all exact="$Keys.count" counter="$k">
+          <do_if value="not $Keys.{$k}.exists">
+            <remove_value name="$Init.$StationCfg.{$Keys.{$k}}" />
+          </do_if>
+        </do_all>
       </actions>
     </library>
 

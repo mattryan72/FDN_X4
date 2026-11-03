@@ -22,6 +22,7 @@
             <do_if value="$Reg.$Stations?">
               <run_actions ref="md.FDN_Stations.Purge" />
               <run_actions ref="md.FDN_Core.Claim_Purge" />
+              <run_actions ref="md.FDN_Core.Station_Cfg_Purge" comment="card 10a: drop per-station settings of destroyed stations" />
               <!-- Step 9b: deliver delayed transfers that are due (only used when TransferDelay is 1) -->
               <run_actions ref="md.FDN_Supply.Process_Pending" />
 
