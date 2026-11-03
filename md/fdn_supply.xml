@@ -660,9 +660,11 @@
                     </do_else>
                   </do_if>
                   <do_if value="$Payer.money lt $Fee">
-                    <set_value name="$Reason" exact="'DC %1 cannot pay the fee (%2 needed, %3 in account)'.[$Payer.knownname, $Fee, $Payer.money]" />
+                    <set_value name="$Reason" exact="'DC %1 cannot pay the fee (%2 needed, %3 in account)'.[$Payer.knownname, $Fee.formatted.default + ' Cr', $Payer.money.formatted.default + ' Cr']" />
                   </do_if>
                   <do_else>
+                    <set_value name="$SrcBefore" exact="$DC.money" comment="card 9h: logging only, source DC balance before the fee" />
+                    <set_value name="$HomeBefore" exact="if $Home != null then $Home.money else null" comment="card 9h: logging only" />
                     <run_actions ref="md.FDN_Supply.Start_Transfer" result="$Ok">
                       <param name="DC" value="$DC" />
                       <param name="Station" value="$Station" />
@@ -678,13 +680,13 @@
                       <do_if value="$Fallback">
                         <run_actions ref="md.FDN_Core.Log">
                           <param name="Level" value="2" />
-                          <param name="Text" value="'PULL FALLBACK: %1 could not pay pull fee %2, source DC %3 paid full fee %4 for %5 %6 to %7'.[$Home.knownname, $PullFee, $DC.knownname, $FullFee, $Qty, $Ware.name, $Station.knownname]" />
+                          <param name="Text" value="'PULL FALLBACK: %1 could not pay pull fee %2 (balance %3), source DC %4 paid full fee %5 for %6 %7 to %8, %4 balance %9'.[$Home.knownname, $PullFee.formatted.default + ' Cr', (if $HomeBefore != null then $HomeBefore.formatted.default + ' Cr' else '?'), $DC.knownname, $FullFee.formatted.default + ' Cr', $Qty, $Ware.name, $Station.knownname, $SrcBefore.formatted.default + ' Cr'] + ' -> ' + $DC.money.formatted.default + ' Cr'" />
                         </run_actions>
                         <run_actions ref="md.FDN_Supply.Skip_Report">
                           <param name="Station" value="$Station" />
                           <param name="Ware" value="$Ware" />
                           <param name="Need" value="$Qty" />
-                          <param name="Reason" value="'home DC %1 could not pay pull fee %2, source DC %3 paid full fee %4'.[$Home.knownname, $PullFee, $DC.knownname, $FullFee]" />
+                          <param name="Reason" value="'home DC %1 could not pay pull fee %2, source DC %3 paid full fee %4'.[$Home.knownname, $PullFee.formatted.default + ' Cr', $DC.knownname, $FullFee.formatted.default + ' Cr']" />
                           <param name="Kind" value="'pull-fallback'" />
                         </run_actions>
                       </do_if>
@@ -733,13 +735,14 @@
           <set_value name="$Payer" exact="$Home" />
         </do_if>
         <set_value name="$Before" exact="$Payer.money" />
+        <set_value name="$SrcBefore" exact="$DC.money" comment="card 9h: logging only, source DC balance before the fee" />
         <do_if value="$Fee gt 0Cr">
           <transfer_money from="$Payer" to="faction.ownerless" amount="$Fee" comment="VERIFY: fee leaves the DC account" />
           <set_value name="$Taken" exact="$Before - $Payer.money" comment="what really left the DC account; the game rounds the fee to whole credits" />
           <do_if value="$Taken lt $Fee - 1Cr" comment="VERIFY: 1Cr (100 units) tolerance covers the game's rounding">
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="2" />
-              <param name="Text" value="'fee not taken from DC %1 (before %2, now %3, fee %4, taken %5); transfer cancelled'.[$Payer.knownname, $Before, $Payer.money, $Fee, $Taken]" />
+              <param name="Text" value="'fee not taken from DC %1 (before %2, now %3, fee %4, taken %5); transfer cancelled'.[$Payer.knownname, $Before.formatted.default + ' Cr', $Payer.money.formatted.default + ' Cr', $Fee.formatted.default + ' Cr', $Taken.formatted.default + ' Cr']" />
             </run_actions>
             <do_if value="$Payer.money lt $Before">
               <transfer_money from="faction.ownerless" to="$Payer" amount="$Before - $Payer.money" />
@@ -790,10 +793,10 @@
             <set_value name="$Init.$Pending" exact="[]" />
           </do_if>
           <set_value name="$Due" exact="player.age + $Jumps * $DelayMult" />
-          <append_to_list name="$Init.$Pending" exact="[$Due, $DC, $Station, $Ware, $Qty, $Fee, $Jumps, $Home]" comment="card 9f: 8th field = home DC for a pull, else null" />
+          <append_to_list name="$Init.$Pending" exact="[$Due, $DC, $Station, $Ware, $Qty, $Fee, $Jumps, $Home, $Before, $SrcBefore]" comment="card 9f: 8th field = home DC for a pull, else null. card 9h: 9th/10th = payer and source DC balance before the fee (logging only)" />
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="3" />
-            <param name="Text" value="'QUEUED: %1 %2 from DC %3 to %4, %5 jumps, fee %6, due in %7 s'.[$Qty, $Ware.name, $DC.knownname, $Station.knownname, $Jumps, $Fee, $Jumps * $DelayMult]" />
+            <param name="Text" value="'QUEUED: %1 %2 from DC %3 to %4, %5 jumps, fee %6, due in %7 s'.[$Qty, $Ware.name, $DC.knownname, $Station.knownname, $Jumps, $Fee.formatted.default + ' Cr', $Jumps * $DelayMult]" />
           </run_actions>
           <return value="true" />
         </do_if>
@@ -805,6 +808,8 @@
           <param name="Fee" value="$Fee" />
           <param name="Jumps" value="$Jumps" />
           <param name="Home" value="$Home" />
+          <param name="PayerBefore" value="$Before" />
+          <param name="SrcBefore" value="$SrcBefore" />
         </run_actions>
         <return value="$Ok" />
       </actions>
@@ -823,6 +828,8 @@
         <param name="Fee" />
         <param name="Jumps" />
         <param name="Home" default="null" comment="card 9f: set for a pull, the home DC paid the fee" />
+        <param name="PayerBefore" default="null" comment="card 9h: logging only, payer balance before the fee" />
+        <param name="SrcBefore" default="null" comment="card 9h: logging only, source DC balance before the fee" />
       </params>
       <actions>
         <set_value name="$Payer" exact="$DC" />
@@ -867,6 +874,17 @@
           </run_actions>
           <return value="false" />
         </do_if>
+        <set_value name="$Value" exact="$Ware.averageprice * $Qty" comment="card 9h: logging only, ware value at average price" />
+        <set_value name="$ValueText" exact="$Value.formatted.default + ' Cr'" />
+        <set_value name="$PctText" exact="'n/a'" />
+        <do_if value="$Value gt 0Cr">
+          <set_value name="$Tenths" exact="(($Fee * 1000) / $Value)i" comment="card 9h: fee as tenths of a percent of the value, whole-number maths. VERIFY: money / money gives a number" />
+          <set_value name="$PctText" exact="'%1.%2 pct'.[$Tenths / 10, $Tenths - ($Tenths / 10) * 10]" />
+        </do_if>
+        <set_value name="$PayerBText" exact="if $PayerBefore != null then $PayerBefore.formatted.default + ' Cr' else '?'" />
+        <set_value name="$PayerAText" exact="if $Payer.exists then $Payer.money.formatted.default + ' Cr' else '?'" />
+        <set_value name="$SrcBText" exact="if $SrcBefore != null then $SrcBefore.formatted.default + ' Cr' else '?'" />
+        <set_value name="$SrcAText" exact="if $DC.exists then $DC.money.formatted.default + ' Cr' else '?'" />
         <do_if value="$Home != null" comment="card 9f: a pull">
           <run_actions ref="md.FDN_Supply.Ledger_Add">
             <param name="DC" value="$DC" />
@@ -878,7 +896,7 @@
           </run_actions>
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="3" />
-            <param name="Text" value="'PULL: %1 requested %2 %3 from %4 for %5, %6 jumps, fee %7'.[$Home.knownname, $Qty, $Ware.name, $DC.knownname, $Station.knownname, $Jumps, $Fee]" />
+            <param name="Text" value="'PULL: %1 requested %2 %3 from %4 for %5, %6 jumps, value %7, fee %8 (%9 of value)'.[$Home.knownname, $Qty, $Ware.name, $DC.knownname, $Station.knownname, $Jumps, $ValueText, $Fee.formatted.default + ' Cr', $PctText] + ', ' + $Home.knownname + ' paid: ' + $PayerBText + ' -> ' + $PayerAText + ', source ' + $DC.knownname + ': ' + $SrcBText + ' -> ' + $SrcAText" />
           </run_actions>
         </do_if>
         <do_else>
@@ -887,10 +905,18 @@
             <param name="Entry" value="[player.age, $Station, $Ware, $Qty, $Fee, $Jumps, 'out']" comment="card 9f: kind field at the end" />
           </run_actions>
         </do_else>
-        <run_actions ref="md.FDN_Core.Log">
-          <param name="Level" value="3" />
-          <param name="Text" value="'TRANSFER: %1 %2 from DC %3 to %4, %5 jumps, fee %6'.[$Qty, $Ware.name, $DC.knownname, $Station.knownname, $Jumps, $Fee]" />
-        </run_actions>
+        <do_if value="$Home != null" comment="card 9h: the delivery for the PULL line above, not a second charge">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'TRANSFER (pull): %1 %2 from DC %3 to %4, %5 jumps, value %6, fee %7 (%8 of value) paid by %9, delivery for the PULL above'.[$Qty, $Ware.name, $DC.knownname, $Station.knownname, $Jumps, $ValueText, $Fee.formatted.default + ' Cr', $PctText, $Home.knownname]" />
+          </run_actions>
+        </do_if>
+        <do_else>
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'TRANSFER: %1 %2 from DC %3 to %4, %5 jumps, value %6, fee %7 (%8 of value), DC balance %9'.[$Qty, $Ware.name, $DC.knownname, $Station.knownname, $Jumps, $ValueText, $Fee.formatted.default + ' Cr', $PctText, $PayerBText] + ' -> ' + $PayerAText" />
+          </run_actions>
+        </do_else>
         <return value="true" />
       </actions>
     </library>
@@ -915,7 +941,7 @@
         <do_if value="$Taken lt $Fee - 1Cr" comment="VERIFY: 1Cr tolerance, as Start_Transfer">
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="2" />
-            <param name="Text" value="'fee not taken from DC %1 (before %2, now %3, fee %4, taken %5); return cancelled'.[$DC.knownname, $Before, $DC.money, $Fee, $Taken]" />
+            <param name="Text" value="'fee not taken from DC %1 (before %2, now %3, fee %4, taken %5); return cancelled'.[$DC.knownname, $Before.formatted.default + ' Cr', $DC.money.formatted.default + ' Cr', $Fee.formatted.default + ' Cr', $Taken.formatted.default + ' Cr']" />
           </run_actions>
           <do_if value="$DC.money lt $Before">
             <transfer_money from="faction.ownerless" to="$DC" amount="$Before - $DC.money" />
@@ -942,7 +968,7 @@
           </do_else>
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="2" />
-            <param name="Text" value="'fee %1 refunded'.[$Fee]" />
+            <param name="Text" value="'fee %1 refunded'.[$Fee.formatted.default + ' Cr']" />
           </run_actions>
         </do_if>
       </actions>
@@ -976,6 +1002,8 @@
               <param name="Fee" value="$E.{6}" />
               <param name="Jumps" value="$E.{7}" />
               <param name="Home" value="if $E.count ge 8 then $E.{8} else null" comment="card 9f: entries queued before 9f have 7 fields" />
+              <param name="PayerBefore" value="if $E.count ge 10 then $E.{9} else null" comment="card 9h: entries queued before 9h have no balances" />
+              <param name="SrcBefore" value="if $E.count ge 10 then $E.{10} else null" />
             </run_actions>
           </do_if>
           <do_else>
@@ -1223,7 +1251,7 @@
                       <param name="Station" value="$Station" />
                       <param name="Ware" value="$Ware" />
                       <param name="Need" value="$Qty" />
-                      <param name="Reason" value="'DC %1 cannot pay the return fee (%2 needed, %3 in account)'.[$DC.knownname, $Fee, $DC.money]" />
+                      <param name="Reason" value="'DC %1 cannot pay the return fee (%2 needed, %3 in account)'.[$DC.knownname, $Fee.formatted.default + ' Cr', $DC.money.formatted.default + ' Cr']" />
                       <param name="Kind" value="'return'" />
                     </run_actions>
                   </do_if>
@@ -1283,7 +1311,7 @@
                           </run_actions>
                           <run_actions ref="md.FDN_Core.Log">
                             <param name="Level" value="3" />
-                            <param name="Text" value="'RETURN: %1 %2 from %3 to DC %4, %5 jumps, fee %6'.[$Qty, $Ware.name, $Station.knownname, $DC.knownname, $Jumps, $Fee]" />
+                            <param name="Text" value="'RETURN: %1 %2 from %3 to DC %4, %5 jumps, fee %6'.[$Qty, $Ware.name, $Station.knownname, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr']" />
                           </run_actions>
                         </do_else>
                       </do_else>
