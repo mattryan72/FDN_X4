@@ -7,7 +7,8 @@
       Kept current by: a full rescan on game load, event_player_built_station (add),
       event_player_owned_destroyed (remove). Ownership changes (captured or sold stations) are
       caught by the purge, which also runs on load. The purge (md.FDN_Stations.Purge) runs on each poll.
-      The production-finished trigger below is log-only for now; step 6 and 7 hook the supply check in.
+      The production-finished trigger below queues the finished module (card 9e, md.FDN_Supply.Queue_Trigger);
+      md.FDN_Supply.Start.TriggerLoop then supplies that module's needs.
     -->
     <cue name="Registry" version="1" checktime="5s" checkinterval="5s">
       <conditions>
@@ -71,9 +72,10 @@
         </cue>
 
         <!--
-          Log-only for now (step 9a). Object-level event on the registry group $StationGroup.
+          Object-level event on the registry group $StationGroup.
           event.object = station or production module, param = production module, param2 = product ware, param3 = research flag.
           VERIFY: the event fires for stations in the group, and a production module has .container (station)
+          Card 9e: queues the finished module for a module-only supply check (research cycles ignored).
         -->
         <cue name="OnProductionFinished" instantiate="true">
           <conditions>
@@ -84,6 +86,11 @@
               <run_actions ref="md.FDN_Core.Log">
                 <param name="Level" value="4" />
                 <param name="Text" value="'production finished: module %1, ware %2, station %3'.[event.param, event.param2, @event.param.container]" />
+              </run_actions>
+              <run_actions ref="md.FDN_Supply.Queue_Trigger">
+                <param name="Object" value="event.object" />
+                <param name="Module" value="event.param" />
+                <param name="Ware" value="event.param2" />
               </run_actions>
             </do_if>
           </actions>

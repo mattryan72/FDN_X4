@@ -134,6 +134,29 @@
             </cue>
           </cues>
         </cue>
+
+        <!--
+          Card 9e. Every 5 s, checks modules queued by the production-finished event (Queue_Trigger).
+          Uses the DC list and networks of the last poll pass when they exist ($DCs / $Networks are set by Loop;
+          VERIFY: Loop and TriggerLoop share Start's variables, as Loop and Reset share $Interval). If not, Process_Triggers
+          finds them itself. The 60 s poll above is unchanged and stays the safety net.
+        -->
+        <cue name="TriggerLoop">
+          <actions>
+            <run_actions ref="md.FDN_Supply.Process_Triggers">
+              <param name="DCs" value="@$DCs" />
+              <param name="Networks" value="@$Networks" />
+            </run_actions>
+          </actions>
+          <cues>
+            <cue name="TriggerReset">
+              <delay exact="5s" />
+              <actions>
+                <reset_cue cue="TriggerLoop" />
+              </actions>
+            </cue>
+          </cues>
+        </cue>
       </cues>
     </cue>
 
@@ -335,10 +358,13 @@
       Returns table ware -> [need, required]. Empty when ResourcesFdnManaged is 0 or CyclesToCover le 0.
       CyclesToCover and ResourcesFdnManaged are read per station (Station_Cfg_Get). Never fills storage.
       Recipe: ware.resources = default production method. VERIFY: race-specific methods (ware.raceresources) can differ.
+      Card 9e: optional Module. When set, only that production module's recipe counts (module-only need, used by the
+      production-finished trigger); station stock, claims and the rest are unchanged. The recipe choice itself is not changed.
     -->
     <library name="Calc_Need" purpose="run_actions">
       <params>
         <param name="Station" />
+        <param name="Module" default="null" comment="card 9e: only this module's needs" />
       </params>
       <actions>
         <set_value name="$Out" exact="table[]" />
@@ -362,6 +388,12 @@
         </do_if>
         <set_value name="$Req" exact="table[]" comment="ware -> required amount" />
         <find_object_component object="$Station" name="$Modules" class="class.production" checkoperational="true" multiple="true" />
+        <do_if value="$Module">
+          <set_value name="$Modules" exact="[]" />
+          <do_if value="$Module.exists">
+            <set_value name="$Modules" exact="[$Module]" comment="card 9e: module-only" />
+          </do_if>
+        </do_if>
         <do_all exact="$Modules.count" counter="$m">
           <set_value name="$Products" exact="$Modules.{$m}.products.list" />
           <do_all exact="$Products.count" counter="$p">
@@ -407,6 +439,7 @@
     <library name="Rank_Shortfalls" purpose="run_actions">
       <params>
         <param name="Station" />
+        <param name="Module" default="null" comment="card 9e: passed to Calc_Need" />
       </params>
       <actions>
         <set_value name="$Ranked" exact="[]" />
@@ -415,6 +448,7 @@
         </do_if>
         <run_actions ref="md.FDN_Supply.Calc_Need" result="$Needs">
           <param name="Station" value="$Station" />
+          <param name="Module" value="$Module" />
         </run_actions>
         <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Cycles">
           <param name="Station" value="$Station" />
@@ -516,6 +550,7 @@
         <param name="DCs" />
         <param name="Networks" />
         <param name="Ranked" />
+        <param name="Module" default="null" comment="card 9e: passed to Calc_Need" />
       </params>
       <actions>
         <do_if value="not $Station.exists">
@@ -535,6 +570,7 @@
         </do_if>
         <run_actions ref="md.FDN_Supply.Calc_Need" result="$Needs">
           <param name="Station" value="$Station" />
+          <param name="Module" value="$Module" />
         </run_actions>
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Pct">
           <param name="Key" value="'TransferFeePercent'" />
@@ -1173,6 +1209,193 @@
             </do_if>
           </do_else>
         </do_all>
+      </actions>
+    </library>
+
+    <!--
+      Card 9e. Called by FDN_Stations OnProductionFinished (not for research). Adds the finished module to
+      md.FDN_Core.Init.$TriggerQueue, a saved list of [station, module, ware, time] (created on first use, like $Pending).
+      Station: event.object when it is a station, else the module's .container.
+      VERIFY: which of the two works is shown by 'via object' / 'via container' in the TRIGGER queued line.
+      Skipped: station not in the registry, ResourcesFdnManaged 0, module already queued. Queue capped at 50.
+    -->
+    <library name="Queue_Trigger" purpose="run_actions">
+      <params>
+        <param name="Object" />
+        <param name="Module" />
+        <param name="Ware" default="null" />
+      </params>
+      <actions>
+        <do_if value="not $Module">
+          <return />
+        </do_if>
+        <set_value name="$Station" exact="null" />
+        <set_value name="$Via" exact="'object'" />
+        <do_if value="$Object and $Object.isclass.{class.station}">
+          <set_value name="$Station" exact="$Object" />
+        </do_if>
+        <do_elseif value="$Module.exists">
+          <set_value name="$Station" exact="$Module.container" />
+          <set_value name="$Via" exact="'container'" />
+        </do_elseif>
+        <set_value name="$Reg" exact="md.FDN_Stations.Registry" />
+        <do_if value="not $Station or not $Reg.$Stations?">
+          <return />
+        </do_if>
+        <do_if value="not $Reg.$Stations.indexof.{$Station}">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'TRIGGER: %1 not in registry, ignored'.[$Station.knownname]" />
+          </run_actions>
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Managed">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'ResourcesFdnManaged'" />
+        </run_actions>
+        <do_if value="not $Managed">
+          <return />
+        </do_if>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$TriggerQueue?">
+          <set_value name="$Init.$TriggerQueue" exact="[]" />
+        </do_if>
+        <do_all exact="$Init.$TriggerQueue.count" counter="$k">
+          <do_if value="$Init.$TriggerQueue.{$k}.{2} == $Module">
+            <return comment="already queued" />
+          </do_if>
+        </do_all>
+        <do_if value="$Init.$TriggerQueue.count ge 50">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'TRIGGER: queue full (50), %1 not queued; the poll will cover it'.[$Station.knownname]" />
+          </run_actions>
+          <return />
+        </do_if>
+        <append_to_list name="$Init.$TriggerQueue" exact="[$Station, $Module, $Ware, player.age]" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'TRIGGER: %1 queued (production finished, module %2, %3, via %4)'.[$Station.knownname, $Module.knownname, @$Ware.name, $Via]" />
+        </run_actions>
+      </actions>
+    </library>
+
+    <!--
+      Card 9e. Works through $TriggerQueue (called every 5 s by Start.TriggerLoop).
+      For each queued module: module-only need (Calc_Need with Module: that module's recipe x CyclesToCover,
+      minus station stock and claims), ranked, then Supply_Station with the same Module (free space, DC reserve,
+      fee paid by the DC, all or nothing, skips reported) - the same code the poll uses.
+      Throttle: one check per station per TriggerMinGap seconds. A module whose station was checked too recently
+      stays queued (deferred, not dropped). 'throttled' is logged at most once a minute per station.
+      Last check per station: md.FDN_Core.Init.$TriggerLast, list of [station, last check, last throttled log].
+      Entries for stations or modules that no longer exist are dropped.
+    -->
+    <library name="Process_Triggers" purpose="run_actions">
+      <params>
+        <param name="DCs" default="null" />
+        <param name="Networks" default="null" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$TriggerQueue?">
+          <return />
+        </do_if>
+        <do_if value="$Init.$TriggerQueue.count == 0">
+          <return />
+        </do_if>
+        <do_if value="not $Init.$TriggerLast?">
+          <set_value name="$Init.$TriggerLast" exact="[]" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Gap">
+          <param name="Key" value="'TriggerMinGap'" />
+        </run_actions>
+        <do_if value="not ($Gap ge 0)">
+          <set_value name="$Gap" exact="20" />
+        </do_if>
+        <set_value name="$All" exact="$Init.$TriggerQueue" />
+        <set_value name="$Init.$TriggerQueue" exact="[]" />
+        <set_value name="$Keep" exact="[]" />
+        <do_all exact="$All.count" counter="$i">
+          <set_value name="$E" exact="$All.{$i}" />
+          <set_value name="$Station" exact="$E.{1}" />
+          <set_value name="$Module" exact="$E.{2}" />
+          <do_if value="$Station.exists and $Module.exists and $Station.owner == faction.player">
+            <set_value name="$LastIdx" exact="0" />
+            <do_all exact="$Init.$TriggerLast.count" counter="$k">
+              <do_if value="$Init.$TriggerLast.{$k}.{1} == $Station">
+                <set_value name="$LastIdx" exact="$k" />
+              </do_if>
+            </do_all>
+            <set_value name="$LastLog" exact="0" />
+            <set_value name="$Ready" exact="true" />
+            <do_if value="$LastIdx gt 0">
+              <set_value name="$L" exact="$Init.$TriggerLast.{$LastIdx}" />
+              <set_value name="$LastLog" exact="$L.{3}" />
+              <do_if value="player.age lt $L.{2} + $Gap">
+                <set_value name="$Ready" exact="false" />
+                <append_to_list name="$Keep" exact="$E" />
+                <do_if value="player.age ge $L.{3} + 60">
+                  <run_actions ref="md.FDN_Core.Log">
+                    <param name="Level" value="3" />
+                    <param name="Text" value="'TRIGGER: %1 throttled (checked under %2 s ago), module %3 waits'.[$Station.knownname, $Gap, $Module.knownname]" />
+                  </run_actions>
+                  <set_value name="$Init.$TriggerLast.{$LastIdx}" exact="[$Station, $L.{2}, player.age]" />
+                </do_if>
+              </do_if>
+            </do_if>
+            <do_if value="$Ready">
+              <do_if value="$LastIdx gt 0">
+                <set_value name="$Init.$TriggerLast.{$LastIdx}" exact="[$Station, player.age, $LastLog]" />
+              </do_if>
+              <do_else>
+                <append_to_list name="$Init.$TriggerLast" exact="[$Station, player.age, 0]" />
+              </do_else>
+              <do_if value="not $DCs">
+                <run_actions ref="md.FDN_Supply.Find_DCs" result="$DCs" />
+                <run_actions ref="md.FDN_Core.Cfg_Get" result="$NetRange">
+                  <param name="Key" value="'DCNetworkRange'" />
+                </run_actions>
+                <run_actions ref="md.FDN_Supply.Build_Networks" result="$Networks">
+                  <param name="DCs" value="$DCs" />
+                  <param name="Range" value="$NetRange" />
+                </run_actions>
+              </do_if>
+              <run_actions ref="md.FDN_Supply.Rank_Shortfalls" result="$Ranked">
+                <param name="Station" value="$Station" />
+                <param name="Module" value="$Module" />
+              </run_actions>
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="3" />
+                <param name="Text" value="'TRIGGER: %1 checked module %2, need %3 ware(s), %4 DC(s) known'.[$Station.knownname, $Module.knownname, $Ranked.count, $DCs.count]" />
+              </run_actions>
+              <do_if value="$Ranked.count gt 0 and $DCs.count gt 0">
+                <run_actions ref="md.FDN_Supply.Supply_Station">
+                  <param name="Station" value="$Station" />
+                  <param name="DCs" value="$DCs" />
+                  <param name="Networks" value="$Networks" />
+                  <param name="Ranked" value="$Ranked" />
+                  <param name="Module" value="$Module" />
+                </run_actions>
+              </do_if>
+            </do_if>
+          </do_if>
+          <do_else>
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="4" />
+              <param name="Text" value="'TRIGGER: queued entry dropped (station or module gone)'" />
+            </run_actions>
+          </do_else>
+        </do_all>
+        <do_all exact="$Keep.count" counter="$k">
+          <append_to_list name="$Init.$TriggerQueue" exact="$Keep.{$k}" />
+        </do_all>
+        <set_value name="$Last" exact="[]" />
+        <do_all exact="$Init.$TriggerLast.count" counter="$k">
+          <do_if value="$Init.$TriggerLast.{$k}.{1}.exists">
+            <append_to_list name="$Last" exact="$Init.$TriggerLast.{$k}" />
+          </do_if>
+        </do_all>
+        <set_value name="$Init.$TriggerLast" exact="$Last" />
       </actions>
     </library>
 

@@ -103,10 +103,11 @@
             <set_value name="$Defaults.{'$FeeTypeMult'}" exact="1.0" comment="fee ware-type factor, flat for now. Decimals allowed" />
             <set_value name="$Defaults.{'$ReturnFeeMult'}" exact="0.5" comment="card 9c-fee: station-to-DC return fee = supply fee x this (Matt: half). The DC pays. Decimals allowed" />
             <set_value name="$Defaults.{'$DCToDCFeeMult'}" exact="0.1" comment="card 9c-fee: reserved for DC to DC pulls where the requesting DC pays (supply fee x this). Setting only, no code uses it yet" />
+            <set_value name="$Defaults.{'$TriggerMinGap'}" exact="20" comment="card 9e: min seconds between two production-finished checks of the same station. Later checks wait, they are not dropped" />
             <set_value name="$Defaults.{'$LogbookSkipInterval'}" exact="600" comment="seconds before the same skipped station and ware is written to the logbook again" />
 
             <!-- ===== Station-side settings (step 9, each can be overridden per station with Station_Cfg_Set) ===== -->
-            <set_value name="$Defaults.{'$CyclesToCover'}" exact="1" comment="production cycles of resources FDN supplies ahead" />
+            <set_value name="$Defaults.{'$CyclesToCover'}" exact="2" comment="production cycles of resources FDN supplies ahead. Card 9e: default 2 (was 1); set back to 1 here to revert" />
             <set_value name="$Defaults.{'$ResourcesFdnManaged'}" exact="1" comment="1 = FDN supplies this station's resources" />
             <set_value name="$Defaults.{'$ProductsFdnManaged'}" exact="1" comment="1 = this station's products go to its nearest DC (card 9c)" />
             <set_value name="$Defaults.{'$ProductMinBatch'}" exact="100" comment="card 9c: smallest amount of a product sent to the DC in one go" />
