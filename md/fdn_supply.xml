@@ -594,8 +594,14 @@
           <param name="Key" value="'DCToDCFeeMult'" />
         </run_actions>
         <set_value name="$PullFactor" exact="($PullMult * 1000)i" comment="card 9f: whole-number factor (0.1 = 100), money x float is not allowed" />
-        <set_value name="$Home" exact="$Cands.{1}.{1}" comment="card 9f: the nearest (home) DC" />
-        <do_if value="$Cands.count gt 2" comment="card 9f: other DCs ordered nearest to the home DC first">
+        <set_value name="$SelfHome" exact="$DCs.indexof.{$Station} gt 0" comment="card 9g: the station is itself a DC, so it is its own home DC. VERIFY: indexof is 0 when not in the list" />
+        <do_if value="$SelfHome">
+          <set_value name="$Home" exact="$Station" comment="card 9g: own stock is the station's normal stock, every other DC is a pull" />
+        </do_if>
+        <do_else>
+          <set_value name="$Home" exact="$Cands.{1}.{1}" comment="card 9f: the nearest (home) DC" />
+        </do_else>
+        <do_if value="not $SelfHome and $Cands.count gt 2" comment="card 9g: a self-home DC keeps the order by distance from the station. card 9f: other DCs ordered nearest to the home DC first">
           <set_value name="$ByHome" exact="table[]" />
           <do_all exact="$Cands.count - 1" counter="$h">
             <set_value name="$ByHome.{$Cands.{$h + 1}.{1}}" exact="$Home.gatedistance.{$Cands.{$h + 1}.{1}}" comment="VERIFY: gatedistance between two stations" />
@@ -641,7 +647,7 @@
                   <set_value name="$Fallback" exact="false" />
                   <set_value name="$FullFee" exact="$Fee" />
                   <set_value name="$PullFee" exact="0Cr" />
-                  <do_if value="$c gt 1" comment="card 9f: a pull, the home DC pays the supply fee x DCToDCFeeMult">
+                  <do_if value="$SelfHome or $c gt 1" comment="card 9g: for a self-home DC every candidate is a pull. card 9f: a pull, the home DC pays the supply fee x DCToDCFeeMult">
                     <set_value name="$Kind" exact="'pull'" />
                     <set_value name="$PullFee" exact="($Fee * $PullFactor) / 1000" />
                     <do_if value="$Home.money ge $PullFee">
