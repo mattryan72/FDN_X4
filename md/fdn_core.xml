@@ -107,6 +107,8 @@
             <set_value name="$Defaults.{'$CyclesToCover'}" exact="1" comment="production cycles of resources FDN supplies ahead" />
             <set_value name="$Defaults.{'$ResourcesFdnManaged'}" exact="1" comment="1 = FDN supplies this station's resources" />
             <set_value name="$Defaults.{'$ProductsFdnManaged'}" exact="1" comment="1 = this station's products go to its nearest DC (card 9c)" />
+            <set_value name="$Defaults.{'$ProductMinBatch'}" exact="100" comment="card 9c: smallest amount of a product sent to the DC in one go" />
+            <set_value name="$Defaults.{'$ProductKeepWare'}" exact="table[]" comment="card 9c: per-ware amount a station keeps of its own product, ware -> amount. Empty = keep 0" />
           </actions>
         </library>
 

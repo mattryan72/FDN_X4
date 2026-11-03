@@ -112,6 +112,11 @@
                       <param name="Ranked" value="$Ranked" />
                     </run_actions>
                   </do_if>
+                  <!-- Step 9c: send this station's products to its nearest DC -->
+                  <run_actions ref="md.FDN_Supply.Return_Products">
+                    <param name="Station" value="$Station" />
+                    <param name="Near" value="$Near" />
+                  </run_actions>
                   <set_value name="$Index" operation="add" />
                   <do_if value="$Index gt $Count">
                     <set_value name="$Index" exact="1" />
@@ -875,6 +880,7 @@
         <param name="Ware" />
         <param name="Need" />
         <param name="Reason" />
+        <param name="Kind" default="'supply'" comment="card 9c: 'supply' or 'return', only changes the logbook title" />
       </params>
       <actions>
         <run_actions ref="md.FDN_Core.Log">
@@ -923,7 +929,161 @@
         <do_if value="$Throttled">
           <return />
         </do_if>
-        <write_to_logbook category="upkeep" title="'FDN: supply skipped at %1'.[$Station.knownname]" text="'%1 (need %2): %3'.[$Ware.name, $Need, $Reason]" interaction="showonmap" object="$Station" comment="VERIFY: text attribute shows under the title, as in vanilla diplomacy.xml" />
+        <write_to_logbook category="upkeep" title="'FDN: %1 skipped at %2'.[$Kind, $Station.knownname]" text="'%1 (need %2): %3'.[$Ware.name, $Need, $Reason]" interaction="showonmap" object="$Station" comment="VERIFY: text attribute shows under the title, as in vanilla diplomacy.xml" />
+      </actions>
+    </library>
+
+    <!--
+      Step 9c. Sends a station's products to its nearest DC (Matt's design: a station never supplies other stations;
+      it sends its product to a DC or holds it). Runs for every polled station with ProductsFdnManaged (per station).
+      Product  = a ware made by one of the station's operational production modules (module .products, as Scan_Station).
+      Excluded = any ware that is also a resource of one of its own modules (recipe ware.resources, as Calc_Need)
+                 or is listed in station .resources (VERIFY: station.resources.list = all resource wares incl. habitation).
+      qty      = stock - keep (ProductKeepWare.{ware}, default 0), limited by the DC's free space for the ware,
+                 sent only when qty ge ProductMinBatch. All or nothing.
+      Choices: NO fee for product returns (the DC pays fees only for outgoing supply). Always immediate (TransferDelay
+      is not used: the 9b queue delivers into a station, not into a DC). A DC never returns to itself.
+      Ledger: entry [time, station, ware, qty, 0Cr, jumps, 'in'] under the DC (9b supply entries have no 7th field).
+    -->
+    <library name="Return_Products" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Near" />
+      </params>
+      <actions>
+        <do_if value="not $Station.exists">
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Managed">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'ProductsFdnManaged'" />
+        </run_actions>
+        <do_if value="not $Managed">
+          <return />
+        </do_if>
+        <set_value name="$DC" exact="$Near.{1}" />
+        <set_value name="$Jumps" exact="$Near.{2}" />
+        <do_if value="$DC == $Station">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'return: %1 is a DC, keeps its own products'.[$Station.knownname]" />
+          </run_actions>
+          <return />
+        </do_if>
+        <set_value name="$Made" exact="[]" comment="wares the station produces" />
+        <set_value name="$Used" exact="[]" comment="wares its own modules consume" />
+        <find_object_component object="$Station" name="$Modules" class="class.production" checkoperational="true" multiple="true" />
+        <do_all exact="$Modules.count" counter="$m">
+          <set_value name="$Products" exact="$Modules.{$m}.products.list" />
+          <do_all exact="$Products.count" counter="$p">
+            <set_value name="$Product" exact="$Products.{$p}" />
+            <do_if value="not $Made.indexof.{$Product}">
+              <append_to_list name="$Made" exact="$Product" />
+            </do_if>
+            <set_value name="$Resources" exact="$Product.resources.list" />
+            <do_all exact="$Resources.count" counter="$r">
+              <do_if value="not $Used.indexof.{$Resources.{$r}}">
+                <append_to_list name="$Used" exact="$Resources.{$r}" />
+              </do_if>
+            </do_all>
+          </do_all>
+        </do_all>
+        <set_value name="$StationRes" exact="$Station.resources.list" comment="VERIFY: as used by the 9b DIAG lines" />
+        <do_all exact="$StationRes.count" counter="$r">
+          <do_if value="not $Used.indexof.{$StationRes.{$r}}">
+            <append_to_list name="$Used" exact="$StationRes.{$r}" />
+          </do_if>
+        </do_all>
+        <do_if value="$Made.count == 0">
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$MinBatch">
+          <param name="Key" value="'ProductMinBatch'" />
+        </run_actions>
+        <do_if value="not ($MinBatch gt 0)">
+          <set_value name="$MinBatch" exact="1" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$KeepTbl">
+          <param name="Key" value="'ProductKeepWare'" />
+        </run_actions>
+        <do_all exact="$Made.count" counter="$w">
+          <set_value name="$Ware" exact="$Made.{$w}" />
+          <do_if value="$Used.indexof.{$Ware}">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="4" />
+              <param name="Text" value="'return: %1, %2 is also a resource there, held'.[$Station.knownname, $Ware.name]" />
+            </run_actions>
+          </do_if>
+          <do_else>
+            <set_value name="$Keep" exact="0" />
+            <do_if value="$KeepTbl and $KeepTbl.{$Ware}?" comment="VERIFY: a table setting read through Cfg_Get keeps ware keys (same as DCKeepWare)">
+              <set_value name="$Keep" exact="$KeepTbl.{$Ware}" />
+            </do_if>
+            <set_value name="$Spare" exact="$Station.cargo.{$Ware}.count - $Keep" />
+            <do_if value="$Spare ge $MinBatch">
+              <do_if value="not $DC">
+                <run_actions ref="md.FDN_Supply.Skip_Report">
+                  <param name="Station" value="$Station" />
+                  <param name="Ware" value="$Ware" />
+                  <param name="Need" value="$Spare" />
+                  <param name="Reason" value="'no DC in range to take the product'" />
+                  <param name="Kind" value="'return'" />
+                </run_actions>
+              </do_if>
+              <do_else>
+                <set_value name="$Free" exact="$DC.cargo.{$Ware}.free" comment="VERIFY: per-ware free space at the DC (0 when the DC has no storage of that type)" />
+                <set_value name="$Qty" exact="[$Spare, $Free].min" />
+                <do_if value="$Qty lt $MinBatch">
+                  <run_actions ref="md.FDN_Supply.Skip_Report">
+                    <param name="Station" value="$Station" />
+                    <param name="Ware" value="$Ware" />
+                    <param name="Need" value="$Spare" />
+                    <param name="Reason" value="'DC %1 is full for it (free %2)'.[$DC.knownname, $Free]" />
+                    <param name="Kind" value="'return'" />
+                  </run_actions>
+                </do_if>
+                <do_else>
+                  <remove_cargo object="$Station" ware="$Ware" exact="$Qty" result="$Removed" comment="result = amount removed (proven by 9b DIAG)" />
+                  <do_if value="$Removed lt $Qty">
+                    <do_if value="$Removed gt 0">
+                      <add_cargo object="$Station" ware="$Ware" exact="$Removed" />
+                    </do_if>
+                    <run_actions ref="md.FDN_Core.Log">
+                      <param name="Level" value="2" />
+                      <param name="Text" value="'return: could not take %1 %2 from %3 (got %4); put back'.[$Qty, $Ware.name, $Station.knownname, $Removed]" />
+                    </run_actions>
+                  </do_if>
+                  <do_else>
+                    <add_cargo object="$DC" ware="$Ware" exact="$Qty" result="$Added" comment="result = amount added (proven by 9b DIAG)" />
+                    <do_if value="$Added lt $Qty">
+                      <do_if value="$Added gt 0">
+                        <remove_cargo object="$DC" ware="$Ware" exact="$Added" />
+                      </do_if>
+                      <add_cargo object="$Station" ware="$Ware" exact="$Qty" />
+                      <run_actions ref="md.FDN_Supply.Skip_Report">
+                        <param name="Station" value="$Station" />
+                        <param name="Ware" value="$Ware" />
+                        <param name="Need" value="$Qty" />
+                        <param name="Reason" value="'DC %1 took only %2, all put back at the station'.[$DC.knownname, $Added]" />
+                        <param name="Kind" value="'return'" />
+                      </run_actions>
+                    </do_if>
+                    <do_else>
+                      <run_actions ref="md.FDN_Supply.Ledger_Add">
+                        <param name="DC" value="$DC" />
+                        <param name="Entry" value="[player.age, $Station, $Ware, $Qty, 0Cr, $Jumps, 'in']" />
+                      </run_actions>
+                      <run_actions ref="md.FDN_Core.Log">
+                        <param name="Level" value="3" />
+                        <param name="Text" value="'RETURN: %1 %2 from %3 to DC %4, %5 jumps'.[$Qty, $Ware.name, $Station.knownname, $DC.knownname, $Jumps]" />
+                      </run_actions>
+                    </do_else>
+                  </do_else>
+                </do_else>
+              </do_else>
+            </do_if>
+          </do_else>
+        </do_all>
       </actions>
     </library>
 
