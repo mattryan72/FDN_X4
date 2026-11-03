@@ -775,6 +775,37 @@
       </actions>
     </library>
 
+    <!--
+      Card 9c-fee. Takes a fee from the DC account (same steps and 1Cr rounding tolerance as Start_Transfer).
+      Returns what really left the account (0Cr when the fee is 0), or -1Cr when the fee was not taken
+      (anything that did leave is put back). Start_Transfer is left as it is (proven in game).
+    -->
+    <library name="Take_Fee" purpose="run_actions">
+      <params>
+        <param name="DC" />
+        <param name="Fee" />
+      </params>
+      <actions>
+        <do_if value="not ($Fee gt 0Cr)">
+          <return value="0Cr" />
+        </do_if>
+        <set_value name="$Before" exact="$DC.money" />
+        <transfer_money from="$DC" to="faction.ownerless" amount="$Fee" comment="as Start_Transfer" />
+        <set_value name="$Taken" exact="$Before - $DC.money" comment="the game rounds the fee to whole credits" />
+        <do_if value="$Taken lt $Fee - 1Cr" comment="VERIFY: 1Cr tolerance, as Start_Transfer">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'fee not taken from DC %1 (before %2, now %3, fee %4, taken %5); return cancelled'.[$DC.knownname, $Before, $DC.money, $Fee, $Taken]" />
+          </run_actions>
+          <do_if value="$DC.money lt $Before">
+            <transfer_money from="faction.ownerless" to="$DC" amount="$Before - $DC.money" />
+          </do_if>
+          <return value="-1Cr" comment="VERIFY: a negative money literal is accepted" />
+        </do_if>
+        <return value="$Taken" />
+      </actions>
+    </library>
+
     <!-- Step 9b. Refunds a fee to the DC (to the player's own account if the DC is gone). -->
     <library name="Undo_Fee" purpose="run_actions">
       <params>
@@ -941,9 +972,12 @@
                  or is listed in station .resources (VERIFY: station.resources.list = all resource wares incl. habitation).
       qty      = stock - keep (ProductKeepWare.{ware}, default 0), limited by the DC's free space for the ware,
                  sent only when qty ge ProductMinBatch. All or nothing.
-      Choices: NO fee for product returns (the DC pays fees only for outgoing supply). Always immediate (TransferDelay
-      is not used: the 9b queue delivers into a station, not into a DC). A DC never returns to itself.
-      Ledger: entry [time, station, ware, qty, 0Cr, jumps, 'in'] under the DC (9b supply entries have no 7th field).
+      Fee (card 9c-fee, Matt): a return costs the supply fee (same formula as Supply_Station) x ReturnFeeMult
+      (default 0.5), folded into the same whole-number factor. The DC pays (Take_Fee, same steps as Start_Transfer).
+      All or nothing: if the DC cannot pay, the return is skipped and reported; if the cargo move fails after the fee
+      is taken, the fee is refunded (Undo_Fee). Always immediate (TransferDelay is not used: the 9b queue delivers
+      into a station, not into a DC). A DC never returns to itself.
+      Ledger: entry [time, station, ware, qty, fee, jumps, 'in'] under the DC (9b supply entries have no 7th field).
     -->
     <library name="Return_Products" purpose="run_actions">
       <params>
@@ -1006,6 +1040,21 @@
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$KeepTbl">
           <param name="Key" value="'ProductKeepWare'" />
         </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Pct">
+          <param name="Key" value="'TransferFeePercent'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$RangeMult">
+          <param name="Key" value="'FeeRangeMult'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$VolMult">
+          <param name="Key" value="'FeeVolumeMult'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$TypeMult">
+          <param name="Key" value="'FeeTypeMult'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$ReturnMult">
+          <param name="Key" value="'ReturnFeeMult'" />
+        </run_actions>
         <do_all exact="$Made.count" counter="$w">
           <set_value name="$Ware" exact="$Made.{$w}" />
           <do_if value="$Used.indexof.{$Ware}">
@@ -1043,40 +1092,80 @@
                   </run_actions>
                 </do_if>
                 <do_else>
-                  <remove_cargo object="$Station" ware="$Ware" exact="$Qty" result="$Removed" comment="result = amount removed (proven by 9b DIAG)" />
-                  <do_if value="$Removed lt $Qty">
-                    <do_if value="$Removed gt 0">
-                      <add_cargo object="$Station" ware="$Ware" exact="$Removed" />
-                    </do_if>
-                    <run_actions ref="md.FDN_Core.Log">
-                      <param name="Level" value="2" />
-                      <param name="Text" value="'return: could not take %1 %2 from %3 (got %4); put back'.[$Qty, $Ware.name, $Station.knownname, $Removed]" />
+                  <set_value name="$FeeFactor" exact="($Pct * (1.0 + $Jumps * $RangeMult) * $VolMult * $TypeMult * $ReturnMult * 1000)i" comment="card 9c-fee: supply-fee factor x ReturnFeeMult as one whole number (2 pct x 1.6 x 0.5 = 1600). Money x float is not allowed" />
+                  <set_value name="$Fee" exact="($Ware.averageprice * $Qty * $FeeFactor) / 100000" comment="same pattern as Supply_Station" />
+                  <do_if value="$Fee lt 0Cr">
+                    <set_value name="$Fee" exact="0Cr" />
+                  </do_if>
+                  <do_if value="$DC.money lt $Fee">
+                    <run_actions ref="md.FDN_Supply.Skip_Report">
+                      <param name="Station" value="$Station" />
+                      <param name="Ware" value="$Ware" />
+                      <param name="Need" value="$Qty" />
+                      <param name="Reason" value="'DC %1 cannot pay the return fee (%2 needed, %3 in account)'.[$DC.knownname, $Fee, $DC.money]" />
+                      <param name="Kind" value="'return'" />
                     </run_actions>
                   </do_if>
                   <do_else>
-                    <add_cargo object="$DC" ware="$Ware" exact="$Qty" result="$Added" comment="result = amount added (proven by 9b DIAG)" />
-                    <do_if value="$Added lt $Qty">
-                      <do_if value="$Added gt 0">
-                        <remove_cargo object="$DC" ware="$Ware" exact="$Added" />
-                      </do_if>
-                      <add_cargo object="$Station" ware="$Ware" exact="$Qty" />
+                    <run_actions ref="md.FDN_Supply.Take_Fee" result="$Taken">
+                      <param name="DC" value="$DC" />
+                      <param name="Fee" value="$Fee" />
+                    </run_actions>
+                    <do_if value="$Taken lt 0Cr">
                       <run_actions ref="md.FDN_Supply.Skip_Report">
                         <param name="Station" value="$Station" />
                         <param name="Ware" value="$Ware" />
                         <param name="Need" value="$Qty" />
-                        <param name="Reason" value="'DC %1 took only %2, all put back at the station'.[$DC.knownname, $Added]" />
+                        <param name="Reason" value="'return fee could not be taken from DC %1, nothing moved'.[$DC.knownname]" />
                         <param name="Kind" value="'return'" />
                       </run_actions>
                     </do_if>
                     <do_else>
-                      <run_actions ref="md.FDN_Supply.Ledger_Add">
-                        <param name="DC" value="$DC" />
-                        <param name="Entry" value="[player.age, $Station, $Ware, $Qty, 0Cr, $Jumps, 'in']" />
-                      </run_actions>
-                      <run_actions ref="md.FDN_Core.Log">
-                        <param name="Level" value="3" />
-                        <param name="Text" value="'RETURN: %1 %2 from %3 to DC %4, %5 jumps'.[$Qty, $Ware.name, $Station.knownname, $DC.knownname, $Jumps]" />
-                      </run_actions>
+                      <set_value name="$Fee" exact="$Taken" comment="from here on (refund, ledger, RETURN log) the fee is what really left the DC account" />
+                      <remove_cargo object="$Station" ware="$Ware" exact="$Qty" result="$Removed" comment="result = amount removed (proven by 9b DIAG)" />
+                      <do_if value="$Removed lt $Qty">
+                        <do_if value="$Removed gt 0">
+                          <add_cargo object="$Station" ware="$Ware" exact="$Removed" />
+                        </do_if>
+                        <run_actions ref="md.FDN_Supply.Undo_Fee">
+                          <param name="DC" value="$DC" />
+                          <param name="Fee" value="$Fee" />
+                        </run_actions>
+                        <run_actions ref="md.FDN_Core.Log">
+                          <param name="Level" value="2" />
+                          <param name="Text" value="'return: could not take %1 %2 from %3 (got %4); put back and fee refunded'.[$Qty, $Ware.name, $Station.knownname, $Removed]" />
+                        </run_actions>
+                      </do_if>
+                      <do_else>
+                        <add_cargo object="$DC" ware="$Ware" exact="$Qty" result="$Added" comment="result = amount added (proven by 9b DIAG)" />
+                        <do_if value="$Added lt $Qty">
+                          <do_if value="$Added gt 0">
+                            <remove_cargo object="$DC" ware="$Ware" exact="$Added" />
+                          </do_if>
+                          <add_cargo object="$Station" ware="$Ware" exact="$Qty" />
+                          <run_actions ref="md.FDN_Supply.Undo_Fee">
+                            <param name="DC" value="$DC" />
+                            <param name="Fee" value="$Fee" />
+                          </run_actions>
+                          <run_actions ref="md.FDN_Supply.Skip_Report">
+                            <param name="Station" value="$Station" />
+                            <param name="Ware" value="$Ware" />
+                            <param name="Need" value="$Qty" />
+                            <param name="Reason" value="'DC %1 took only %2, all put back at the station and fee refunded'.[$DC.knownname, $Added]" />
+                            <param name="Kind" value="'return'" />
+                          </run_actions>
+                        </do_if>
+                        <do_else>
+                          <run_actions ref="md.FDN_Supply.Ledger_Add">
+                            <param name="DC" value="$DC" />
+                            <param name="Entry" value="[player.age, $Station, $Ware, $Qty, $Fee, $Jumps, 'in']" />
+                          </run_actions>
+                          <run_actions ref="md.FDN_Core.Log">
+                            <param name="Level" value="3" />
+                            <param name="Text" value="'RETURN: %1 %2 from %3 to DC %4, %5 jumps, fee %6'.[$Qty, $Ware.name, $Station.knownname, $DC.knownname, $Jumps, $Fee]" />
+                          </run_actions>
+                        </do_else>
+                      </do_else>
                     </do_else>
                   </do_else>
                 </do_else>

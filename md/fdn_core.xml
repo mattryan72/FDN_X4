@@ -101,6 +101,8 @@
             <set_value name="$Defaults.{'$FeeRangeMult'}" exact="0.2" comment="fee range factor: fee x (1 + jumps x this). Default 0.2 (3 jumps = 1.6x base). Decimals allowed" />
             <set_value name="$Defaults.{'$FeeVolumeMult'}" exact="1.0" comment="fee volume factor, flat for now. Decimals allowed" />
             <set_value name="$Defaults.{'$FeeTypeMult'}" exact="1.0" comment="fee ware-type factor, flat for now. Decimals allowed" />
+            <set_value name="$Defaults.{'$ReturnFeeMult'}" exact="0.5" comment="card 9c-fee: station-to-DC return fee = supply fee x this (Matt: half). The DC pays. Decimals allowed" />
+            <set_value name="$Defaults.{'$DCToDCFeeMult'}" exact="0.1" comment="card 9c-fee: reserved for DC to DC pulls where the requesting DC pays (supply fee x this). Setting only, no code uses it yet" />
             <set_value name="$Defaults.{'$LogbookSkipInterval'}" exact="600" comment="seconds before the same skipped station and ware is written to the logbook again" />
 
             <!-- ===== Station-side settings (step 9, each can be overridden per station with Station_Cfg_Set) ===== -->
