@@ -767,10 +767,10 @@
         </do_else>
         <set_value name="$Found" exact="0" />
         <set_value name="$NRange" exact="0" />
-        <set_value name="$NBlocked" exact="0" comment="player-owned, hostile, trade-restricted or cannot trade with the home DC" />
+        <set_value name="$NBlocked" exact="0" comment="09m: player-owned, hostile or cannot trade with the home DC" />
         <set_value name="$NPlayer" exact="0" />
         <set_value name="$NHostile" exact="0" />
-        <set_value name="$NRestricted" exact="0" />
+        <set_value name="$NRestricted" exact="0" comment="09m: info only, does not block" />
         <set_value name="$NCantrade" exact="0" />
         <set_value name="$Sampled" exact="false" />
         <set_value name="$NEmpty" exact="0" />
@@ -790,7 +790,8 @@
                 <!-- 09l: each block reason evaluated separately and counted on its own; blocked if any is true (same as 09k) -->
                 <set_value name="$BP" exact="$Seller.isplayerowned == true" />
                 <set_value name="$BH" exact="$Seller.ishostileto.{faction.player} == true" />
-                <set_value name="$BR" exact="$Seller.istraderestricted.{$Ware} == true" />
+                <set_value name="$BR" exact="$Seller.istraderestricted.{$Ware} == true" comment="09m: info only; true for every offer in the 09l test, so it no longer blocks" />
+                <set_value name="$BRG" exact="$Seller.istraderestricted == true" comment="09m: info only, the no-ware form vanilla uses (upkeep_management.xml:391)" />
                 <set_value name="$BC" exact="false" />
                 <do_if value="$Home != null">
                   <set_value name="$BC" exact="not $Of.cantradewith.{$Home}" comment="VERIFY: vanilla passes a ship (order.trade.middleman.xml:578, trade.find.free.xml:450)" />
@@ -811,10 +812,10 @@
                   </do_if>
                   <run_actions ref="md.FDN_Core.Log">
                     <param name="Level" value="3" />
-                    <param name="Text" value="'NPC SAMPLE: seller %1 (%2), isplayerowned %3, hostile %4, restricted %5, cantradewith home %6, cantradewith player ship %7'.[$Seller.knownname, (if $Seller.owner != null then $Seller.owner.knownname else '?'), (if $BP then 1 else 0), (if $BH then 1 else 0), (if $BR then 1 else 0), (if $BC then 0 else 1), $CS] + ', unit %1, amount %2, offer restriction factions %3 (inverted %4)'.[$Of.unitprice.formatted.default + ' Cr', $Of.amount, $RF, (if $Of.restriction.inverted then 1 else 0)]" />
+                    <param name="Text" value="'NPC SAMPLE: seller %1 (%2), isplayerowned %3, hostile %4, restricted(info only) %5, restricted-global(info only) %8, cantradewith home %6, cantradewith player ship %7'.[$Seller.knownname, (if $Seller.owner != null then $Seller.owner.knownname else '?'), (if $BP then 1 else 0), (if $BH then 1 else 0), (if $BR then 1 else 0), (if $BC then 0 else 1), $CS, (if $BRG then 1 else 0)] + ', unit %1, amount %2, offer restriction factions %3 (inverted %4)'.[$Of.unitprice.formatted.default + ' Cr', $Of.amount, $RF, (if $Of.restriction.inverted then 1 else 0)]" />
                   </run_actions>
                 </do_if>
-                <do_if value="$BP or $BH or $BR or $BC">
+                <do_if value="$BP or $BH or $BC" comment="09m: per-ware trade restriction no longer blocks">
                   <set_value name="$NBlocked" exact="$NBlocked + 1" />
                 </do_if>
                 <do_else>
@@ -851,7 +852,7 @@
         </do_while>
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'NPC CHECK: %1 needs %2 %3, home DC %4, %5 offer(s) found, %6 usable, %7 over price cap'.[$Station.knownname, $Need, $Ware.name, $HomeName, $Found, $Ranked.count, $NOver] + ' (blocked %1: player-owned %2, hostile %3, restricted %4, cannot-trade %5; out of range %6, empty %7)'.[$NBlocked, $NPlayer, $NHostile, $NRestricted, $NCantrade, $NRange, $NEmpty]" />
+          <param name="Text" value="'NPC CHECK: %1 needs %2 %3, home DC %4, %5 offer(s) found, %6 usable, %7 over price cap'.[$Station.knownname, $Need, $Ware.name, $HomeName, $Found, $Ranked.count, $NOver] + ' (blocked %1: player-owned %2, hostile %3, cannot-trade %5, restricted(info only) %4; out of range %6, empty %7)'.[$NBlocked, $NPlayer, $NHostile, $NRestricted, $NCantrade, $NRange, $NEmpty]" />
         </run_actions>
         <do_if value="$Ranked.count == 0">
           <set_value name="$Why" exact="'mixed reasons'" />
@@ -859,7 +860,7 @@
             <set_value name="$Why" exact="'none found in range'" />
           </do_if>
           <do_elseif value="$NBlocked == $Found">
-            <set_value name="$Why" exact="'all player-owned, hostile, restricted or not tradeable with the home DC'" />
+            <set_value name="$Why" exact="'all player-owned, hostile or not tradeable with the home DC'" />
           </do_elseif>
           <do_elseif value="$NOver == $Found">
             <set_value name="$Why" exact="'all over price cap'" />
@@ -872,7 +873,7 @@
           </do_elseif>
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="3" />
-            <param name="Text" value="'NPC CHECK: no usable offer for %1 at %2: %3 (blocked %4: player-owned %5, hostile %6, restricted %7, cannot-trade %8'.[$Ware.name, $Station.knownname, $Why, $NBlocked, $NPlayer, $NHostile, $NRestricted, $NCantrade] + '; out of range %1, empty %2, over cap %3, cap %4)'.[$NRange, $NEmpty, $NOver, (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')]" />
+            <param name="Text" value="'NPC CHECK: no usable offer for %1 at %2: %3 (blocked %4: player-owned %5, hostile %6, cannot-trade %8, restricted(info only) %7'.[$Ware.name, $Station.knownname, $Why, $NBlocked, $NPlayer, $NHostile, $NRestricted, $NCantrade] + '; out of range %1, empty %2, over cap %3, cap %4)'.[$NRange, $NEmpty, $NOver, (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')]" />
           </run_actions>
           <return />
         </do_if>
