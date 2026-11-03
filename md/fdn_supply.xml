@@ -569,6 +569,9 @@
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$PullMult">
           <param name="Key" value="'DCToDCFeeMult'" />
         </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$NpcOn">
+          <param name="Key" value="'NpcFallback'" />
+        </run_actions>
         <set_value name="$PullFactor" exact="($PullMult * 1000)i" comment="card 9f: whole-number factor (0.1 = 100), money x float is not allowed" />
         <set_value name="$SelfHome" exact="$DCs.indexof.{$Station} gt 0" comment="card 9g: the station is itself a DC, so it is its own home DC. VERIFY: indexof is 0 when not in the list" />
         <do_if value="$SelfHome">
@@ -674,6 +677,14 @@
                 </do_if>
               </do_if>
             </do_all>
+            <do_if value="$Left gt 0 and $NpcOn == 1" comment="card 9d-1: LOG ONLY, finds NPC sell offers for what is still missing, buys nothing">
+              <run_actions ref="md.FDN_Supply.Npc_Find">
+                <param name="Station" value="$Station" />
+                <param name="Ware" value="$Ware" />
+                <param name="Need" value="$Left" />
+                <param name="Home" value="$Home" />
+              </run_actions>
+            </do_if>
             <do_if value="$Moved == 0">
               <run_actions ref="md.FDN_Supply.Skip_Report">
                 <param name="Station" value="$Station" />
@@ -685,6 +696,177 @@
             </do_if>
           </do_if>
         </do_all>
+      </actions>
+    </library>
+
+    <!--
+      Card 9d-1 (X4-09k). NPC offer finder, LOG ONLY. Buys nothing, moves no cargo or money, writes no ledger and no state
+      except the log throttle. Called from Supply_Station only when NpcFallback = 1 and a shortfall is left after the DC steps.
+      Search: sectors within RangeMaxJumps of the supplied station (find_sector_in_range, as vanilla crisis_xenon_khaak_combo.xml),
+      then find_sell_offer per sector (space = sector, as vanilla gs_trade.xml:38 and order.trade.middleman.xml:476).
+      Usable offer: available, isselloffer, seller exists, seller not player-owned, within range, cantradewith.{home DC},
+      seller not hostile to the player, seller not trade-restricted for the ware, amount gt 0,
+      unitprice le the supplied station's own buyprice.{ware} (the cap, set by X4 and the player's price override).
+      Ranked cheapest first, then fewest jumps. Throttle: one check per station and ware per 120 s of game time,
+      kept in md.FDN_Core.Init.$NpcLog, a list of [station, ware, time] (nothing stored on the station).
+    -->
+    <library name="Npc_Find" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="Need" />
+        <param name="Home" />
+      </params>
+      <actions>
+        <do_if value="not $Station.exists or $Need le 0">
+          <return />
+        </do_if>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$NpcLog?">
+          <set_value name="$Init.$NpcLog" exact="[]" />
+        </do_if>
+        <set_value name="$Keep" exact="[]" />
+        <set_value name="$Last" exact="null" />
+        <do_all exact="$Init.$NpcLog.count" counter="$k">
+          <set_value name="$E" exact="$Init.$NpcLog.{$k}" />
+          <do_if value="$E.{1}.exists">
+            <do_if value="$E.{1} == $Station and $E.{2} == $Ware">
+              <set_value name="$Last" exact="$E.{3}" />
+            </do_if>
+            <do_else>
+              <append_to_list name="$Keep" exact="$E" />
+            </do_else>
+          </do_if>
+        </do_all>
+        <do_if value="$Last != null">
+          <do_if value="player.age lt $Last + 120">
+            <return comment="throttled, the list is left as it was" />
+          </do_if>
+        </do_if>
+        <append_to_list name="$Keep" exact="[$Station, $Ware, player.age]" />
+        <do_while value="$Keep.count gt 100">
+          <remove_value name="$Keep.{1}" comment="drops the oldest entry" />
+        </do_while>
+        <set_value name="$Init.$NpcLog" exact="$Keep" />
+
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Limit">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'RangeLimit'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$MaxJumps">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'RangeMaxJumps'" />
+        </run_actions>
+        <set_value name="$Cap" exact="@$Station.buyprice.{$Ware}" comment="VERIFY: buyprice.{ware} on a player station for a resource (scriptproperties.xml:716)" />
+        <set_value name="$HomeName" exact="if $Home != null and $Home.exists then $Home.knownname else '?'" />
+        <do_if value="$Limit">
+          <find_sector_in_range name="$Sectors" object="$Station" maxdistance="$MaxJumps" multiple="true" />
+        </do_if>
+        <do_else>
+          <find_sector_in_range name="$Sectors" object="$Station" multiple="true" />
+        </do_else>
+        <set_value name="$Found" exact="0" />
+        <set_value name="$NRange" exact="0" />
+        <set_value name="$NBlocked" exact="0" comment="player-owned, hostile, trade-restricted or cannot trade with the home DC" />
+        <set_value name="$NEmpty" exact="0" />
+        <set_value name="$NOver" exact="0" />
+        <set_value name="$Usable" exact="[]" comment="list of [seller, amount, unitprice, jumps, offer]" />
+        <do_all exact="@$Sectors.count" counter="$s">
+          <find_sell_offer result="$Offers" wares="$Ware" space="$Sectors.{$s}" tradepartner="$Home" multiple="true" comment="VERIFY: a station as tradepartner (vanilla gs_trade.xml uses player.station)" />
+          <do_all exact="@$Offers.count" counter="$o">
+            <set_value name="$Of" exact="$Offers.{$o}" />
+            <do_if value="$Of.available and $Of.isselloffer">
+              <set_value name="$Found" exact="$Found + 1" />
+              <set_value name="$Seller" exact="$Of.seller" />
+              <do_if value="$Seller == null or not $Seller.exists">
+                <set_value name="$NBlocked" exact="$NBlocked + 1" />
+              </do_if>
+              <do_elseif value="$Seller.isplayerowned or $Seller.ishostileto.{faction.player} or $Seller.istraderestricted.{$Ware} or ($Home != null and not $Of.cantradewith.{$Home})">
+                <set_value name="$NBlocked" exact="$NBlocked + 1" />
+              </do_elseif>
+              <do_else>
+                <set_value name="$Jumps" exact="$Station.gatedistance.{$Seller}" />
+                <do_if value="$Jumps lt 0 or ($Limit and $Jumps gt $MaxJumps)">
+                  <set_value name="$NRange" exact="$NRange + 1" />
+                </do_if>
+                <do_elseif value="$Of.amount le 0">
+                  <set_value name="$NEmpty" exact="$NEmpty + 1" />
+                </do_elseif>
+                <do_elseif value="$Cap == null or $Of.unitprice gt $Cap">
+                  <set_value name="$NOver" exact="$NOver + 1" />
+                </do_elseif>
+                <do_else>
+                  <append_to_list name="$Usable" exact="[$Seller, $Of.amount, $Of.unitprice, $Jumps, $Of]" />
+                </do_else>
+              </do_else>
+            </do_if>
+          </do_all>
+        </do_all>
+        <!-- rank: cheapest first, then fewest jumps (selection sort, lists are small) -->
+        <set_value name="$Rest" exact="$Usable" />
+        <set_value name="$Ranked" exact="[]" />
+        <do_while value="$Rest.count gt 0">
+          <set_value name="$m" exact="1" />
+          <do_all exact="$Rest.count" counter="$r">
+            <do_if value="$Rest.{$r}.{3} lt $Rest.{$m}.{3} or ($Rest.{$r}.{3} == $Rest.{$m}.{3} and $Rest.{$r}.{4} lt $Rest.{$m}.{4})">
+              <set_value name="$m" exact="$r" />
+            </do_if>
+          </do_all>
+          <append_to_list name="$Ranked" exact="$Rest.{$m}" />
+          <remove_value name="$Rest.{$m}" />
+        </do_while>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'NPC CHECK: %1 needs %2 %3, home DC %4, %5 offer(s) found, %6 usable, %7 over price cap'.[$Station.knownname, $Need, $Ware.name, $HomeName, $Found, $Ranked.count, $NOver]" />
+        </run_actions>
+        <do_if value="$Ranked.count == 0">
+          <set_value name="$Why" exact="'mixed reasons'" />
+          <do_if value="$Found == 0">
+            <set_value name="$Why" exact="'none found in range'" />
+          </do_if>
+          <do_elseif value="$NBlocked == $Found">
+            <set_value name="$Why" exact="'all player-owned, hostile, restricted or not tradeable with the home DC'" />
+          </do_elseif>
+          <do_elseif value="$NOver == $Found">
+            <set_value name="$Why" exact="'all over price cap'" />
+          </do_elseif>
+          <do_elseif value="$NRange == $Found">
+            <set_value name="$Why" exact="'all out of range'" />
+          </do_elseif>
+          <do_elseif value="$NEmpty == $Found">
+            <set_value name="$Why" exact="'all empty'" />
+          </do_elseif>
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'NPC CHECK: no usable offer for %1 at %2: %3 (blocked %4, out of range %5, empty %6, over cap %7, cap %8)'.[$Ware.name, $Station.knownname, $Why, $NBlocked, $NRange, $NEmpty, $NOver, (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')]" />
+          </run_actions>
+          <return />
+        </do_if>
+        <set_value name="$Min" exact="$Ware.minprice" />
+        <set_value name="$Max" exact="$Ware.maxprice" />
+        <set_value name="$Sum" exact="0" />
+        <set_value name="$Sellers" exact="0" />
+        <do_all exact="$Ranked.count" counter="$r">
+          <set_value name="$U" exact="$Ranked.{$r}" />
+          <do_if value="$r le 5">
+            <set_value name="$Pos" exact="'?'" />
+            <do_if value="$Max gt $Min">
+              <set_value name="$Pos" exact="(($U.{3} - $Min) * 100 / ($Max - $Min))i" comment="money / money = number, proven in 09h" />
+            </do_if>
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="3" />
+              <param name="Text" value="'NPC OFFER: %1 (%2) %3 %4, %5 jumps, unit %6 (pos %7 of min-max), cap %8'.[$U.{1}.knownname, (if $U.{1}.owner != null then $U.{1}.owner.knownname else '?'), $U.{2}, $Ware.name, $U.{4}, $U.{3}.formatted.default + ' Cr', $Pos, $Cap.formatted.default + ' Cr']" />
+            </run_actions>
+          </do_if>
+          <do_if value="$Sum lt $Need">
+            <set_value name="$Sum" exact="$Sum + [$U.{2}, $Need - $Sum].min" />
+            <set_value name="$Sellers" exact="$Sellers + 1" />
+          </do_if>
+        </do_all>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'NPC CHECK: would buy up to %1 of %2 from %3 seller(s)'.[$Sum, $Need, $Sellers]" />
+        </run_actions>
       </actions>
     </library>
 
