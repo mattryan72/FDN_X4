@@ -34,6 +34,10 @@
                 <param name="DCs" value="$DCs" />
                 <param name="Range" value="$NetRange" />
               </run_actions>
+              <run_actions ref="md.FDN_Supply.Dc_Watch" comment="card 09o: logbook entry when DCs or networks change">
+                <param name="DCs" value="$DCs" />
+                <param name="Networks" value="$Networks" />
+              </run_actions>
 
               <run_actions ref="md.FDN_Core.Cfg_Get" result="$PerPass">
                 <param name="Key" value="'PollStationsPerPass'" />
@@ -286,6 +290,78 @@
           </do_if>
         </do_all>
         <return value="$Networks" />
+      </actions>
+    </library>
+
+    <!--
+      Card 09o. Logbook entry (category general, LogbookLevel 2+) when the set of DCs or the number of networks changes.
+      Called once per poll pass after Build_Networks. Last state saved in md.FDN_Core.Init.$DcWatch = [DC list, network count].
+      The first call on a save with no state writes one 'DC network found' entry. No change = no entry.
+    -->
+    <library name="Dc_Watch" purpose="run_actions">
+      <params>
+        <param name="DCs" />
+        <param name="Networks" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <set_value name="$NetCount" exact="$Networks.count" />
+        <do_if value="not $Init.$DcWatch?">
+          <set_value name="$Init.$DcWatch" exact="[$DCs, $NetCount]" />
+          <do_if value="$DCs.count gt 0">
+            <set_value name="$Names" exact="''" />
+            <do_for_each name="$D" in="$DCs">
+              <set_value name="$Names" exact="$Names + (if $Names == '' then '' else ', ') + $D.knownname" />
+            </do_for_each>
+            <run_actions ref="md.FDN_Core.Logbook_Event">
+              <param name="Tier" value="'info'" />
+              <param name="Category" value="'general'" />
+              <param name="Title" value="'DC network found'" />
+              <param name="Text" value="'%1 DC(s) in %2 network(s): %3'.[$DCs.count, $NetCount, $Names]" />
+              <param name="Object" value="$DCs.{1}" />
+            </run_actions>
+          </do_if>
+          <return />
+        </do_if>
+        <set_value name="$Old" exact="$Init.$DcWatch.{1}" />
+        <set_value name="$Added" exact="''" />
+        <set_value name="$First" exact="null" />
+        <do_for_each name="$D" in="$DCs">
+          <do_if value="not $Old.indexof.{$D}">
+            <set_value name="$Added" exact="$Added + (if $Added == '' then '' else ', ') + $D.knownname" />
+            <do_if value="$First == null">
+              <set_value name="$First" exact="$D" />
+            </do_if>
+          </do_if>
+        </do_for_each>
+        <set_value name="$Removed" exact="''" />
+        <do_for_each name="$D" in="$Old">
+          <do_if value="not $DCs.indexof.{$D}">
+            <set_value name="$Removed" exact="$Removed + (if $Removed == '' then '' else ', ') + (if $D.exists then $D.knownname else 'a destroyed station')" comment="VERIFY: .exists is false (no error) for a destroyed station kept in a list" />
+          </do_if>
+        </do_for_each>
+        <do_if value="$Added == '' and $Removed == '' and $NetCount == $Init.$DcWatch.{2}">
+          <return />
+        </do_if>
+        <set_value name="$Init.$DcWatch" exact="[$DCs, $NetCount]" />
+        <set_value name="$Txt" exact="'Now %1 DC(s) in %2 network(s).'.[$DCs.count, $NetCount]" />
+        <do_if value="$Added != ''">
+          <set_value name="$Txt" exact="$Txt + ' Added: ' + $Added + '.'" />
+        </do_if>
+        <do_if value="$Removed != ''">
+          <set_value name="$Txt" exact="$Txt + ' Removed: ' + $Removed + '.'" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'DC network changed: ' + $Txt" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Logbook_Event">
+          <param name="Tier" value="'info'" />
+          <param name="Category" value="'general'" />
+          <param name="Title" value="'DC network changed'" />
+          <param name="Text" value="$Txt" />
+          <param name="Object" value="$First" />
+        </run_actions>
       </actions>
     </library>
 
@@ -592,6 +668,9 @@
           </do_all>
           <set_value name="$Cands" exact="$NewCands" />
         </do_if>
+        <set_value name="$SumText" exact="''" comment="card 09o: logbook summary of this supply run" />
+        <set_value name="$SumFee" exact="0Cr" />
+        <set_value name="$SumDCs" exact="[]" />
         <do_all exact="$Ranked.count" counter="$w">
           <set_value name="$Ware" exact="$Ranked.{$w}" />
           <do_if value="$Needs.{$Ware}?">
@@ -599,6 +678,7 @@
             <set_value name="$Moved" exact="0" />
             <set_value name="$Reason" exact="'no DC in range has spare stock'" />
             <set_value name="$Kind" exact="'supply'" />
+            <set_value name="$NoMoney" exact="false" comment="card 09o: true when the last reason is a fee the DC cannot pay" />
             <do_all exact="$Cands.count" counter="$c">
               <do_if value="$Left gt 0">
                 <set_value name="$DC" exact="$Cands.{$c}.{1}" />
@@ -614,6 +694,7 @@
                 <set_value name="$Qty" exact="[$Left, $Avail, $Free].min" />
                 <do_if value="$Free le 0">
                   <set_value name="$Reason" exact="'station has no free storage for it'" />
+                  <set_value name="$NoMoney" exact="false" />
                 </do_if>
                 <do_if value="$Qty gt 0">
                   <set_value name="$FeeFactor" exact="($Pct * (1.0 + $Jumps * $RangeMult) * $VolMult * $TypeMult * 1000)i" comment="all multipliers as one whole number, percent x 1000 (2 pct x 1.6 = 3200). Money x float is not allowed (log: Loss of data ... 3840000ct * 1.6f). VERIFY: (x)i converts to integer, as vanilla crisis_xenon_khaak_combo.xml uses ($ValueFactor * 100)i" />
@@ -640,6 +721,7 @@
                   </do_if>
                   <do_if value="$Payer.money lt $Fee">
                     <set_value name="$Reason" exact="'DC %1 cannot pay the fee (%2 needed, %3 in account)'.[$Payer.knownname, $Fee.formatted.default + ' Cr', $Payer.money.formatted.default + ' Cr']" />
+                    <set_value name="$NoMoney" exact="true" />
                   </do_if>
                   <do_else>
                     <set_value name="$SrcBefore" exact="$DC.money" comment="card 9h: logging only, source DC balance before the fee" />
@@ -656,6 +738,20 @@
                     <do_if value="$Ok">
                       <set_value name="$Left" exact="$Left - $Qty" />
                       <set_value name="$Moved" exact="$Moved + $Qty" />
+                      <set_value name="$SumText" exact="$SumText + (if $SumText == '' then '' else '; ') + '%1 %2 from %3%4'.[$Ware.name, $Qty, $DC.knownname, (if $Kind == 'pull' then ' (network pull)' else '')]" comment="card 09o" />
+                      <set_value name="$SumFee" exact="$SumFee + $Fee" />
+                      <do_if value="not $SumDCs.indexof.{$DC}">
+                        <append_to_list name="$SumDCs" exact="$DC" />
+                      </do_if>
+                      <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09o: LogbookLevel 3 only">
+                        <param name="Tier" value="'transfer'" />
+                        <param name="Title" value="'%1 %2 to %3'.[(if $Kind == 'pull' then 'network pull' else 'supplied'), $Ware.name, $Station.knownname]" />
+                        <param name="Text" value="'%1 %2 from %3, %4 jumps, fee %5 paid by %6'.[$Qty, $Ware.name, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr', $Payer.knownname]" />
+                        <param name="Money" value="$Fee" />
+                        <param name="Object" value="$Station" />
+                        <param name="ThrottleStation" value="$Station" />
+                        <param name="ThrottleWare" value="$Ware" />
+                      </run_actions>
                       <do_if value="$Fallback">
                         <run_actions ref="md.FDN_Core.Log">
                           <param name="Level" value="2" />
@@ -672,6 +768,7 @@
                     </do_if>
                     <do_else>
                       <set_value name="$Reason" exact="'transfer from %1 failed and was refunded'.[$DC.knownname]" />
+                      <set_value name="$NoMoney" exact="false" />
                     </do_else>
                   </do_else>
                 </do_if>
@@ -692,10 +789,20 @@
                 <param name="Need" value="$Needs.{$Ware}.{1}" />
                 <param name="Reason" value="$Reason" />
                 <param name="Kind" value="$Kind" />
+                <param name="NoMoney" value="$NoMoney" />
               </run_actions>
             </do_if>
           </do_if>
         </do_all>
+        <do_if value="$SumText != ''" comment="card 09o: one logbook summary per supply run (LogbookLevel 2)">
+          <run_actions ref="md.FDN_Core.Logbook_Event">
+            <param name="Tier" value="'summary'" />
+            <param name="Title" value="'supplied %1'.[$Station.knownname]" />
+            <param name="Text" value="$SumText + '. %1 DC(s) used, total fee %2'.[$SumDCs.count, $SumFee.formatted.default + ' Cr']" />
+            <param name="Money" value="$SumFee" />
+            <param name="Object" value="$Station" />
+          </run_actions>
+        </do_if>
       </actions>
     </library>
 
@@ -804,21 +911,6 @@
                 <do_if value="$BH"><set_value name="$NHostile" exact="$NHostile + 1" /></do_if>
                 <do_if value="$BR"><set_value name="$NRestricted" exact="$NRestricted + 1" /></do_if>
                 <do_if value="$BC"><set_value name="$NCantrade" exact="$NCantrade + 1" /></do_if>
-                <do_if value="not $Sampled">
-                  <set_value name="$Sampled" exact="true" />
-                  <set_value name="$CS" exact="'n/a'" />
-                  <do_if value="player.occupiedship != null">
-                    <set_value name="$CS" exact="if $Of.cantradewith.{player.occupiedship} then '1' else '0'" comment="vanilla form: cantradewith a ship" />
-                  </do_if>
-                  <set_value name="$RF" exact="'?'" />
-                  <do_if value="$Of.restriction.factions != null">
-                    <set_value name="$RF" exact="$Of.restriction.factions.count" />
-                  </do_if>
-                  <run_actions ref="md.FDN_Core.Log">
-                    <param name="Level" value="3" />
-                    <param name="Text" value="'NPC SAMPLE: seller %1 (%2), isplayerowned %3, hostile %4, restricted(info only) %5, restricted-global(info only) %8, cantradewith home %6, cantradewith player ship %7'.[$Seller.knownname, (if $Seller.owner != null then $Seller.owner.knownname else '?'), (if $BP then 1 else 0), (if $BH then 1 else 0), (if $BR then 1 else 0), (if $BC then 0 else 1), $CS, (if $BRG then 1 else 0)] + ', unit %1, amount %2, offer restriction factions %3 (inverted %4)'.[$Of.unitprice.formatted.default + ' Cr', $Of.amount, $RF, (if $Of.restriction.inverted then 1 else 0)]" />
-                  </run_actions>
-                </do_if>
                 <do_if value="$BP or $BH or $BC" comment="09m: per-ware trade restriction no longer blocks">
                   <set_value name="$NBlocked" exact="$NBlocked + 1" />
                 </do_if>
@@ -867,7 +959,7 @@
         <find_buy_offer result="$PBO" buyer="$Station" wares="$Ware" comment="09n: vanilla form, rml_supplyfactory.xml:279, gm_barterwares.xml:1413" />
         <set_value name="$PBOU" exact="if $PBO != null and @$PBO.unitprice != null then $PBO.unitprice.formatted.default + ' Cr' else '?'" />
         <run_actions ref="md.FDN_Core.Log">
-          <param name="Level" value="3" />
+          <param name="Level" value="4" comment="09o: debug only (LogLevel 4)" />
           <param name="Text" value="'NPC PRICE: %1 %2: buyprice %3, buypriceoverride %4, sellprice %5'.[$Station.knownname, $Ware.name, (if $PBuy != null then $PBuy.formatted.default + ' Cr' else '?'), (if $POvr != null then $POvr.formatted.default + ' Cr' else '?'), (if $PSell != null then $PSell.formatted.default + ' Cr' else '?')] + ', ware min %1, avg %2, max %3, station stock %4, target %5'.[(if @$Ware.minprice != null then $Ware.minprice.formatted.default else '?'), (if @$Ware.averageprice != null then $Ware.averageprice.formatted.default else '?'), (if @$Ware.maxprice != null then $Ware.maxprice.formatted.default + ' Cr' else '?'), (if $PStock != null then $PStock else '?'), (if $PTarget != null then $PTarget else '?')] + ', best NPC ask %1, buy offer %2'.[(if $BestAsk != null then $BestAsk.formatted.default + ' Cr' else '?'), $PBOU]" />
         </run_actions>
         <do_if value="$Ranked.count == 0">
@@ -1256,6 +1348,7 @@
         <param name="Need" />
         <param name="Reason" />
         <param name="Kind" default="'supply'" comment="card 9c: 'supply' or 'return', only changes the logbook title" />
+        <param name="NoMoney" default="false" comment="card 09o: true = skipped because a DC cannot pay, also shows the ticker (NotifyMoneySkip)" />
       </params>
       <actions>
         <run_actions ref="md.FDN_Core.Log">
@@ -1304,7 +1397,18 @@
         <do_if value="$Throttled">
           <return />
         </do_if>
-        <write_to_logbook category="upkeep" title="'FDN: %1 skipped at %2'.[$Kind, $Station.knownname]" text="'%1 (need %2): %3'.[$Ware.name, $Need, $Reason]" interaction="showonmap" object="$Station" comment="VERIFY: text attribute shows under the title, as in vanilla diplomacy.xml" />
+        <set_value name="$LbTitle" exact="'%1 skipped at %2'.[$Kind, $Station.knownname]" />
+        <do_if value="$Kind == 'pull-fallback'">
+          <set_value name="$LbTitle" exact="'fee fallback at %1'.[$Station.knownname]" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09o: upkeep + alerts, highlighted, title prefix and source FDN">
+          <param name="Tier" value="'problem'" />
+          <param name="Title" value="$LbTitle" />
+          <param name="Text" value="'%1 (need %2): %3'.[$Ware.name, $Need, $Reason]" />
+          <param name="Object" value="$Station" />
+          <param name="Notify" value="$NoMoney" />
+          <param name="NotifyText" value="'%1 skipped at %2, DC cannot pay'.[$Ware.name, $Station.knownname]" />
+        </run_actions>
       </actions>
     </library>
 
@@ -1401,6 +1505,8 @@
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$ReturnMult">
           <param name="Key" value="'ReturnFeeMult'" />
         </run_actions>
+        <set_value name="$RetText" exact="''" comment="card 09o: logbook summary of this return run" />
+        <set_value name="$RetFee" exact="0Cr" />
         <do_all exact="$Made.count" counter="$w">
           <set_value name="$Ware" exact="$Made.{$w}" />
           <do_if value="$Used.indexof.{$Ware}">
@@ -1503,6 +1609,7 @@
                       <param name="Need" value="$Qty" />
                       <param name="Reason" value="'DC %1 cannot pay the return fee (%2 needed, %3 in account)'.[$DC.knownname, $Fee.formatted.default + ' Cr', $DC.money.formatted.default + ' Cr']" />
                       <param name="Kind" value="'return'" />
+                      <param name="NoMoney" value="true" />
                     </run_actions>
                   </do_if>
                   <do_else>
@@ -1563,6 +1670,17 @@
                             <param name="Level" value="3" />
                             <param name="Text" value="'RETURN: %1 %2 from %3 to DC %4, %5 jumps, fee %6'.[$Qty, $Ware.name, $Station.knownname, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr']" />
                           </run_actions>
+                          <set_value name="$RetText" exact="$RetText + (if $RetText == '' then '' else '; ') + '%1 %2'.[$Ware.name, $Qty]" comment="card 09o" />
+                          <set_value name="$RetFee" exact="$RetFee + $Fee" />
+                          <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09o: LogbookLevel 3 only">
+                            <param name="Tier" value="'transfer'" />
+                            <param name="Title" value="'returned %1 from %2'.[$Ware.name, $Station.knownname]" />
+                            <param name="Text" value="'%1 %2 to DC %3, %4 jumps, fee %5 paid by the DC'.[$Qty, $Ware.name, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr']" />
+                            <param name="Money" value="$Fee" />
+                            <param name="Object" value="$Station" />
+                            <param name="ThrottleStation" value="$Station" />
+                            <param name="ThrottleWare" value="$Ware" />
+                          </run_actions>
                         </do_else>
                       </do_else>
                     </do_else>
@@ -1572,6 +1690,15 @@
             </do_if>
           </do_else>
         </do_all>
+        <do_if value="$RetText != ''" comment="card 09o: one logbook summary per return run (LogbookLevel 2)">
+          <run_actions ref="md.FDN_Core.Logbook_Event">
+            <param name="Tier" value="'summary'" />
+            <param name="Title" value="'returned from %1'.[$Station.knownname]" />
+            <param name="Text" value="'To DC %1: %2. Total fee %3 paid by the DC'.[$DC.knownname, $RetText, $RetFee.formatted.default + ' Cr']" />
+            <param name="Money" value="$RetFee" />
+            <param name="Object" value="$Station" />
+          </run_actions>
+        </do_if>
       </actions>
     </library>
 

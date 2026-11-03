@@ -105,6 +105,8 @@
             <set_value name="$Defaults.{'$DCToDCFeeMult'}" exact="0.1" comment="card 9c-fee: reserved for DC to DC pulls where the requesting DC pays (supply fee x this). Setting only, no code uses it yet" />
             <set_value name="$Defaults.{'$TriggerMinGap'}" exact="20" comment="card 9e: min seconds between two production-finished checks of the same station. Later checks wait, they are not dropped" />
             <set_value name="$Defaults.{'$LogbookSkipInterval'}" exact="600" comment="seconds before the same skipped station and ware is written to the logbook again" />
+            <set_value name="$Defaults.{'$LogbookLevel'}" exact="2" comment="card 09o: game logbook detail. 0 = off, 1 = problems only, 2 = problems + one summary per supply run and DC network changes, 3 = problems + every transfer (throttled per station and ware) and DC network changes" />
+            <set_value name="$Defaults.{'$NotifyMoneySkip'}" exact="1" comment="card 09o: 1 = on-screen ticker message when a transfer is skipped because a DC cannot pay. Only when LogbookLevel is 1 or more" />
 
             <!-- ===== Station-side settings (step 9, each can be overridden per station with Station_Cfg_Set) ===== -->
             <set_value name="$Defaults.{'$CyclesToCover'}" exact="2" comment="production cycles of resources FDN supplies ahead. Card 9e: default 2 (was 1); set back to 1 here to revert" />
@@ -177,6 +179,151 @@
             <debug_text text="player.age + ' ' + $Prefix + ' ' + $Text" filter="general" />
           </do_if>
         </do_if>
+      </actions>
+    </library>
+    <!--
+      Card 09o. The one way FDN writes to the game logbook. Every entry: title 'FDN: ' + Title, source name (entity) 'FDN'.
+      Tier decides whether it is written, against LogbookLevel (0 off, 1 problems, 2 + summaries and info, 3 + every transfer):
+        'problem'  level 1+  written to category upkeep AND alerts, highlighted
+        'summary'  level 2 only (level 3 writes each transfer instead)
+        'info'     level 2+  (Category, e.g. general for DC network changes)
+        'transfer' level 3   throttled per ThrottleStation + ThrottleWare + Tier for LogbookSkipInterval seconds
+      Money = fee shown with the entry (money attribute, not 0). Cost = optional ware cost (NPC buys, later card):
+      added to the money shown and named in the text. Notify = true also shows NotifyText in the ticker when NotifyMoneySkip = 1.
+      Callers do their own fdn.log lines; this writes nothing to fdn.log except a level 4 debug line.
+        <run_actions ref="md.FDN_Core.Logbook_Event">
+          <param name="Tier" value="'problem'" />
+          <param name="Title" value="'supply skipped at %1'.[$Station.knownname]" />
+          <param name="Text" value="'...'" />
+          <param name="Object" value="$Station" />
+        </run_actions>
+    -->
+    <library name="Logbook_Event" purpose="run_actions">
+      <params>
+        <param name="Tier" default="'problem'" />
+        <param name="Title" />
+        <param name="Text" default="''" />
+        <param name="Category" default="'upkeep'" comment="'upkeep' or 'general' (problems always upkeep + alerts)" />
+        <param name="Money" default="0Cr" />
+        <param name="Cost" default="null" />
+        <param name="Object" default="null" />
+        <param name="Notify" default="false" />
+        <param name="NotifyText" default="''" />
+        <param name="ThrottleStation" default="null" />
+        <param name="ThrottleWare" default="null" />
+      </params>
+      <actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Lvl">
+          <param name="Key" value="'LogbookLevel'" />
+        </run_actions>
+        <do_if value="$Lvl == null">
+          <set_value name="$Lvl" exact="2" />
+        </do_if>
+        <do_if value="$Lvl le 0">
+          <return />
+        </do_if>
+        <set_value name="$Show" exact="false" />
+        <do_if value="$Tier == 'problem'">
+          <set_value name="$Show" exact="true" />
+        </do_if>
+        <do_elseif value="$Tier == 'summary'">
+          <set_value name="$Show" exact="$Lvl == 2" />
+        </do_elseif>
+        <do_elseif value="$Tier == 'info'">
+          <set_value name="$Show" exact="$Lvl ge 2" />
+        </do_elseif>
+        <do_elseif value="$Tier == 'transfer'">
+          <set_value name="$Show" exact="$Lvl ge 3" />
+        </do_elseif>
+        <do_if value="not $Show">
+          <return />
+        </do_if>
+        <do_if value="$ThrottleStation != null">
+          <run_actions ref="md.FDN_Core.Cfg_Get" result="$Gap">
+            <param name="Key" value="'LogbookSkipInterval'" />
+          </run_actions>
+          <set_value name="$Init" exact="md.FDN_Core.Init" />
+          <do_if value="not $Init.$LogbookLog?">
+            <set_value name="$Init.$LogbookLog" exact="[]" />
+          </do_if>
+          <set_value name="$Keep" exact="[]" />
+          <set_value name="$Last" exact="null" />
+          <do_all exact="$Init.$LogbookLog.count" counter="$k">
+            <set_value name="$E" exact="$Init.$LogbookLog.{$k}" />
+            <do_if value="$E.{1}.exists">
+              <do_if value="$E.{1} == $ThrottleStation and $E.{2} == $ThrottleWare and $E.{3} == $Tier">
+                <set_value name="$Last" exact="$E.{4}" />
+              </do_if>
+              <do_else>
+                <append_to_list name="$Keep" exact="$E" />
+              </do_else>
+            </do_if>
+          </do_all>
+          <set_value name="$Throttled" exact="false" />
+          <do_if value="$Last != null">
+            <do_if value="player.age lt $Last + $Gap">
+              <set_value name="$Throttled" exact="true" />
+            </do_if>
+          </do_if>
+          <append_to_list name="$Keep" exact="[$ThrottleStation, $ThrottleWare, $Tier, (if $Throttled then $Last else player.age)]" />
+          <do_while value="$Keep.count gt 100">
+            <remove_value name="$Keep.{1}" comment="drops the oldest entry" />
+          </do_while>
+          <set_value name="$Init.$LogbookLog" exact="$Keep" />
+          <do_if value="$Throttled">
+            <return />
+          </do_if>
+        </do_if>
+        <set_value name="$FullTitle" exact="'FDN: ' + $Title" />
+        <set_value name="$Shown" exact="$Money" />
+        <set_value name="$FullText" exact="$Text" />
+        <do_if value="$Cost != null">
+          <set_value name="$Shown" exact="$Money + $Cost" />
+          <set_value name="$FullText" exact="$Text + ' (ware cost %1, fee %2)'.[$Cost.formatted.default + ' Cr', $Money.formatted.default + ' Cr']" />
+        </do_if>
+        <set_value name="$Hi" exact="$Tier == 'problem'" />
+        <set_value name="$UseObj" exact="false" comment="VERIFY in game: entity shown as source 'FDN', money shown when not 0. category must be a literal (schema enum)" />
+        <do_if value="$Object != null">
+          <set_value name="$UseObj" exact="$Object.exists" />
+        </do_if>
+        <do_if value="$Tier == 'problem'" comment="Matt: problems go to upkeep and alerts">
+          <do_if value="$UseObj">
+            <write_to_logbook category="upkeep" title="$FullTitle" text="$FullText" entity="'FDN'" money="$Shown" highlighted="$Hi" interaction="showonmap" object="$Object" />
+            <write_to_logbook category="alerts" title="$FullTitle" text="$FullText" entity="'FDN'" money="$Shown" highlighted="$Hi" interaction="showonmap" object="$Object" />
+          </do_if>
+          <do_else>
+            <write_to_logbook category="upkeep" title="$FullTitle" text="$FullText" entity="'FDN'" money="$Shown" highlighted="$Hi" />
+            <write_to_logbook category="alerts" title="$FullTitle" text="$FullText" entity="'FDN'" money="$Shown" highlighted="$Hi" />
+          </do_else>
+        </do_if>
+        <do_elseif value="$Category == 'general'">
+          <do_if value="$UseObj">
+            <write_to_logbook category="general" title="$FullTitle" text="$FullText" entity="'FDN'" money="$Shown" highlighted="$Hi" interaction="showonmap" object="$Object" />
+          </do_if>
+          <do_else>
+            <write_to_logbook category="general" title="$FullTitle" text="$FullText" entity="'FDN'" money="$Shown" highlighted="$Hi" />
+          </do_else>
+        </do_elseif>
+        <do_else>
+          <do_if value="$UseObj">
+            <write_to_logbook category="upkeep" title="$FullTitle" text="$FullText" entity="'FDN'" money="$Shown" highlighted="$Hi" interaction="showonmap" object="$Object" />
+          </do_if>
+          <do_else>
+            <write_to_logbook category="upkeep" title="$FullTitle" text="$FullText" entity="'FDN'" money="$Shown" highlighted="$Hi" />
+          </do_else>
+        </do_else>
+        <do_if value="$Notify">
+          <run_actions ref="md.FDN_Core.Cfg_Get" result="$Tick">
+            <param name="Key" value="'NotifyMoneySkip'" />
+          </run_actions>
+          <do_if value="$Tick == 1">
+            <show_notification text="'FDN: ' + $NotifyText" comment="plain string text, as vanilla diplomacy.xml:2452" />
+          </do_if>
+        </do_if>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="4" />
+          <param name="Text" value="'logbook (%1): %2 - %3'.[$Tier, $FullTitle, $FullText]" />
+        </run_actions>
       </actions>
     </library>
     <!--
