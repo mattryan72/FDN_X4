@@ -66,7 +66,7 @@
         <!--
           DEFAULTS TABLE. To add a setting: add ONE set_value line in the right group below.
           Key names are strings and MUST start with '$' (X4 rejects table string keys without it,
-          proven by the 9a-diag log). Callers pass plain names; Cfg_Get / Station_Cfg_* add the '$'. Flags are 0/1. Times are in seconds. Do not rename keys later
+          proven by the 9a test log). Callers pass plain names; Cfg_Get / Station_Cfg_* add the '$'. Flags are 0/1. Times are in seconds. Do not rename keys later
           (saved overrides use the key name).
         -->
         <library name="Cfg_LoadDefaults" purpose="include_actions">
