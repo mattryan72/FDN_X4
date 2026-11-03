@@ -851,7 +851,7 @@
       </params>
       <actions>
         <do_if value="not $Station.exists or $Need le 0">
-          <return />
+          <return value="null" />
         </do_if>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
         <do_if value="not $Init.$NpcLog?">
@@ -872,7 +872,7 @@
         </do_all>
         <do_if value="$Last != null">
           <do_if value="player.age lt $Last + 120">
-            <return comment="throttled, the list is left as it was" />
+            <return value="null" comment="throttled, the list is left as it was; card 09q: explicit null so the game logs no error" />
           </do_if>
         </do_if>
         <append_to_list name="$Keep" exact="[$Station, $Ware, player.age]" />
@@ -1075,6 +1075,7 @@
             <param name="Need" value="$Need" />
             <param name="Reason" value="$Found.{3}" />
             <param name="Kind" value="$Found.{2}" />
+            <param name="LogOnly" value="$Found.{2} == 'npc-none'" comment="card 09q: nothing for sale in range is normal, not a problem for the player" />
           </run_actions>
           <return value="[0, 0Cr, 0Cr, '']" />
         </do_if>
@@ -1178,7 +1179,6 @@
                 <set_value name="$ReserveWarn" exact="true" />
               </do_if>
               <set_value name="$HomeBefore" exact="$Home.money" />
-              <set_value name="$SellerMBefore" exact="@$Seller.money" />
               <set_value name="$SellerStockBefore" exact="$SellerStock" />
               <set_value name="$OfAmtBefore" exact="$OfAmt" />
               <set_value name="$FailStep" exact="''" />
@@ -1278,11 +1278,9 @@
                         <param name="DC" value="$Home" />
                         <param name="Entry" value="[player.age, $Station, $Ware, $Qty, $Fee, $Jumps, 'npc-buy', $Paid]" comment="card 09p: 8th field = ware cost" />
                       </run_actions>
-                      <set_value name="$SellerMAfter" exact="@$Seller.money" />
-                      <set_value name="$OfAmtAfter" exact="@$Of.amount" comment="VERIFY: offer follows the cargo after remove_cargo" />
                       <run_actions ref="md.FDN_Core.Log">
                         <param name="Level" value="3" />
-                        <param name="Text" value="'NPC BUY: %1 bought %2 %3 from %4 (%5) for %6, %7 jumps, unit %8 (cap %9)'.[$Home.knownname, $Qty, $Ware.name, $Seller.knownname, (if $Seller.owner != null then $Seller.owner.knownname else '?'), $Station.knownname, $Jumps, $Unit.formatted.default + ' Cr', (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')] + ', cost %1, fee %2, %3: %4 -> %5'.[$Paid.formatted.default + ' Cr', $Fee.formatted.default + ' Cr', $Home.knownname, $HomeBefore.formatted.default + ' Cr', $Home.money.formatted.default + ' Cr'] + ', seller stock %1 -> %2, offer %3 -> %4, seller account %5 -> %6, paid to %7'.[$SellerStockBefore, $Seller.cargo.{$Ware}.count, $OfAmtBefore, (if $OfAmtAfter != null then $OfAmtAfter else '?'), (if $SellerMBefore != null then $SellerMBefore.formatted.default + ' Cr' else '?'), (if $SellerMAfter != null then $SellerMAfter.formatted.default + ' Cr' else '?'), (if $PaidTo == $Seller then 'station' else 'owner faction')]" />
+                        <param name="Text" value="'NPC BUY: %1 bought %2 %3 from %4 (%5) for %6, %7 jumps, unit %8 (cap %9)'.[$Home.knownname, $Qty, $Ware.name, $Seller.knownname, (if $Seller.owner != null then $Seller.owner.knownname else '?'), $Station.knownname, $Jumps, $Unit.formatted.default + ' Cr', (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')] + ', cost %1, fee %2, %3: %4 -> %5'.[$Paid.formatted.default + ' Cr', $Fee.formatted.default + ' Cr', $Home.knownname, $HomeBefore.formatted.default + ' Cr', $Home.money.formatted.default + ' Cr'] + ', seller stock %1 -> %2, offer was %3, paid to %4'.[$SellerStockBefore, $Seller.cargo.{$Ware}.count, $OfAmtBefore, (if $PaidTo == $Seller then 'station' else 'owner faction')]" />
                       </run_actions>
                       <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09p: LogbookLevel 3 only, ware cost shown with the fee">
                         <param name="Tier" value="'transfer'" />
@@ -1674,12 +1672,16 @@
         <param name="Reason" />
         <param name="Kind" default="'supply'" comment="card 9c: 'supply' or 'return', only changes the logbook title" />
         <param name="NoMoney" default="false" comment="card 09o: true = skipped because a DC cannot pay, also shows the ticker (NotifyMoneySkip)" />
+        <param name="LogOnly" default="false" comment="card 09q: true = fdn.log only, no in-game logbook entry" />
       </params>
       <actions>
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="2" />
           <param name="Text" value="'SKIP: %1, %2 (need %3): %4'.[$Station.knownname, $Ware.name, $Need, $Reason]" />
         </run_actions>
+        <do_if value="$LogOnly">
+          <return />
+        </do_if>
         <do_if value="not $Station.exists">
           <return />
         </do_if>
