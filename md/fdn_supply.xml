@@ -670,6 +670,7 @@
         </do_if>
         <set_value name="$SumText" exact="''" comment="card 09o: logbook summary of this supply run" />
         <set_value name="$SumFee" exact="0Cr" />
+        <set_value name="$SumCost" exact="0Cr" comment="card 09p: ware cost paid to NPC sellers in this run" />
         <set_value name="$SumDCs" exact="[]" />
         <do_all exact="$Ranked.count" counter="$w">
           <set_value name="$Ware" exact="$Ranked.{$w}" />
@@ -774,13 +775,34 @@
                 </do_if>
               </do_if>
             </do_all>
-            <do_if value="$Left gt 0 and $NpcOn == 1" comment="card 9d-1: LOG ONLY, finds NPC sell offers for what is still missing, buys nothing">
-              <run_actions ref="md.FDN_Supply.Npc_Find">
+            <do_if value="$Left gt 0 and $NpcOn == 1" comment="card 09p: finds NPC sell offers for what is still missing (9d-1) and the home DC buys them (9d-2)">
+              <run_actions ref="md.FDN_Supply.Npc_Find" result="$NpcRes">
                 <param name="Station" value="$Station" />
                 <param name="Ware" value="$Ware" />
                 <param name="Need" value="$Left" />
                 <param name="Home" value="$Home" />
               </run_actions>
+              <do_if value="$NpcRes != null" comment="null = throttled (one search and buy per station and ware per 120 s)">
+                <run_actions ref="md.FDN_Supply.Npc_Buy" result="$BuyRes">
+                  <param name="Station" value="$Station" />
+                  <param name="Ware" value="$Ware" />
+                  <param name="Need" value="$Left" />
+                  <param name="Home" value="$Home" />
+                  <param name="Found" value="$NpcRes" />
+                </run_actions>
+                <do_if value="$BuyRes != null">
+                  <do_if value="$BuyRes.{1} gt 0">
+                    <set_value name="$Left" exact="$Left - $BuyRes.{1}" />
+                    <set_value name="$Moved" exact="$Moved + $BuyRes.{1}" />
+                    <set_value name="$SumCost" exact="$SumCost + $BuyRes.{2}" />
+                    <set_value name="$SumFee" exact="$SumFee + $BuyRes.{3}" />
+                    <set_value name="$SumText" exact="$SumText + (if $SumText == '' then '' else '; ') + $BuyRes.{4}" />
+                    <do_if value="not $SumDCs.indexof.{$Home}">
+                      <append_to_list name="$SumDCs" exact="$Home" />
+                    </do_if>
+                  </do_if>
+                </do_if>
+              </do_if>
             </do_if>
             <do_if value="$Moved == 0">
               <run_actions ref="md.FDN_Supply.Skip_Report">
@@ -800,6 +822,7 @@
             <param name="Title" value="'supplied %1'.[$Station.knownname]" />
             <param name="Text" value="$SumText + '. %1 DC(s) used, total fee %2'.[$SumDCs.count, $SumFee.formatted.default + ' Cr']" />
             <param name="Money" value="$SumFee" />
+            <param name="Cost" value="if $SumCost gt 0Cr then $SumCost else null" comment="card 09p: NPC ware cost, shown with the fee" />
             <param name="Object" value="$Station" />
           </run_actions>
         </do_if>
@@ -811,11 +834,13 @@
       except the log throttle. Called from Supply_Station only when NpcFallback = 1 and a shortfall is left after the DC steps.
       Search: sectors within RangeMaxJumps of the supplied station (find_sector_in_range, as vanilla crisis_xenon_khaak_combo.xml),
       then find_sell_offer per sector (space = sector, as vanilla gs_trade.xml:38 and order.trade.middleman.xml:476).
-      Usable offer: available, isselloffer, seller exists, seller not player-owned, within range (09l: block reasons counted separately and one NPC SAMPLE line per check), cantradewith.{home DC},
+      Usable offer: available, isselloffer, seller exists, seller not player-owned, within range (09l: block reasons counted separately), cantradewith.{home DC},
       seller not hostile to the player, seller not trade-restricted for the ware, amount gt 0,
       unitprice le the supplied station's own buyprice.{ware} (the cap, set by X4 and the player's price override).
       Ranked cheapest first, then fewest jumps. Throttle: one check per station and ware per 120 s of game time,
       kept in md.FDN_Core.Init.$NpcLog, a list of [station, ware, time] (nothing stored on the station).
+      Card 09p: returns [Ranked, WhyKind, WhyText, Cap] for Npc_Buy (WhyKind '' when offers are usable, else 'npc-none'
+      or 'npc-price'), or null when throttled or nothing is needed. Moves nothing itself.
     -->
     <library name="Npc_Find" purpose="run_actions">
       <params>
@@ -879,10 +904,10 @@
         <set_value name="$NHostile" exact="0" />
         <set_value name="$NRestricted" exact="0" comment="09m: info only, does not block" />
         <set_value name="$NCantrade" exact="0" />
-        <set_value name="$Sampled" exact="false" />
         <set_value name="$NEmpty" exact="0" />
         <set_value name="$NOver" exact="0" />
         <set_value name="$BestAsk" exact="null" comment="09n: lowest unitprice of any available sell offer found, log only" />
+        <set_value name="$BestOver" exact="null" comment="card 09p: lowest unitprice of the offers rejected only by the price cap (npc-price hint)" />
         <set_value name="$Usable" exact="[]" comment="list of [seller, amount, unitprice, jumps, offer]" />
         <do_all exact="@$Sectors.count" counter="$s">
           <find_sell_offer result="$Offers" wares="$Ware" space="$Sectors.{$s}" tradepartner="$Home" multiple="true" comment="VERIFY: a station as tradepartner (vanilla gs_trade.xml uses player.station)" />
@@ -924,6 +949,9 @@
                 </do_elseif>
                 <do_elseif value="$Cap == null or $Of.unitprice gt $Cap">
                   <set_value name="$NOver" exact="$NOver + 1" />
+                  <do_if value="$BestOver == null or $Of.unitprice lt $BestOver">
+                    <set_value name="$BestOver" exact="$Of.unitprice" />
+                  </do_if>
                 </do_elseif>
                 <do_else>
                   <append_to_list name="$Usable" exact="[$Seller, $Of.amount, $Of.unitprice, $Jumps, $Of]" />
@@ -983,13 +1011,14 @@
             <param name="Level" value="3" />
             <param name="Text" value="'NPC CHECK: no usable offer for %1 at %2: %3 (blocked %4: player-owned %5, hostile %6, cannot-trade %8, restricted(info only) %7'.[$Ware.name, $Station.knownname, $Why, $NBlocked, $NPlayer, $NHostile, $NRestricted, $NCantrade] + '; out of range %1, empty %2, over cap %3, cap %4)'.[$NRange, $NEmpty, $NOver, (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')]" />
           </run_actions>
-          <return />
+          <do_if value="$NOver gt 0 and $BestOver != null" comment="card 09p: at least one offer was rejected only by the cap">
+            <return value="[$Ranked, 'npc-price', 'NPC offers start at %1, the station buy price is %2 (raise the station buy price to allow NPC buying)'.[$BestOver.formatted.default + ' Cr', (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')], $Cap]" />
+          </do_if>
+          <return value="[$Ranked, 'npc-none', 'no usable NPC offer: ' + $Why, $Cap]" />
         </do_if>
         <set_value name="$Min" exact="$Ware.minprice" />
         <set_value name="$Max" exact="$Ware.maxprice" />
-        <set_value name="$Sum" exact="0" />
-        <set_value name="$Sellers" exact="0" />
-        <do_all exact="$Ranked.count" counter="$r">
+        <do_all exact="[$Ranked.count, 5].min" counter="$r" comment="card 09p: top 5 offers logged, the buying is done by Npc_Buy">
           <set_value name="$U" exact="$Ranked.{$r}" />
           <do_if value="$r le 5">
             <set_value name="$Pos" exact="'?'" />
@@ -1001,15 +1030,311 @@
               <param name="Text" value="'NPC OFFER: %1 (%2) %3 %4, %5 jumps, unit %6 (pos %7 of min-max), cap %8'.[$U.{1}.knownname, (if $U.{1}.owner != null then $U.{1}.owner.knownname else '?'), $U.{2}, $Ware.name, $U.{4}, $U.{3}.formatted.default + ' Cr', $Pos, $Cap.formatted.default + ' Cr']" />
             </run_actions>
           </do_if>
-          <do_if value="$Sum lt $Need">
-            <set_value name="$Sum" exact="$Sum + [$U.{2}, $Need - $Sum].min" />
-            <set_value name="$Sellers" exact="$Sellers + 1" />
+        </do_all>
+        <return value="[$Ranked, '', '', $Cap]" />
+      </actions>
+    </library>
+
+    <!--
+      Card 9d-2 (X4-09p). The home DC buys what is still missing from the NPC sell offers Npc_Find ranked (cheapest
+      first, then fewest jumps), from as many sellers as needed. Only runs when NpcFallback = 1 (Supply_Station).
+      Per seller, all or nothing, in one action block with no waits (nothing else can run in between):
+        1 re-check the offer (available, sell offer, seller exists, unit price still le the cap), re-read offer.amount
+          (excludes stock NPC traders have reserved, scriptproperties.xml:1517) and the seller's physical stock
+        2 qty = min(need left, offer.amount, seller stock, station free space for the ware)
+        3 fee = same formula as DC supply, jumps = seller to supplied station; cost = unit price x qty
+        4 the DC must pay cost + fee in full, else qty is cut to what it can pay; 0 = 'npc-money' skip, loop stops
+        5 DCKeepPercent is a SOFT reserve: buy anyway, one WARN line in fdn.log only (not the logbook)
+        6 fee (Take_Fee), 7 remove_cargo from the seller, 8 pay the seller station's account (VERIFY; fallback: pay the
+          seller's owner faction, logged as WARN 'NPC PAY FALLBACK'), 9 add_cargo to the station.
+      Any failed step undoes the earlier ones in reverse order and is reported as 'npc-failed'.
+      Ledger: [time, station, ware, qty, fee, jumps, 'npc-buy', ware cost] under the home DC.
+      Returns [bought, total cost, total fee, logbook summary text] or null when nothing was attempted.
+    -->
+    <library name="Npc_Buy" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="Need" />
+        <param name="Home" />
+        <param name="Found" comment="Npc_Find result [Ranked, WhyKind, WhyText, Cap]" />
+      </params>
+      <actions>
+        <do_if value="not $Station.exists or $Need le 0 or $Home == null">
+          <return />
+        </do_if>
+        <do_if value="not $Home.exists">
+          <return />
+        </do_if>
+        <set_value name="$List" exact="$Found.{1}" />
+        <set_value name="$Cap" exact="$Found.{4}" />
+        <do_if value="$List.count == 0">
+          <run_actions ref="md.FDN_Supply.Skip_Report">
+            <param name="Station" value="$Station" />
+            <param name="Ware" value="$Ware" />
+            <param name="Need" value="$Need" />
+            <param name="Reason" value="$Found.{3}" />
+            <param name="Kind" value="$Found.{2}" />
+          </run_actions>
+          <return value="[0, 0Cr, 0Cr, '']" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Pct">
+          <param name="Key" value="'TransferFeePercent'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$RangeMult">
+          <param name="Key" value="'FeeRangeMult'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$VolMult">
+          <param name="Key" value="'FeeVolumeMult'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$TypeMult">
+          <param name="Key" value="'FeeTypeMult'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$KeepPct">
+          <param name="Key" value="'DCKeepPercent'" />
+        </run_actions>
+        <set_value name="$StartMoney" exact="$Home.money" />
+        <set_value name="$Floor" exact="($StartMoney * $KeepPct) / 100" comment="soft reserve, worked out once per call (plan step 5)" />
+        <set_value name="$ReserveWarn" exact="false" />
+        <set_value name="$Left" exact="$Need" />
+        <set_value name="$Bought" exact="0" />
+        <set_value name="$TotCost" exact="0Cr" />
+        <set_value name="$TotFee" exact="0Cr" />
+        <set_value name="$NSellers" exact="0" />
+        <set_value name="$Stopped" exact="false" comment="true after an npc-money skip" />
+        <set_value name="$Failed" exact="false" />
+        <do_all exact="$List.count" counter="$i">
+          <do_if value="$Left gt 0 and not $Stopped">
+            <set_value name="$Seller" exact="$List.{$i}.{1}" />
+            <set_value name="$Jumps" exact="$List.{$i}.{4}" />
+            <set_value name="$Of" exact="$List.{$i}.{5}" />
+            <set_value name="$Ok" exact="false" />
+            <do_if value="$Seller != null and $Of != null">
+              <do_if value="$Seller.exists and $Station.exists and $Home.exists and @$Of.available and @$Of.isselloffer">
+                <set_value name="$Ok" exact="true" />
+              </do_if>
+            </do_if>
+            <set_value name="$Qty" exact="0" />
+            <do_if value="$Ok">
+              <set_value name="$Unit" exact="$Of.unitprice" comment="re-read: the price may have moved since Npc_Find" />
+              <do_if value="$Cap == null or $Unit gt $Cap">
+                <set_value name="$Ok" exact="false" />
+              </do_if>
+            </do_if>
+            <do_if value="$Ok">
+              <set_value name="$OfAmt" exact="$Of.amount" comment="excludes stock reserved by NPC traders (scriptproperties.xml:1517)" />
+              <set_value name="$SellerStock" exact="$Seller.cargo.{$Ware}.count" />
+              <set_value name="$Free" exact="$Station.cargo.{$Ware}.free" />
+              <set_value name="$Qty" exact="[$Left, $OfAmt, $SellerStock, $Free].min" />
+            </do_if>
+            <do_if value="$Qty gt 0">
+              <set_value name="$FeeFactor" exact="($Pct * (1.0 + $Jumps * $RangeMult) * $VolMult * $TypeMult * 1000)i" comment="same factor as Supply_Station, jumps = seller to station" />
+              <set_value name="$Fee" exact="($Ware.averageprice * $Qty * $FeeFactor) / 100000" />
+              <do_if value="$Fee lt 0Cr">
+                <set_value name="$Fee" exact="0Cr" />
+              </do_if>
+              <set_value name="$Cost" exact="$Unit * $Qty" />
+              <do_if value="$Home.money lt $Cost + $Fee" comment="full pay only: cut qty to what the DC can pay">
+                <set_value name="$PerUnit" exact="$Unit + ($Ware.averageprice * $FeeFactor) / 100000" />
+                <set_value name="$Qty" exact="0" />
+                <do_if value="$PerUnit gt 0Cr">
+                  <set_value name="$Qty" exact="($Home.money / $PerUnit)i" comment="money / money = number, proven in 09h" />
+                  <set_value name="$Qty" exact="[$Qty, $Left, $OfAmt, $SellerStock, $Free].min" />
+                </do_if>
+                <set_value name="$Tries" exact="0" />
+                <do_while value="$Qty gt 0 and $Tries lt 5">
+                  <set_value name="$Fee" exact="($Ware.averageprice * $Qty * $FeeFactor) / 100000" />
+                  <do_if value="$Fee lt 0Cr">
+                    <set_value name="$Fee" exact="0Cr" />
+                  </do_if>
+                  <set_value name="$Cost" exact="$Unit * $Qty" />
+                  <do_if value="$Home.money ge $Cost + $Fee + 1Cr" comment="1 Cr margin for the game's rounding to whole credits">
+                    <set_value name="$Tries" exact="99" />
+                  </do_if>
+                  <do_else>
+                    <set_value name="$Qty" exact="$Qty - 1" />
+                    <set_value name="$Tries" exact="$Tries + 1" />
+                  </do_else>
+                </do_while>
+                <do_if value="$Tries != 99">
+                  <set_value name="$Qty" exact="0" />
+                </do_if>
+                <do_if value="$Qty le 0">
+                  <set_value name="$Stopped" exact="true" comment="cheaper sellers are already used, a dearer one cannot be paid either" />
+                  <run_actions ref="md.FDN_Supply.Skip_Report">
+                    <param name="Station" value="$Station" />
+                    <param name="Ware" value="$Ware" />
+                    <param name="Need" value="$Left" />
+                    <param name="Reason" value="'home DC %1 cannot pay for NPC %2 (one unit costs %3 plus fee, %4 in account)'.[$Home.knownname, $Ware.name, $Unit.formatted.default + ' Cr', $Home.money.formatted.default + ' Cr']" />
+                    <param name="Kind" value="'npc-money'" />
+                    <param name="NoMoney" value="true" />
+                  </run_actions>
+                </do_if>
+              </do_if>
+            </do_if>
+            <do_if value="$Qty gt 0">
+              <set_value name="$Total" exact="$Cost + $Fee" />
+              <do_if value="$Home.money - $Total lt $Floor">
+                <set_value name="$ReserveWarn" exact="true" />
+              </do_if>
+              <set_value name="$HomeBefore" exact="$Home.money" />
+              <set_value name="$SellerMBefore" exact="@$Seller.money" />
+              <set_value name="$SellerStockBefore" exact="$SellerStock" />
+              <set_value name="$OfAmtBefore" exact="$OfAmt" />
+              <set_value name="$FailStep" exact="''" />
+              <set_value name="$PaidTo" exact="null" />
+              <!-- step 6: fee -->
+              <run_actions ref="md.FDN_Supply.Take_Fee" result="$Taken">
+                <param name="DC" value="$Home" />
+                <param name="Fee" value="$Fee" />
+              </run_actions>
+              <do_if value="$Taken lt 0Cr">
+                <set_value name="$FailStep" exact="'fee could not be taken'" />
+              </do_if>
+              <do_else>
+                <set_value name="$Fee" exact="$Taken" comment="what really left the account" />
+                <!-- step 7: stock off the seller -->
+                <remove_cargo object="$Seller" ware="$Ware" exact="$Qty" result="$Got" comment="vanilla drain_stations.xml:67 removes NPC station stock this way" />
+                <do_if value="$Got lt $Qty">
+                  <do_if value="$Got gt 0">
+                    <add_cargo object="$Seller" ware="$Ware" exact="$Got" />
+                  </do_if>
+                  <run_actions ref="md.FDN_Supply.Undo_Fee">
+                    <param name="DC" value="$Home" />
+                    <param name="Fee" value="$Fee" />
+                  </run_actions>
+                  <set_value name="$FailStep" exact="'seller %1 gave only %2 of %3, put back'.[$Seller.knownname, $Got, $Qty]" />
+                </do_if>
+                <do_else>
+                  <!-- step 8: pay the seller station's account (VERIFY), fallback the seller's owner faction -->
+                  <set_value name="$PrePay" exact="$Home.money" />
+                  <transfer_money from="$Home" to="$Seller" amount="$Cost" comment="VERIFY: player station to NPC station account (no vanilla line does this)" />
+                  <set_value name="$PaidNow" exact="$PrePay - $Home.money" />
+                  <do_if value="$PaidNow ge $Cost - 1Cr">
+                    <set_value name="$PaidTo" exact="$Seller" />
+                  </do_if>
+                  <do_else>
+                    <do_if value="$PaidNow gt 0Cr">
+                      <transfer_money from="$Seller" to="$Home" amount="$PaidNow" comment="part payment back" />
+                    </do_if>
+                    <set_value name="$PrePay" exact="$Home.money" />
+                    <do_if value="$Seller.owner != null">
+                      <transfer_money from="$Home" to="$Seller.owner" amount="$Cost" comment="plan risk 1 fallback: story_paranid.xml:13808 pattern, pays the owner faction" />
+                    </do_if>
+                    <set_value name="$PaidNow" exact="$PrePay - $Home.money" />
+                    <do_if value="$PaidNow ge $Cost - 1Cr">
+                      <set_value name="$PaidTo" exact="$Seller.owner" />
+                      <run_actions ref="md.FDN_Core.Log">
+                        <param name="Level" value="2" />
+                        <param name="Text" value="'NPC PAY FALLBACK: paying the account of %1 failed, %2 paid %3 to its owner faction %4 instead'.[$Seller.knownname, $Home.knownname, $Cost.formatted.default + ' Cr', $Seller.owner.knownname]" />
+                      </run_actions>
+                    </do_if>
+                    <do_else>
+                      <do_if value="$PaidNow gt 0Cr and $Seller.owner != null">
+                        <transfer_money from="$Seller.owner" to="$Home" amount="$PaidNow" />
+                      </do_if>
+                      <add_cargo object="$Seller" ware="$Ware" exact="$Qty" />
+                      <run_actions ref="md.FDN_Supply.Undo_Fee">
+                        <param name="DC" value="$Home" />
+                        <param name="Fee" value="$Fee" />
+                      </run_actions>
+                      <set_value name="$FailStep" exact="'payment of %1 to %2 failed, stock put back'.[$Cost.formatted.default + ' Cr', $Seller.knownname]" />
+                    </do_else>
+                  </do_else>
+                  <do_if value="$PaidTo != null">
+                    <set_value name="$Paid" exact="$PaidNow" comment="what really left the account for the wares" />
+                    <!-- step 9: stock into the supplied station -->
+                    <set_value name="$Added" exact="0" />
+                    <do_if value="$Station.exists and $Station.owner == faction.player">
+                      <add_cargo object="$Station" ware="$Ware" exact="$Qty" result="$Added" />
+                    </do_if>
+                    <do_if value="$Added lt $Qty">
+                      <do_if value="$Added gt 0">
+                        <remove_cargo object="$Station" ware="$Ware" exact="$Added" />
+                      </do_if>
+                      <add_cargo object="$Seller" ware="$Ware" exact="$Qty" />
+                      <set_value name="$PreRef" exact="$Home.money" />
+                      <transfer_money from="$PaidTo" to="$Home" amount="$Paid" comment="VERIFY: refund from the NPC station or faction" />
+                      <do_if value="$Home.money - $PreRef lt $Paid - 1Cr">
+                        <run_actions ref="md.FDN_Core.Log">
+                          <param name="Level" value="1" />
+                          <param name="Text" value="'NPC REFUND FAILED: %1 should get %2 back from %3, got %4 (fix by hand)'.[$Home.knownname, $Paid.formatted.default + ' Cr', $PaidTo.knownname, ($Home.money - $PreRef).formatted.default + ' Cr']" />
+                        </run_actions>
+                      </do_if>
+                      <run_actions ref="md.FDN_Supply.Undo_Fee">
+                        <param name="DC" value="$Home" />
+                        <param name="Fee" value="$Fee" />
+                      </run_actions>
+                      <set_value name="$FailStep" exact="'%1 took only %2 of %3, stock back to %4 and money refunded'.[$Station.knownname, $Added, $Qty, $Seller.knownname]" />
+                    </do_if>
+                    <do_else>
+                      <!-- success -->
+                      <set_value name="$Left" exact="$Left - $Qty" />
+                      <set_value name="$Bought" exact="$Bought + $Qty" />
+                      <set_value name="$TotCost" exact="$TotCost + $Paid" />
+                      <set_value name="$TotFee" exact="$TotFee + $Fee" />
+                      <set_value name="$NSellers" exact="$NSellers + 1" />
+                      <run_actions ref="md.FDN_Supply.Ledger_Add">
+                        <param name="DC" value="$Home" />
+                        <param name="Entry" value="[player.age, $Station, $Ware, $Qty, $Fee, $Jumps, 'npc-buy', $Paid]" comment="card 09p: 8th field = ware cost" />
+                      </run_actions>
+                      <set_value name="$SellerMAfter" exact="@$Seller.money" />
+                      <set_value name="$OfAmtAfter" exact="@$Of.amount" comment="VERIFY: offer follows the cargo after remove_cargo" />
+                      <run_actions ref="md.FDN_Core.Log">
+                        <param name="Level" value="3" />
+                        <param name="Text" value="'NPC BUY: %1 bought %2 %3 from %4 (%5) for %6, %7 jumps, unit %8 (cap %9)'.[$Home.knownname, $Qty, $Ware.name, $Seller.knownname, (if $Seller.owner != null then $Seller.owner.knownname else '?'), $Station.knownname, $Jumps, $Unit.formatted.default + ' Cr', (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')] + ', cost %1, fee %2, %3: %4 -> %5'.[$Paid.formatted.default + ' Cr', $Fee.formatted.default + ' Cr', $Home.knownname, $HomeBefore.formatted.default + ' Cr', $Home.money.formatted.default + ' Cr'] + ', seller stock %1 -> %2, offer %3 -> %4, seller account %5 -> %6, paid to %7'.[$SellerStockBefore, $Seller.cargo.{$Ware}.count, $OfAmtBefore, (if $OfAmtAfter != null then $OfAmtAfter else '?'), (if $SellerMBefore != null then $SellerMBefore.formatted.default + ' Cr' else '?'), (if $SellerMAfter != null then $SellerMAfter.formatted.default + ' Cr' else '?'), (if $PaidTo == $Seller then 'station' else 'owner faction')]" />
+                      </run_actions>
+                      <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09p: LogbookLevel 3 only, ware cost shown with the fee">
+                        <param name="Tier" value="'transfer'" />
+                        <param name="Title" value="'bought %1 for %2'.[$Ware.name, $Station.knownname]" />
+                        <param name="Text" value="'%1 %2 from NPC %3, %4 jumps, unit %5, paid by %6'.[$Qty, $Ware.name, $Seller.knownname, $Jumps, $Unit.formatted.default + ' Cr', $Home.knownname]" />
+                        <param name="Money" value="$Fee" />
+                        <param name="Cost" value="$Paid" />
+                        <param name="Object" value="$Station" />
+                        <param name="ThrottleStation" value="$Station" />
+                        <param name="ThrottleWare" value="$Ware" />
+                      </run_actions>
+                    </do_else>
+                  </do_if>
+                </do_else>
+              </do_else>
+              <do_if value="$FailStep != ''">
+                <set_value name="$Failed" exact="true" />
+                <run_actions ref="md.FDN_Supply.Skip_Report">
+                  <param name="Station" value="$Station" />
+                  <param name="Ware" value="$Ware" />
+                  <param name="Need" value="$Qty" />
+                  <param name="Reason" value="'NPC buy from %1 rolled back: %2'.[$Seller.knownname, $FailStep]" />
+                  <param name="Kind" value="'npc-failed'" />
+                </run_actions>
+              </do_if>
+            </do_if>
           </do_if>
         </do_all>
+        <do_if value="$ReserveWarn">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'NPC BUY: %1 went below its %2 pct reserve to buy %3 for %4: %5 -> %6, reserve %7 (soft limit, bought anyway)'.[$Home.knownname, $KeepPct, $Ware.name, $Station.knownname, $StartMoney.formatted.default + ' Cr', $Home.money.formatted.default + ' Cr', $Floor.formatted.default + ' Cr']" />
+          </run_actions>
+        </do_if>
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'NPC CHECK: would buy up to %1 of %2 from %3 seller(s)'.[$Sum, $Need, $Sellers]" />
+          <param name="Text" value="'NPC BUY: %1 %2: bought %3 of %4 from %5 seller(s), total cost %6, total fee %7, paid by %8'.[$Station.knownname, $Ware.name, $Bought, $Need, $NSellers, $TotCost.formatted.default + ' Cr', $TotFee.formatted.default + ' Cr', $Home.knownname]" />
         </run_actions>
+        <do_if value="$Left gt 0 and not $Stopped and not $Failed">
+          <run_actions ref="md.FDN_Supply.Skip_Report">
+            <param name="Station" value="$Station" />
+            <param name="Ware" value="$Ware" />
+            <param name="Need" value="$Need" />
+            <param name="Reason" value="'bought %1 of %2 from NPC stations, no more usable offers'.[$Bought, $Need]" />
+            <param name="Kind" value="'npc-none'" />
+          </run_actions>
+        </do_if>
+        <set_value name="$Text" exact="''" />
+        <do_if value="$Bought gt 0">
+          <set_value name="$Text" exact="'%1 %2 bought from %3 NPC seller(s), cost %4'.[$Ware.name, $Bought, $NSellers, $TotCost.formatted.default + ' Cr']" />
+        </do_if>
+        <return value="[$Bought, $TotCost, $TotFee, $Text]" />
       </actions>
     </library>
 

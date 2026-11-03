@@ -188,8 +188,9 @@
         'summary'  level 2 only (level 3 writes each transfer instead)
         'info'     level 2+  (Category, e.g. general for DC network changes)
         'transfer' level 3   throttled per ThrottleStation + ThrottleWare + Tier for LogbookSkipInterval seconds
-      Money = fee shown with the entry (money attribute, not 0). Cost = optional ware cost (NPC buys, later card):
-      added to the money shown and named in the text. Notify = true also shows NotifyText in the ticker when NotifyMoneySkip = 1.
+      Money = fee shown with the entry (money attribute, not 0). Cost = optional ware cost (NPC buys, card 09p):
+      added to the money shown and named in the text. Card 09p: Money and Cost are amounts the player's DC PAID, so the
+      logbook shows their total as a negative amount (money leaving, red in game); callers keep passing positive amounts. Notify = true also shows NotifyText in the ticker when NotifyMoneySkip = 1.
       Callers do their own fdn.log lines; this writes nothing to fdn.log except a level 4 debug line.
         <run_actions ref="md.FDN_Core.Logbook_Event">
           <param name="Tier" value="'problem'" />
@@ -275,10 +276,10 @@
           </do_if>
         </do_if>
         <set_value name="$FullTitle" exact="'FDN: ' + $Title" />
-        <set_value name="$Shown" exact="$Money" />
+        <set_value name="$Shown" exact="0Cr - $Money" comment="card 09p: fee paid = money leaving, shown negative (red)" />
         <set_value name="$FullText" exact="$Text" />
         <do_if value="$Cost != null">
-          <set_value name="$Shown" exact="$Money + $Cost" />
+          <set_value name="$Shown" exact="0Cr - ($Money + $Cost)" comment="card 09p: fee + ware cost paid, shown negative" />
           <set_value name="$FullText" exact="$Text + ' (ware cost %1, fee %2)'.[$Cost.formatted.default + ' Cr', $Money.formatted.default + ' Cr']" />
         </do_if>
         <set_value name="$Hi" exact="$Tier == 'problem'" />
