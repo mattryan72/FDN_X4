@@ -205,7 +205,7 @@
       Step 9a. Distribution Centre (DC) detection. Card X4-14c: by charter.
       A DC is a player-owned station with an FDN charter (md.FDN_Core.Init.$Charters) and at least one operational
       dock area or pier in CharterMacros. md.FDN_Core.Charter_Review works this out and ends broken charters
-      (destroyed, no longer player owned, no working qualifying dock). DCMacros is no longer read.
+      (destroyed, no longer player owned, no working qualifying dock).
       Returns the list of DC stations. With no DC at all it returns [] and writes one WARN (fdn.log + logbook 'problem')
       per session; the callers already skip DC supply when the list is empty.
     -->
@@ -1370,19 +1370,15 @@
         <set_value name="$Before" exact="$Payer.money" />
         <set_value name="$SrcBefore" exact="$DC.money" comment="card 9h: logging only, source DC balance before the fee" />
         <do_if value="$Fee gt 0Cr">
-          <transfer_money from="$Payer" to="faction.ownerless" amount="$Fee" comment="VERIFY: fee leaves the DC account" />
-          <set_value name="$Taken" exact="$Before - $Payer.money" comment="what really left the DC account; the game rounds the fee to whole credits" />
-          <do_if value="$Taken lt $Fee - 1Cr" comment="VERIFY: 1Cr (100 units) tolerance covers the game's rounding">
-            <run_actions ref="md.FDN_Core.Log">
-              <param name="Level" value="2" />
-              <param name="Text" value="'fee not taken from DC %1 (before %2, now %3, fee %4, taken %5); transfer cancelled'.[$Payer.knownname, $Before.formatted.default + ' Cr', $Payer.money.formatted.default + ' Cr', $Fee.formatted.default + ' Cr', $Taken.formatted.default + ' Cr']" />
-            </run_actions>
-            <do_if value="$Payer.money lt $Before">
-              <transfer_money from="faction.ownerless" to="$Payer" amount="$Before - $Payer.money" />
-            </do_if>
+          <run_actions ref="md.FDN_Supply.Take_Fee" result="$Taken" comment="card X4-14e: shared fee step (was inline here, same steps)">
+            <param name="DC" value="$Payer" />
+            <param name="Fee" value="$Fee" />
+            <param name="What" value="'transfer'" />
+          </run_actions>
+          <do_if value="$Taken lt 0Cr">
             <return value="false" />
           </do_if>
-          <set_value name="$Fee" exact="$Taken" comment="VERIFY: from here on (refund, queue, ledger, TRANSFER log) the fee is what was really taken" />
+          <set_value name="$Fee" exact="$Taken" comment="from here on (refund, queue, ledger, TRANSFER log) the fee is what was really taken" />
         </do_if>
         <run_actions ref="md.FDN_Core.Claim_Add">
           <param name="Station" value="$Station" />
@@ -1497,8 +1493,10 @@
         <set_value name="$ValueText" exact="$Value.formatted.default + ' Cr'" />
         <set_value name="$PctText" exact="'n/a'" />
         <do_if value="$Value gt 0Cr">
-          <set_value name="$Tenths" exact="(($Fee * 1000) / $Value)i" comment="card 9h: fee as tenths of a percent of the value, whole-number maths. VERIFY: money / money gives a number" />
-          <set_value name="$PctText" exact="'%1.%2 pct'.[$Tenths / 10, $Tenths - ($Tenths / 10) * 10]" />
+          <set_value name="$Hund" exact="(($Fee * 10000) / $Value)i" comment="card X4-14e: fee as hundredths of a percent of the value, whole-number maths (card 9h used tenths)" />
+          <set_value name="$PctWhole" exact="$Hund / 100" />
+          <set_value name="$PctRest" exact="$Hund - $PctWhole * 100" />
+          <set_value name="$PctText" exact="'%1.%2%3 pct'.[$PctWhole, $PctRest / 10, $PctRest - ($PctRest / 10) * 10]" comment="two decimals, e.g. 0.39 pct or 2.05 pct" />
         </do_if>
         <set_value name="$PayerBText" exact="if $PayerBefore != null then $PayerBefore.formatted.default + ' Cr' else '?'" />
         <set_value name="$PayerAText" exact="if $Payer.exists then $Payer.money.formatted.default + ' Cr' else '?'" />
@@ -1541,26 +1539,28 @@
     </library>
 
     <!--
-      Card 9c-fee. Takes a fee from the DC account (same steps and 1Cr rounding tolerance as Start_Transfer).
+      Card 9c-fee. Takes a fee from the DC (payer) account to faction.ownerless, with a 1Cr rounding tolerance.
       Returns what really left the account (0Cr when the fee is 0), or -1Cr when the fee was not taken
-      (anything that did leave is put back). Start_Transfer is left as it is (proven in game).
+      (anything that did leave is put back, and a WARN names what was cancelled).
+      Card X4-14e: the one fee step for Start_Transfer (What = 'transfer'), Npc_Buy and Return_Products (What = 'return', the default).
     -->
     <library name="Take_Fee" purpose="run_actions">
       <params>
         <param name="DC" />
         <param name="Fee" />
+        <param name="What" default="'return'" comment="card X4-14e: word for the WARN line, 'transfer' or 'return'" />
       </params>
       <actions>
         <do_if value="not ($Fee gt 0Cr)">
           <return value="0Cr" />
         </do_if>
         <set_value name="$Before" exact="$DC.money" />
-        <transfer_money from="$DC" to="faction.ownerless" amount="$Fee" comment="as Start_Transfer" />
+        <transfer_money from="$DC" to="faction.ownerless" amount="$Fee" comment="fee leaves the payer account" />
         <set_value name="$Taken" exact="$Before - $DC.money" comment="the game rounds the fee to whole credits" />
-        <do_if value="$Taken lt $Fee - 1Cr" comment="VERIFY: 1Cr tolerance, as Start_Transfer">
+        <do_if value="$Taken lt $Fee - 1Cr" comment="1Cr (100 units) tolerance covers the game's rounding">
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="2" />
-            <param name="Text" value="'fee not taken from DC %1 (before %2, now %3, fee %4, taken %5); return cancelled'.[$DC.knownname, $Before.formatted.default + ' Cr', $DC.money.formatted.default + ' Cr', $Fee.formatted.default + ' Cr', $Taken.formatted.default + ' Cr']" />
+            <param name="Text" value="'fee not taken from DC %1 (before %2, now %3, fee %4, taken %5); %6 cancelled'.[$DC.knownname, $Before.formatted.default + ' Cr', $DC.money.formatted.default + ' Cr', $Fee.formatted.default + ' Cr', $Taken.formatted.default + ' Cr', $What]" />
           </run_actions>
           <do_if value="$DC.money lt $Before">
             <transfer_money from="faction.ownerless" to="$DC" amount="$Before - $DC.money" />

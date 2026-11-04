@@ -148,7 +148,6 @@
             <set_value name="$Defaults.{'$NpcFallback'}" exact="1" comment="1 = buy shortfalls from NPC offers when no own station can cover (card 09r: on by default, proven in game; 0 turns it off). NPCs only qualify when the station buy price is raised above the ware minimum" />
 
             <!-- ===== Distribution Centres (step 9) ===== -->
-            <set_value name="$Defaults.{'$DCMacros'}" exact="['dockarea_arg_m_02_tradestation_01_macro', 'pier_bor_tradestation_01_macro', 'pier_ter_tradestation_01_macro']" comment="DEPRECATED from card X4-14c, no code reads it: DCs are now stations with an FDN charter (CharterMacros decides the docks). Kept so saved overrides keep their key" />
             <set_value name="$Defaults.{'$DCNetworkRange'}" exact="10" comment="max gate jumps between two DCs for them to join one network" />
             <set_value name="$Defaults.{'$DCKeepPercent'}" exact="10" comment="percent of each ware a DC always keeps (used from card 9b)" />
             <set_value name="$Defaults.{'$DCKeepWare'}" exact="table[]" comment="per-ware keep percent override, ware -> percent (used from card 9b)" />
@@ -681,14 +680,14 @@
       $DockMiss (card X4-14c, optional) is player.age when the review first saw no working qualifying dock.
       Card X4-14b: bought from the station menu (md/fdn_menu.xml, On_Buy_Charter). $Time is player.age (game seconds) at purchase.
       Card X4-14c: DC detection (md.FDN_Supply.Find_DCs) uses Charter_Review: a DC is a player-owned station with a charter
-      and at least one operational qualifying dock (CharterMacros). DCMacros is no longer read.
+      and at least one operational qualifying dock (CharterMacros). The old DCMacros setting was removed in card X4-14e;
+      an old save that still holds a DCMacros override keeps it in $Overrides, where nothing reads it (harmless).
       A charter ENDS (Charter_End, fdn.log WARN + logbook 'problem') when the station is destroyed, is no longer player owned,
       or has had no working qualifying dock on two reviews at least 30 game seconds apart (fixed, not a setting). Revoke from the
       menu also uses Charter_End (logbook 'notice'). No refund in any case.
         Charter_Get        params Station                     returns the charter table, or null
         Charter_Set        params Station, Fee, Dock[, Faction, Source, Standing]  writes the charter. Returns true, false if the station is gone
         Charter_Clear      params Station[, Reason]           removes the charter. Returns true
-        Charter_Purge      no params                          drops charters of stations that no longer exist (silent; not wired up, Charter_Review replaces it)
         Charter_Has_Dock   params Station                     card X4-14c: true when the station has an operational CharterMacros dock
         Charter_End        params Station, Reason[, Revoke]   card X4-14c: clears the charter, logs it. Returns true if one was cleared
         Charter_Review     no params                          card X4-14c: ends charters that broke the rules, returns the list of DCs
@@ -760,21 +759,6 @@
           </do_if>
         </do_if>
         <return value="true" />
-      </actions>
-    </library>
-
-    <library name="Charter_Purge" purpose="run_actions">
-      <actions>
-        <set_value name="$Init" exact="md.FDN_Core.Init" />
-        <do_if value="not $Init.$Charters?">
-          <return />
-        </do_if>
-        <set_value name="$Keys" exact="$Init.$Charters.keys.list" />
-        <do_all exact="$Keys.count" counter="$k">
-          <do_if value="not $Keys.{$k}.exists">
-            <remove_value name="$Init.$Charters.{$Keys.{$k}}" />
-          </do_if>
-        </do_all>
       </actions>
     </library>
 
