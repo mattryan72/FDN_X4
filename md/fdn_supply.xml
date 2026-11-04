@@ -56,6 +56,12 @@
                   <set_value name="$Index" exact="1" />
                 </do_if>
                 <set_value name="$Visit" exact="[[$PerPass, 1].max, $Count].min" />
+                <do_if value="$DCs.count == 0" comment="card X4-15d: one fdn.log line per pass instead of a logbook entry per station and ware">
+                  <run_actions ref="md.FDN_Core.Log">
+                    <param name="Level" value="3" />
+                    <param name="Text" value="'returns skipped this pass: no DC exists (logbook reports muted, see the no DC exists warning)'" />
+                  </run_actions>
+                </do_if>
                 <run_actions ref="md.FDN_Core.Log">
                   <param name="Level" value="4" />
                   <param name="Text" value="'poll pass: %1 of %2 stations, starting at %3'.[$Visit, $Count, $Index]" />
@@ -101,6 +107,7 @@
                   <run_actions ref="md.FDN_Supply.Return_Products">
                     <param name="Station" value="$Station" />
                     <param name="Near" value="$Near" />
+                    <param name="NoDCs" value="$DCs.count == 0" comment="card X4-15d: no DC exists, mute the per-ware no-DC return reports" />
                   </run_actions>
                   <set_value name="$Index" operation="add" />
                   <do_if value="$Index gt $Count">
@@ -1804,6 +1811,7 @@
       <params>
         <param name="Station" />
         <param name="Near" />
+        <param name="NoDCs" default="false" comment="card X4-15d: true when no DC exists at all (set by Loop)" />
       </params>
       <actions>
         <do_if value="not $Station.exists">
@@ -1947,13 +1955,21 @@
             </do_if>
             <do_if value="$Spare ge $MinBatch">
               <do_if value="not $DC">
-                <run_actions ref="md.FDN_Supply.Skip_Report">
-                  <param name="Station" value="$Station" />
-                  <param name="Ware" value="$Ware" />
-                  <param name="Need" value="$Spare" />
-                  <param name="Reason" value="'no DC in range to take the product'" />
-                  <param name="Kind" value="'return'" />
-                </run_actions>
+                <do_if value="$NoDCs" comment="card X4-15d: no DC exists, the once-per-session no DC exists warning already tells the player">
+                  <run_actions ref="md.FDN_Core.Log">
+                    <param name="Level" value="4" />
+                    <param name="Text" value="'return: %1 %2 spare %3 held, no DC exists'.[$Station.knownname, $Ware.name, $Spare]" />
+                  </run_actions>
+                </do_if>
+                <do_else>
+                  <run_actions ref="md.FDN_Supply.Skip_Report">
+                    <param name="Station" value="$Station" />
+                    <param name="Ware" value="$Ware" />
+                    <param name="Need" value="$Spare" />
+                    <param name="Reason" value="'no DC in range to take the product'" />
+                    <param name="Kind" value="'return'" />
+                  </run_actions>
+                </do_else>
               </do_if>
               <do_else>
                 <set_value name="$Free" exact="$DC.cargo.{$Ware}.free" comment="VERIFY: per-ware free space at the DC (0 when the DC has no storage of that type)" />
