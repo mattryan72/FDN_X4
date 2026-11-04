@@ -31,6 +31,10 @@
       (last 10 supplies, pulls, NPC buys and returns, newest first). Ages are whole game minutes,
       ((player.age - time) / 60s)i as vanilla cpu_ship_manager.xml. The DC tables stop 12 rows earlier so the
       activity rows always fit under the 160-row limit.
+    - Card X4-15f (display only): each Recent activity entry is two rows. Row 1: 'N min ago, kind' | 'qty ware'
+      (spans columns 2 and 3) | 'fee X Cr'. Row 2: one full-width line (4-column span, as the headings) 'from X to Y',
+      so long station names are not cut off in a narrow column. Up to 20 activity rows, so the DC tables now stop
+      at $Max - 20 (130). Worst case about 154 rows, under the 160-row limit.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -154,7 +158,7 @@
         </do_if>
 
         <do_all exact="$DCs.count" counter="$d">
-          <do_if value="$Rows ge $Max - 12" comment="card X4-15e: room for Recent activity">
+          <do_if value="$Rows ge $Max - 20" comment="card X4-15f: room for Recent activity (heading + 2 rows per entry)">
             <set_value name="$Cut" exact="true" />
             <break />
           </do_if>
@@ -197,7 +201,7 @@
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
           <do_all exact="$Wares.count" counter="$w">
-            <do_if value="$Rows ge $Max - 12" comment="card X4-15e: room for Recent activity">
+            <do_if value="$Rows ge $Max - 20" comment="card X4-15f: room for Recent activity (heading + 2 rows per entry)">
               <set_value name="$Cut" exact="true" />
               <break />
             </do_if>
@@ -264,10 +268,11 @@
           <set_value name="$Mins" exact="((player.age - $E.{1}) / 60s)i" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = '%1 min ago, %2'.[$Mins, $E.{2}]]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = '%1 %2'.[$E.{4}, $E.{3}.name]]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = '%1 to %2'.[$E.{5}, $E.{6}]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = '%1 %2'.[$E.{4}, $E.{3}.name]]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = 'fee ' + $E.{7}.formatted.default + ' Cr', $halign = 'right']" />
-          <set_value name="$Rows" exact="$Rows + 1" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" comment="card X4-15f: route on its own full-width row" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '    from %1 to %2'.[$E.{5}, $E.{6}]]" />
+          <set_value name="$Rows" exact="$Rows + 2" />
         </do_all>
 
         <run_actions ref="md.FDN_Core.Log">
