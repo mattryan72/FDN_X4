@@ -11,6 +11,8 @@
       $Overrides : table of settings the player has changed (saved). Empty means "all defaults".
       $StationCfg: saved table of per-station overrides, station -> key -> value (card 10a, created on first use).
       $Claims    : saved table of reserved ware amounts, station -> ware -> amount (see Claim_* libraries).
+      $Charters  : card X4-14a, saved table of FDN charters, station -> table (see Charter_* libraries).
+                   Created on first use. Nothing reads or writes it yet (no behaviour change in 14a).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
       Read a setting from any file with run_actions ref="md.FDN_Core.Cfg_Get" (see below).
@@ -32,6 +34,9 @@
         </do_if>
         <do_if value="not $Claims?">
           <set_value name="$Claims" exact="table[]" />
+        </do_if>
+        <do_if value="not $Charters?">
+          <set_value name="$Charters" exact="table[]" comment="card X4-14a: per-station charter data, inert until 14b/14c" />
         </do_if>
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
@@ -61,6 +66,32 @@
               <param name="Level" value="3" />
               <param name="Text" value="'defaults loaded on game load, %1 settings, %2 overridden'.[$Defaults.keys.count, $Overrides.keys.count]" />
             </run_actions>
+          </actions>
+        </cue>
+
+        <!-- Card X4-14a, debug only and read-only: once per game load, log the qualifying dock price and the
+             charter fee each known player station would pay. Writes nothing to the save except the log. -->
+        <cue name="Charter_Probe" instantiate="true">
+          <conditions>
+            <event_game_loaded />
+          </conditions>
+          <delay exact="20s" />
+          <actions>
+            <run_actions ref="md.FDN_Core.Cfg_Get" result="$Dbg">
+              <param name="Key" value="'DebugLog'" />
+            </run_actions>
+            <run_actions ref="md.FDN_Core.Cfg_Get" result="$Lvl">
+              <param name="Key" value="'LogLevel'" />
+            </run_actions>
+            <do_if value="$Dbg == 1 and $Lvl ge 4 and md.FDN_Stations.Registry.$Stations?">
+              <do_for_each name="$S" in="md.FDN_Stations.Registry.$Stations">
+                <do_if value="$S.exists">
+                  <run_actions ref="md.FDN_Core.Charter_Fee" result="$Info">
+                    <param name="Station" value="$S" />
+                  </run_actions>
+                </do_if>
+              </do_for_each>
+            </do_if>
           </actions>
         </cue>
 
@@ -115,6 +146,19 @@
             <set_value name="$Defaults.{'$ProductsFdnManaged'}" exact="1" comment="1 = this station's products go to its nearest DC (card 9c)" />
             <set_value name="$Defaults.{'$ProductMinBatch'}" exact="100" comment="card 9c: smallest amount of a product sent to the DC in one go" />
             <set_value name="$Defaults.{'$ProductKeepWare'}" exact="table[]" comment="card 9c: per-ware amount a station keeps of its own product, ware -> amount. Empty = keep 0" />
+
+            <!-- ===== FDN charter (card X4-14a: settings only, nothing charges or uses a charter yet) ===== -->
+            <set_value name="$Defaults.{'$CharterFeePercent'}" exact="75" comment="charter fee = this percent of the average price of the most expensive qualifying dock on the station" />
+            <set_value name="$Defaults.{'$CharterFeeFloor'}" exact="1500000" comment="lowest charter fee in whole Cr, before reputation discount" />
+            <set_value name="$Defaults.{'$CharterFeeCap'}" exact="4000000" comment="highest charter fee in whole Cr, before reputation discount" />
+            <set_value name="$Defaults.{'$CharterMinStanding'}" exact="10" comment="minimum standing (-30 to +30) with the sector owner (else best main faction). -30 switches the gate off" />
+            <set_value name="$Defaults.{'$CharterDiscStep1'}" exact="10" comment="standing for discount 1" />
+            <set_value name="$Defaults.{'$CharterDisc1'}" exact="10" comment="discount 1, percent off the fee" />
+            <set_value name="$Defaults.{'$CharterDiscStep2'}" exact="20" comment="standing for discount 2" />
+            <set_value name="$Defaults.{'$CharterDisc2'}" exact="25" comment="discount 2, percent off the fee" />
+            <set_value name="$Defaults.{'$CharterDiscStep3'}" exact="30" comment="standing for discount 3" />
+            <set_value name="$Defaults.{'$CharterDisc3'}" exact="40" comment="discount 3, percent off the fee" />
+            <set_value name="$Defaults.{'$CharterMacros'}" exact="['dockarea_arg_m_station_01_macro', 'dockarea_arg_m_station_01_hightech_macro', 'dockarea_arg_m_station_01_lowtech_macro', 'dockarea_arg_m_station_02_macro', 'dockarea_arg_m_station_02_hightech_macro', 'dockarea_arg_m_station_02_lowtech_macro', 'dockarea_arg_m_02_tradestation_01_macro', 'pier_arg_harbor_01_macro', 'pier_arg_harbor_02_macro', 'pier_arg_harbor_03_macro', 'pier_arg_harbor_04_macro', 'pier_arg_single_01_tradestation_01_macro', 'pier_par_harbor_01_macro', 'pier_par_harbor_02_macro', 'pier_par_harbor_03_macro', 'pier_tel_harbor_01_macro', 'pier_tel_harbor_02_macro', 'pier_tel_harbor_03_macro', 'pier_spl_harbor_01_macro', 'pier_spl_harbor_02_macro', 'pier_spl_harbor_03_macro', 'dockarea_bor_m_station_01_standard_macro', 'pier_bor_harbor_01_macro', 'pier_bor_harbor_02_macro', 'pier_bor_harbor_03_macro', 'pier_bor_harbor_04_macro', 'pier_bor_tradestation_01_macro', 'dockarea_ter_m_station_01_hightech_macro', 'pier_ter_harbor_01_macro', 'pier_ter_harbor_02_macro', 'pier_ter_harbor_03_macro', 'pier_ter_harbor_04_macro', 'pier_ter_tradestation_01_macro']" comment="card X4-14a: dock areas and piers that qualify for a charter (base, Split, Boron, Terran). Not ship-build bays, equipment docks, showroom, venturer, Xenon or Teladi landmark parts. Kept separate from DCMacros, which still decides DCs" />
           </actions>
         </library>
 
@@ -600,6 +644,243 @@
             <remove_value name="$Init.$Claims.{$Keys.{$k}}" />
           </do_if>
         </do_all>
+      </actions>
+    </library>
+
+    <!--
+      FDN CHARTER DATA (card X4-14a). Inert: nothing in 14a buys, checks or clears a charter.
+      DC detection (md.FDN_Supply.Find_DCs) is unchanged and still uses DCMacros.
+      Stored in md.FDN_Core.Init.$Charters as station -> table[$Fee, $Time, $Dock, $Faction] (saved, created on first use).
+        Charter_Get        params Station                     returns the charter table, or null
+        Charter_Set        params Station, Fee, Dock[, Faction, Source]  writes the charter. Returns true, false if the station is gone
+        Charter_Clear      params Station[, Reason]           removes the charter. Returns true
+        Charter_Purge      no params                          drops charters of stations that no longer exist (not wired up yet)
+        Charter_Dock_Price params Station                     returns table[$Price (money), $Macro] of the most expensive
+                                                              operational qualifying dock (CharterMacros), or null when none
+        Charter_Standing   params Station                     returns table[$Faction, $Standing (-30 to +30)]
+        Charter_Fee        params Station                     returns table[$Allowed, $Fee, $Base, $Price, $Macro, $Faction,
+                                                              $Standing, $Discount, $Reason]. Calculates only, never charges
+    -->
+    <library name="Charter_Get" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$Charters?">
+          <do_if value="$Init.$Charters.{$Station}?">
+            <return value="$Init.$Charters.{$Station}" />
+          </do_if>
+        </do_if>
+        <return value="null" />
+      </actions>
+    </library>
+
+    <library name="Charter_Set" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Fee" default="0Cr" />
+        <param name="Dock" default="''" />
+        <param name="Faction" default="null" />
+        <param name="Source" default="''" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Station.exists">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'charter not set: station gone'" />
+          </run_actions>
+          <return value="false" />
+        </do_if>
+        <do_if value="not $Init.$Charters?">
+          <set_value name="$Init.$Charters" exact="table[]" />
+        </do_if>
+        <set_value name="$Init.$Charters.{$Station}" exact="table[$Fee = $Fee, $Time = player.age, $Dock = $Dock, $Faction = $Faction]" comment="station object as table key, same as $StationCfg" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'charter set at %1, fee %2, dock %3%4'.[$Station.knownname, $Fee.formatted.default + ' Cr', $Dock, $Source]" />
+        </run_actions>
+        <return value="true" />
+      </actions>
+    </library>
+
+    <library name="Charter_Clear" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Reason" default="''" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$Charters?">
+          <do_if value="$Init.$Charters.{$Station}?">
+            <remove_value name="$Init.$Charters.{$Station}" />
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="3" />
+              <param name="Text" value="'charter cleared at %1 %2'.[(if $Station.exists then $Station.knownname else '(gone)'), $Reason]" />
+            </run_actions>
+          </do_if>
+        </do_if>
+        <return value="true" />
+      </actions>
+    </library>
+
+    <library name="Charter_Purge" purpose="run_actions">
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$Charters?">
+          <return />
+        </do_if>
+        <set_value name="$Keys" exact="$Init.$Charters.keys.list" />
+        <do_all exact="$Keys.count" counter="$k">
+          <do_if value="not $Keys.{$k}.exists">
+            <remove_value name="$Init.$Charters.{$Keys.{$k}}" />
+          </do_if>
+        </do_all>
+      </actions>
+    </library>
+
+    <library name="Charter_Dock_Price" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Macros">
+          <param name="Key" value="'CharterMacros'" />
+        </run_actions>
+        <do_if value="not $Macros or not $Station.exists">
+          <return value="null" />
+        </do_if>
+        <find_object_component object="$Station" name="$Docks" class="[class.dockarea, class.pier]" checkoperational="true" multiple="true" />
+        <set_value name="$Best" exact="null" />
+        <set_value name="$BestMacro" exact="''" />
+        <set_value name="$Seen" exact="''" />
+        <do_for_each name="$D" in="$Docks">
+          <set_value name="$Id" exact="$D.macro.id" />
+          <do_if value="$Macros.indexof.{$Id}">
+            <set_value name="$W" exact="$D.macro.ware" comment="macro.ware: ware linked to this macro (vanilla factionsubgoal_buildstation.xml)" />
+            <do_if value="$W">
+              <set_value name="$P" exact="$W.averageprice" />
+              <set_value name="$Seen" exact="$Seen + ' ' + $Id + '=' + $P.formatted.default" />
+              <do_if value="$Best == null or $P gt $Best">
+                <set_value name="$Best" exact="$P" />
+                <set_value name="$BestMacro" exact="$Id" />
+              </do_if>
+            </do_if>
+            <do_else>
+              <set_value name="$Seen" exact="$Seen + ' ' + $Id + '=no ware'" />
+            </do_else>
+          </do_if>
+          <do_else>
+            <set_value name="$Seen" exact="$Seen + ' ' + $Id + '=not qualifying'" />
+          </do_else>
+        </do_for_each>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="4" />
+          <param name="Text" value="'CHARTER DOCKS: %1, %2 dock(s):%3'.[$Station.knownname, $Docks.count, $Seen]" />
+        </run_actions>
+        <do_if value="$Best == null">
+          <return value="null" />
+        </do_if>
+        <return value="table[$Price = $Best, $Macro = $BestMacro]" />
+      </actions>
+    </library>
+
+    <library name="Charter_Standing" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <set_value name="$F" exact="null" />
+        <set_value name="$Owner" exact="@$Station.sector.owner" />
+        <do_if value="$Owner and $Owner != faction.player and $Owner != faction.xenon and $Owner != faction.khaak and $Owner != faction.ownerless">
+          <set_value name="$F" exact="$Owner" />
+          <set_value name="$Best" exact="faction.player.relation.{faction.player.relationto.{$F}}.uivalue" comment="same form as vanilla conversations.xml" />
+        </do_if>
+        <do_else>
+          <!-- unowned, player-owned, Xenon or Kha'ak sector: best standing with a main (economic) faction -->
+          <get_factions_by_tag tag="tag.economic" result="$List" />
+          <set_value name="$Best" exact="-30" />
+          <do_for_each name="$G" in="$List">
+            <do_if value="$G != faction.player and $G != faction.xenon and $G != faction.khaak">
+              <set_value name="$U" exact="faction.player.relation.{faction.player.relationto.{$G}}.uivalue" />
+              <do_if value="$F == null or $U gt $Best">
+                <set_value name="$F" exact="$G" />
+                <set_value name="$Best" exact="$U" />
+              </do_if>
+            </do_if>
+          </do_for_each>
+        </do_else>
+        <return value="table[$Faction = $F, $Standing = $Best]" />
+      </actions>
+    </library>
+
+    <library name="Charter_Fee" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <run_actions ref="md.FDN_Core.Charter_Dock_Price" result="$Dock">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <do_if value="$Dock == null">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'CHARTER FEE: %1 has no operational qualifying dock, no charter possible'.[$Station.knownname]" />
+          </run_actions>
+          <return value="table[$Allowed = false, $Fee = 0Cr, $Base = 0Cr, $Price = 0Cr, $Macro = '', $Faction = null, $Standing = 0, $Discount = 0, $Reason = 'no qualifying dock']" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Pct">
+          <param name="Key" value="'CharterFeePercent'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Floor">
+          <param name="Key" value="'CharterFeeFloor'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Cap">
+          <param name="Key" value="'CharterFeeCap'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$MinSt">
+          <param name="Key" value="'CharterMinStanding'" />
+        </run_actions>
+        <!-- money x whole number only (money x float is not allowed). Floor and cap are whole Cr. -->
+        <set_value name="$Base" exact="($Dock.$Price * ($Pct)i) / 100" />
+        <set_value name="$FloorCr" exact="1Cr * ($Floor)i" />
+        <set_value name="$CapCr" exact="1Cr * ($Cap)i" />
+        <do_if value="$Base lt $FloorCr">
+          <set_value name="$Base" exact="$FloorCr" />
+        </do_if>
+        <do_if value="$CapCr ge $FloorCr and $Base gt $CapCr">
+          <set_value name="$Base" exact="$CapCr" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Charter_Standing" result="$Rep">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <set_value name="$Disc" exact="0" />
+        <do_all exact="3" counter="$i">
+          <run_actions ref="md.FDN_Core.Cfg_Get" result="$Step">
+            <param name="Key" value="'CharterDiscStep' + $i" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.Cfg_Get" result="$Off">
+            <param name="Key" value="'CharterDisc' + $i" />
+          </run_actions>
+          <do_if value="$Step != null and $Off != null and $Rep.$Standing ge $Step and ($Off)i gt $Disc">
+            <set_value name="$Disc" exact="($Off)i" />
+          </do_if>
+        </do_all>
+        <do_if value="$Disc gt 100">
+          <set_value name="$Disc" exact="100" />
+        </do_if>
+        <set_value name="$Fee" exact="($Base * (100 - $Disc)) / 100" />
+        <set_value name="$Allowed" exact="$Rep.$Standing ge $MinSt" />
+        <set_value name="$Reason" exact="''" />
+        <do_if value="not $Allowed">
+          <set_value name="$Reason" exact="'need %1 with %2 (you have %3)'.[$MinSt, (if $Rep.$Faction then $Rep.$Faction.knownname else '?'), $Rep.$Standing]" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="4" />
+          <param name="Text" value="'CHARTER FEE: %1, dock %2 avg %3, base %4 (%5 pct, floor %6, cap %7)'.[$Station.knownname, $Dock.$Macro, $Dock.$Price.formatted.default + ' Cr', $Base.formatted.default + ' Cr', $Pct, $FloorCr.formatted.default, $CapCr.formatted.default] + ', standing %1 with %2, discount %3 pct, fee %4, allowed %5 %6'.[$Rep.$Standing, (if $Rep.$Faction then $Rep.$Faction.knownname else '?'), $Disc, $Fee.formatted.default + ' Cr', $Allowed, $Reason]" />
+        </run_actions>
+        <return value="table[$Allowed = $Allowed, $Fee = $Fee, $Base = $Base, $Price = $Dock.$Price, $Macro = $Dock.$Macro, $Faction = $Rep.$Faction, $Standing = $Rep.$Standing, $Discount = $Disc, $Reason = $Reason]" />
       </actions>
     </library>
 
