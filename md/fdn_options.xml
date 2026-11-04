@@ -22,6 +22,9 @@
       to 0.01 before compare/save (floats can come back as 0.2000001). Their option ids end in '_f' so
       the API's stored whole-percent values from 10b/10c (old ids fdn_FeeRangeMult etc.) are never reused;
       the old ids are no longer registered or written.
+    - Card X4-10e: TransferFeePercent uses $Scale 0 too (0.0 to 10.0 percent, step 0.5, 1 decimal, ' %'),
+      new id fdn_TransferFeePercent_f so the old whole-percent id fdn_TransferFeePercent is never reused.
+      The fee maths in fdn_supply.xml already takes fractional percents (percent x 1000 as one whole number).
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -184,7 +187,7 @@
         <append_to_list name="$List" exact="table[$Key = 'RangeMaxJumps', $type = 'slidercell', $name = 'Maximum supply range', $mouseover = 'Maximum gate jumps between a DC and the station it supplies', $IdSuffix = '', $Scale = 1, $args = table[$min = 1, $max = 30, $step = 1, $suffix = ' jumps']]" />
         <append_to_list name="$List" exact="table[$Key = 'TransferDelay', $type = 'button', $name = 'Delay transfers by distance', $mouseover = 'Transfers take time per gate jump instead of arriving instantly', $IdSuffix = '', $Scale = 1]" />
         <append_to_list name="$List" exact="table[$Key = 'TransferDelayMult', $type = 'slidercell', $name = 'Delay per jump', $mouseover = 'Seconds of delay per gate jump when transfers are delayed', $IdSuffix = '', $Scale = 1, $args = table[$min = 0, $max = 60, $step = 1, $suffix = ' s']]" />
-        <append_to_list name="$List" exact="table[$Key = 'TransferFeePercent', $type = 'slidercell', $name = 'Transfer fee', $mouseover = 'Fee as a percentage of the value of the wares moved', $IdSuffix = '', $Scale = 1, $args = table[$min = 0, $max = 20, $step = 1, $suffix = ' %']]" />
+        <append_to_list name="$List" exact="table[$Key = 'TransferFeePercent', $type = 'slidercell', $name = 'Transfer fee', $mouseover = 'Fee as a percentage of the value of the wares moved (0.0 to 10.0 in steps of 0.5)', $IdSuffix = '_f', $Scale = 0, $args = table[$min = 0.0, $max = 10.0, $step = 0.5, $accuracyOverride = 1, $suffix = ' %']]" />
         <append_to_list name="$List" exact="table[$Key = 'FeeRangeMult', $type = 'slidercell', $name = 'Fee increase per jump', $mouseover = 'Fee rises by this share of the base fee for every gate jump (0.2 = +20% per jump)', $IdSuffix = '_f', $Scale = 0, $args = table[$min = 0.0, $max = 1.0, $step = 0.1, $accuracyOverride = 1, $suffix = '']]" />
         <append_to_list name="$List" exact="table[$Key = 'FeeVolumeMult', $type = 'slidercell', $name = 'Fee volume factor', $mouseover = 'Multiplier on the fee for ware volume (1.0 = no change)', $IdSuffix = '_f', $Scale = 0, $args = table[$min = 0.0, $max = 1.0, $step = 0.1, $accuracyOverride = 1, $suffix = '']]" />
         <append_to_list name="$List" exact="table[$Key = 'FeeTypeMult', $type = 'slidercell', $name = 'Fee ware type factor', $mouseover = 'Multiplier on the fee for ware type (1.0 = no change)', $IdSuffix = '_f', $Scale = 0, $args = table[$min = 0.0, $max = 1.0, $step = 0.1, $accuracyOverride = 1, $suffix = '']]" />
