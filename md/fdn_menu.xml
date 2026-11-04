@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <mdscript name="FDN_Menu" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
   <!--
-    Card X4-11a. Station right-click entries, using SirNuke's Mod Support APIs (Interact Menu API).
+    Cards X4-11a/11b. Station right-click entries, using SirNuke's Mod Support APIs (Interact Menu API).
     OPTIONAL like fdn_options.xml: without that extension md.Interact_Menu_API.Get_Actions is never
     signalled, so nothing here runs and FDN keeps working.
 
     On every player-owned station's right-click menu two entries are added:
        'FDN: resource supply ON/OFF'   per-station ResourcesFdnManaged
       'FDN: send products to DC ON/OFF' per-station ProductsFdnManaged
+    On a DC (same test as Find_DCs) the products entry is hidden: a DC keeps its own products.
     The label shows the value in effect for that station (station override, else player setting, else default).
     Picking one flips it (1 to 0, 0 to 1) with md.FDN_Core.Station_Cfg_Set, which writes the fdn.log line
     "station setting Key at Station changed from old to new (menu)". A logbook 'info' entry (LogbookLevel 2+)
@@ -33,7 +34,23 @@
             </do_if>
             <do_else>
               <include_actions ref="Entry_List" />
+              <!-- Card X4-11b: same DC test as md.FDN_Supply.Find_DCs (operational dock area or pier whose macro id is in DCMacros) -->
+              <run_actions ref="md.FDN_Core.Cfg_Get" result="$Macros">
+                <param name="Key" value="'DCMacros'" />
+              </run_actions>
+              <set_value name="$IsDC" exact="false" />
+              <do_if value="$Macros">
+                <find_object_component object="$Station" name="$Docks" class="[class.dockarea, class.pier]" checkoperational="true" multiple="true" />
+                <do_for_each name="$D" in="$Docks">
+                  <do_if value="$Macros.indexof.{$D.macro.id}">
+                    <set_value name="$IsDC" exact="true" />
+                  </do_if>
+                </do_for_each>
+              </do_if>
               <do_for_each name="$E" in="$List">
+                <do_if value="$IsDC and $E.$Key == 'ProductsFdnManaged'">
+                  <continue />
+                </do_if>
                 <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Cur">
                   <param name="Station" value="$Station" />
                   <param name="Key" value="$E.$Key" />
@@ -118,7 +135,7 @@
       <actions>
         <set_value name="$List" exact="[]" />
         <append_to_list name="$List" exact="table[$Key = 'ResourcesFdnManaged', $Label = 'resource supply', $Mouseover = 'FDN delivers the resources this station needs']" />
-        <append_to_list name="$List" exact="table[$Key = 'ProductsFdnManaged', $Label = 'send products to DC', $Mouseover = 'This station products are moved to the nearest Distribution Centre']" />
+        <append_to_list name="$List" exact="table[$Key = 'ProductsFdnManaged', $Label = 'send products to DC', $Mouseover = 'The products of this station are moved to the nearest Distribution Centre']" />
       </actions>
     </library>
   </cues>
