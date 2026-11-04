@@ -13,6 +13,10 @@
       and untouched settings never become overrides (later default changes still apply).
     - Only when the player changes an option does On_Change call md.FDN_Core.Cfg_Set, which logs
       the change in fdn.log and refuses unknown keys.
+    - Card X4-10c: On_Change compares in page units (whole percent for fee factors) with the value
+      in effect and writes nothing when they match (slider released on the same value). The log line is
+      "setting Key changed from old to new (options page)". Displayed values are clamped to the
+      slider's min/max (a saved value outside the range shows at the edge; the save is not changed).
     - Fee factors are decimals in FDN (0.2) and shown as whole percent on the page (20).
   -->
   <cues>
@@ -40,6 +44,12 @@
           <do_else>
             <set_value name="$Show" exact="($Cur)i" />
           </do_else>
+          <do_if value="$Opt.$args? and $Opt.$args.$min? and $Show lt $Opt.$args.$min">
+            <set_value name="$Show" exact="$Opt.$args.$min" />
+          </do_if>
+          <do_if value="$Opt.$args? and $Opt.$args.$max? and $Show gt $Opt.$args.$max">
+            <set_value name="$Show" exact="$Opt.$args.$max" />
+          </do_if>
           <set_value name="$Reg" exact="table[
             $id = 'fdn_' + $Opt.$Key,
             $category = 'FDN',
@@ -85,10 +95,26 @@
         <do_else>
           <set_value name="$Value" exact="(event.param.$value)i" />
         </do_else>
-        <run_actions ref="md.FDN_Core.Cfg_Set" result="$Ok">
+        <!-- Card X4-10c: compare in page units with the value in effect; same value = write and log nothing -->
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Cur">
           <param name="Key" value="$Echo.$Key" />
-          <param name="Value" value="$Value" />
         </run_actions>
+        <set_value name="$Same" exact="false" />
+        <do_if value="$Cur != null">
+          <do_if value="$Echo.$Scale == 100">
+            <set_value name="$Same" exact="(($Cur * 100.0) + 0.5)i == (event.param.$value)i" />
+          </do_if>
+          <do_else>
+            <set_value name="$Same" exact="($Cur)i == (event.param.$value)i" />
+          </do_else>
+        </do_if>
+        <do_if value="not $Same">
+          <run_actions ref="md.FDN_Core.Cfg_Set" result="$Ok">
+            <param name="Key" value="$Echo.$Key" />
+            <param name="Value" value="$Value" />
+            <param name="Source" value="' (options page)'" />
+          </run_actions>
+        </do_if>
         </do_if>
       </actions>
     </cue>
@@ -101,6 +127,10 @@
       <actions>
         <do_if value="md.FDN_Core.Init.$Defaults?">
         <run_actions ref="md.FDN_Core.Cfg_Reset_All" result="$Ok" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'all settings reset via options page'" />
+        </run_actions>
         <!-- Put the page's stored values back to the defaults (no callbacks) -->
         <include_actions ref="Option_List" />
         <do_for_each name="$Opt" in="$List">
@@ -114,6 +144,12 @@
             <do_else>
               <set_value name="$Show" exact="($Cur)i" />
             </do_else>
+            <do_if value="$Opt.$args? and $Opt.$args.$min? and $Show lt $Opt.$args.$min">
+              <set_value name="$Show" exact="$Opt.$args.$min" />
+            </do_if>
+            <do_if value="$Opt.$args? and $Opt.$args.$max? and $Show gt $Opt.$args.$max">
+              <set_value name="$Show" exact="$Opt.$args.$max" />
+            </do_if>
             <signal_cue_instantly cue="md.Simple_Menu_Options.Write_Option_Value" param="table[$id = 'fdn_' + $Opt.$Key, $value = $Show]" />
           </do_if>
         </do_for_each>
@@ -146,8 +182,8 @@
         <append_to_list name="$List" exact="table[$Key = 'TransferDelayMult', $type = 'slidercell', $name = 'Delay per jump', $mouseover = 'Seconds of delay per gate jump when transfers are delayed', $Scale = 1, $args = table[$min = 0, $max = 60, $step = 1, $suffix = ' s']]" />
         <append_to_list name="$List" exact="table[$Key = 'TransferFeePercent', $type = 'slidercell', $name = 'Transfer fee', $mouseover = 'Fee as a percentage of the value of the wares moved', $Scale = 1, $args = table[$min = 0, $max = 20, $step = 1, $suffix = ' %']]" />
         <append_to_list name="$List" exact="table[$Key = 'FeeRangeMult', $type = 'slidercell', $name = 'Fee increase per jump', $mouseover = 'Fee rises by this percentage of the base fee for every gate jump', $Scale = 100, $args = table[$min = 0, $max = 100, $step = 5, $suffix = ' %']]" />
-        <append_to_list name="$List" exact="table[$Key = 'FeeVolumeMult', $type = 'slidercell', $name = 'Fee volume factor', $mouseover = 'Multiplier on the fee for ware volume, in percent (100 = no change)', $Scale = 100, $args = table[$min = 0, $max = 300, $step = 5, $suffix = ' %']]" />
-        <append_to_list name="$List" exact="table[$Key = 'FeeTypeMult', $type = 'slidercell', $name = 'Fee ware type factor', $mouseover = 'Multiplier on the fee for ware type, in percent (100 = no change)', $Scale = 100, $args = table[$min = 0, $max = 300, $step = 5, $suffix = ' %']]" />
+        <append_to_list name="$List" exact="table[$Key = 'FeeVolumeMult', $type = 'slidercell', $name = 'Fee volume factor', $mouseover = 'Multiplier on the fee for ware volume, in percent (100 = no change)', $Scale = 100, $args = table[$min = 50, $max = 300, $step = 5, $suffix = ' %']]" />
+        <append_to_list name="$List" exact="table[$Key = 'FeeTypeMult', $type = 'slidercell', $name = 'Fee ware type factor', $mouseover = 'Multiplier on the fee for ware type, in percent (100 = no change)', $Scale = 100, $args = table[$min = 50, $max = 300, $step = 5, $suffix = ' %']]" />
         <append_to_list name="$List" exact="table[$Key = 'ReturnFeeMult', $type = 'slidercell', $name = 'Return fee', $mouseover = 'Fee for products returned to a DC, as a percentage of the normal fee. The DC pays', $Scale = 100, $args = table[$min = 0, $max = 100, $step = 5, $suffix = ' %']]" />
         <append_to_list name="$List" exact="table[$Key = 'DCToDCFeeMult', $type = 'slidercell', $name = 'DC to DC fee', $mouseover = 'Fee for stock pulled between DCs, as a percentage of the normal fee. 0 makes pulls free', $Scale = 100, $args = table[$min = 0, $max = 100, $step = 5, $suffix = ' %']]" />
         <append_to_list name="$List" exact="table[$Key = 'DebugLog', $type = 'button', $name = 'Write FDN debug log', $mouseover = 'Write FDN lines to the game debug log (fdn.log)', $Scale = 1]" />

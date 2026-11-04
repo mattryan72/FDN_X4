@@ -148,7 +148,7 @@
     <!--
       Card 10a. Change or reset a player setting from any FDN file (the settings menu will use these).
       Values are saved with the game in md.FDN_Core.Init.$Overrides. $Defaults is never changed.
-        Cfg_Set       params Key, Value  returns true, or false (WARN logged) when Key is not a known setting
+        Cfg_Set       params Key, Value[, Source]  returns true, or false (WARN logged) when Key is not a known setting
         Cfg_Reset     params Key         removes one override, so the default applies again. Returns true
         Cfg_Reset_All no params          removes every override. Returns true
     -->
@@ -156,6 +156,7 @@
       <params>
         <param name="Key" />
         <param name="Value" />
+        <param name="Source" default="''" comment="card X4-10c: optional, added to the log line, e.g. ' (options page)'" />
       </params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
@@ -170,10 +171,13 @@
         <do_if value="not $Init.$Overrides?">
           <set_value name="$Init.$Overrides" exact="table[]" />
         </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Old">
+          <param name="Key" value="$Key" />
+        </run_actions>
         <set_value name="$Init.$Overrides.{$K}" exact="$Value" />
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'setting %1 set to %2'.[$Key, $Value]" />
+          <param name="Text" value="'setting %1 changed from %2 to %3%4'.[$Key, $Old, $Value, $Source]" />
         </run_actions>
         <return value="true" />
       </actions>
