@@ -13,6 +13,8 @@
       $Claims    : saved table of reserved ware amounts, station -> ware -> amount (see Claim_* libraries).
       $Charters  : card X4-14a, saved table of FDN charters, station -> table (see Charter_* libraries).
                    Card X4-14c: a station is a DC only while it has a charter here AND a working qualifying dock.
+      $DCStats   : card X4-15a, saved table of per-DC running counters for the FDN Overview page,
+                   station -> table[$Supplies, $Returns, $Units, $Fees] (see DC_Stat_Add). Removed with the charter.
       $NoDcWarned: card X4-14c, true once the 'no DC exists' warning was written this session (reset on load).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
@@ -38,6 +40,9 @@
         </do_if>
         <do_if value="not $Charters?">
           <set_value name="$Charters" exact="table[]" comment="card X4-14a: per-station charter data. Card X4-14c: decides which stations are DCs" />
+        </do_if>
+        <do_if value="not $DCStats?">
+          <set_value name="$DCStats" exact="table[]" comment="card X4-15a: per-DC counters for the FDN Overview page" />
         </do_if>
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
@@ -697,6 +702,52 @@
         Charter_Fee        params Station                     returns table[$Allowed, $Fee, $Base, $Price, $Macro, $Faction,
                                                               $Standing, $Discount, $Reason]. Calculates only, never charges
     -->
+    <!--
+      DC COUNTERS (card X4-15a), shown on the FDN Overview page (md/fdn_overview.xml).
+      Stored in md.FDN_Core.Init.$DCStats as station -> table[$Supplies, $Returns, $Units, $Fees] (saved, created on
+      first use, removed by Charter_Clear so a new charter starts at zero). Removing the mod leaves nothing behind.
+      Who gets what (decided from the existing code in md/fdn_supply.xml):
+        DC supply  (Deliver, not a pull)  source DC: +1 supply, +units, +fee (the DC pays, see the TRANSFER log line)
+        Network pull (Deliver with Home)  source DC: +1 supply, +units. Home DC that requested it: +fee (it pays, PULL line)
+        Return     (Return_Products)      receiving DC: +1 return, +units, +fee (the DC pays returns)
+        NPC buy    (Npc_Buy)              home DC: +fee only (it pays). No supply or units, the stock came from an NPC
+      Counters only start when this card is installed; earlier activity is not counted.
+        DC_Stat_Add params DC[, Supplies, Returns, Units, Fee]  adds to the counters. Returns true, false if the DC is gone
+    -->
+    <library name="DC_Stat_Add" purpose="run_actions">
+      <params>
+        <param name="DC" />
+        <param name="Supplies" default="0" />
+        <param name="Returns" default="0" />
+        <param name="Units" default="0" />
+        <param name="Fee" default="0Cr" />
+      </params>
+      <actions>
+        <do_if value="$DC == null or not $DC.exists">
+          <return value="false" />
+        </do_if>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$DCStats?">
+          <set_value name="$Init.$DCStats" exact="table[]" />
+        </do_if>
+        <do_if value="not $Init.$DCStats.{$DC}?">
+          <set_value name="$Init.$DCStats.{$DC}" exact="table[$Supplies = 0, $Returns = 0, $Units = 0, $Fees = 0Cr]" comment="station object as table key, same as $Charters" />
+        </do_if>
+        <set_value name="$St" exact="$Init.$DCStats.{$DC}" />
+        <set_value name="$St.$Supplies" exact="$St.$Supplies + $Supplies" />
+        <set_value name="$St.$Returns" exact="$St.$Returns + $Returns" />
+        <set_value name="$St.$Units" exact="$St.$Units + $Units" />
+        <do_if value="$Fee gt 0Cr">
+          <set_value name="$St.$Fees" exact="$St.$Fees + $Fee" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="4" />
+          <param name="Text" value="'DC counters %1: supplies %2, returns %3, units %4, fees %5'.[$DC.knownname, $St.$Supplies, $St.$Returns, $St.$Units, $St.$Fees.formatted.default + ' Cr']" />
+        </run_actions>
+        <return value="true" />
+      </actions>
+    </library>
+
     <library name="Charter_Get" purpose="run_actions">
       <params>
         <param name="Station" />
@@ -752,6 +803,11 @@
         <do_if value="$Init.$Charters?">
           <do_if value="$Init.$Charters.{$Station}?">
             <remove_value name="$Init.$Charters.{$Station}" />
+            <do_if value="$Init.$DCStats?">
+              <do_if value="$Init.$DCStats.{$Station}?">
+                <remove_value name="$Init.$DCStats.{$Station}" comment="card X4-15a: a new charter starts with fresh counters" />
+              </do_if>
+            </do_if>
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="3" />
               <param name="Text" value="'charter cleared at %1 %2'.[(if $Station.exists then $Station.knownname else '(gone)'), $Reason]" />

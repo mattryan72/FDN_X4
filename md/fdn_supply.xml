@@ -1287,6 +1287,10 @@
                         <param name="DC" value="$Home" />
                         <param name="Entry" value="[player.age, $Station, $Ware, $Qty, $Fee, $Jumps, 'npc-buy', $Paid]" comment="card 09p: 8th field = ware cost" />
                       </run_actions>
+                      <run_actions ref="md.FDN_Core.DC_Stat_Add" comment="card X4-15a: DC counters, fee only (the home DC paid it, the stock came from an NPC)">
+                        <param name="DC" value="$Home" />
+                        <param name="Fee" value="$Fee" />
+                      </run_actions>
                       <run_actions ref="md.FDN_Core.Log">
                         <param name="Level" value="3" />
                         <param name="Text" value="'NPC BUY: %1 bought %2 %3 from %4 (%5) for %6, %7 jumps, unit %8 (cap %9)'.[$Home.knownname, $Qty, $Ware.name, $Seller.knownname, (if $Seller.owner != null then $Seller.owner.knownname else '?'), $Station.knownname, $Jumps, $Unit.formatted.default + ' Cr', (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')] + ', cost %1, fee %2, %3: %4 -> %5'.[$Paid.formatted.default + ' Cr', $Fee.formatted.default + ' Cr', $Home.knownname, $HomeBefore.formatted.default + ' Cr', $Home.money.formatted.default + ' Cr'] + ', seller stock %1 -> %2, offer was %3, paid to %4'.[$SellerStockBefore, $Seller.cargo.{$Ware}.count, $OfAmtBefore, (if $PaidTo == $Seller then 'station' else 'owner faction')]" />
@@ -1532,6 +1536,25 @@
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="3" />
             <param name="Text" value="'TRANSFER: %1 %2 from DC %3 to %4, %5 jumps, value %6, fee %7 (%8 of value), DC balance %9'.[$Qty, $Ware.name, $DC.knownname, $Station.knownname, $Jumps, $ValueText, $Fee.formatted.default + ' Cr', $PctText, $PayerBText] + ' -> ' + $PayerAText" />
+          </run_actions>
+        </do_else>
+        <do_if value="$Home != null" comment="card X4-15a: DC counters. A pull: the source DC sent it, the home DC paid the fee">
+          <run_actions ref="md.FDN_Core.DC_Stat_Add">
+            <param name="DC" value="$DC" />
+            <param name="Supplies" value="1" />
+            <param name="Units" value="$Qty" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.DC_Stat_Add">
+            <param name="DC" value="$Home" />
+            <param name="Fee" value="$Fee" />
+          </run_actions>
+        </do_if>
+        <do_else comment="card X4-15a: DC counters. A DC supply: the DC sent it and paid the fee">
+          <run_actions ref="md.FDN_Core.DC_Stat_Add">
+            <param name="DC" value="$DC" />
+            <param name="Supplies" value="1" />
+            <param name="Units" value="$Qty" />
+            <param name="Fee" value="$Fee" />
           </run_actions>
         </do_else>
         <return value="true" />
@@ -2017,6 +2040,12 @@
                           <run_actions ref="md.FDN_Core.Log">
                             <param name="Level" value="3" />
                             <param name="Text" value="'RETURN: %1 %2 from %3 to DC %4, %5 jumps, fee %6'.[$Qty, $Ware.name, $Station.knownname, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr']" />
+                          </run_actions>
+                          <run_actions ref="md.FDN_Core.DC_Stat_Add" comment="card X4-15a: DC counters, the DC received it and paid the fee">
+                            <param name="DC" value="$DC" />
+                            <param name="Returns" value="1" />
+                            <param name="Units" value="$Qty" />
+                            <param name="Fee" value="$Fee" />
                           </run_actions>
                           <set_value name="$RetText" exact="$RetText + (if $RetText == '' then '' else '; ') + '%1 %2'.[$Ware.name, $Qty]" comment="card 09o" />
                           <set_value name="$RetFee" exact="$RetFee + $Fee" />

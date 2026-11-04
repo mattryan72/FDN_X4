@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mdscript name="FDN_Overview" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <!--
+    Card X4-15a. Read-only "FDN Overview" page on the game's Extension Options menu, using SirNuke's
+    Mod Support APIs (Simple Menu API, Register_Options_Menu). OPTIONAL: without that extension nothing here runs.
+
+    - Registered again every time md.Simple_Menu_API.Reloaded is signalled (every game load / UI reload), as the API asks.
+    - On_Open builds the rows each time the page opens, from md.FDN_Core.Init (read only, writes nothing to the save):
+        a Refresh button row, then for each Freight Distribution Centre (station with an FDN charter that is still
+        player owned): a heading row (name, sector), a column title row, one row per ware in stock (stock and the
+        game storage target), and a totals row (supplies, returns, units moved, fees paid, from Init.$DCStats,
+        see DC_Stat_Add in md/fdn_core.xml).
+    - With no DC there is one row saying so. The API allows at most 160 rows, so the page stops adding DC and ware
+      rows at 150 and shows a "more not shown" row instead.
+    - The page does not update by itself; Refresh (Simple Menu API Refresh_Menu) clears it and calls On_Open again.
+    - A debug line (log level 4) is written each time the page opens.
+  -->
+  <cues>
+    <cue name="Register" instantiate="true">
+      <conditions>
+        <event_cue_signalled cue="md.Simple_Menu_API.Reloaded" />
+      </conditions>
+      <actions>
+        <signal_cue_instantly cue="md.Simple_Menu_API.Register_Options_Menu" param="table[
+          $id = 'fdn_overview',
+          $title = 'FDN Overview',
+          $columns = 3,
+          $onOpen = On_Open]" />
+      </actions>
+    </cue>
+
+    <cue name="On_Open" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <set_value name="$Max" exact="150" comment="the API allows 160 rows; stop adding DC and ware rows here" />
+        <set_value name="$Rows" exact="0" />
+        <set_value name="$Shown" exact="0" />
+        <set_value name="$Cut" exact="false" />
+
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
+          $col = 1,
+          $text = table[$text = 'Refresh', $halign = 'center'],
+          $mouseOverText = 'Reload the figures. The page does not update by itself',
+          $onClick = On_Refresh]" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = 'Freight Distribution Network, read only. Totals count from the day a charter was bought']" />
+        <set_value name="$Rows" exact="$Rows + 1" />
+
+        <set_value name="$DCs" exact="[]" />
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$Charters?">
+          <set_value name="$Keys" exact="$Init.$Charters.keys.list" />
+          <do_all exact="$Keys.count" counter="$k">
+            <set_value name="$S" exact="$Keys.{$k}" />
+            <do_if value="$S != null and $S.exists and $S.isplayerowned">
+              <append_to_list name="$DCs" exact="$S" />
+            </do_if>
+          </do_all>
+        </do_if>
+
+        <do_if value="$DCs.count == 0">
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $text = 'No Freight Distribution Centres. Buy an FDN charter from a station right-click menu to make one']" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+        </do_if>
+
+        <do_all exact="$DCs.count" counter="$d">
+          <do_if value="$Rows ge $Max">
+            <set_value name="$Cut" exact="true" />
+            <break />
+          </do_if>
+          <set_value name="$S" exact="$DCs.{$d}" />
+          <set_value name="$State" exact="''" />
+          <do_if value="$Init.$Charters.{$S}.$DockMiss?">
+            <set_value name="$State" exact="' (no working dock, the charter ends soon if none returns)'" />
+          </do_if>
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $font = 'Zekton bold', $text = '%1, %2%3'.[$S.knownname, $S.sector.knownname, $State]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Ware']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Stock', $halign = 'right']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = 'Target', $halign = 'right']" />
+          <set_value name="$Rows" exact="$Rows + 2" />
+          <set_value name="$Shown" exact="$Shown + 1" />
+
+          <set_value name="$Wares" exact="$S.cargo.list" comment="wares with a non-zero amount" />
+          <do_if value="$Wares.count == 0">
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $text = 'No wares in stock']" />
+            <set_value name="$Rows" exact="$Rows + 1" />
+          </do_if>
+          <do_all exact="$Wares.count" counter="$w">
+            <do_if value="$Rows ge $Max">
+              <set_value name="$Cut" exact="true" />
+              <break />
+            </do_if>
+            <set_value name="$W" exact="$Wares.{$w}" />
+            <set_value name="$Target" exact="0" />
+            <do_if value="$S.cargo.{$W}.target?">
+              <set_value name="$Target" exact="$S.cargo.{$W}.target" />
+            </do_if>
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = $W.name]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = '%1'.[$S.cargo.{$W}.count], $halign = 'right']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = '%1'.[$Target], $halign = 'right']" />
+            <set_value name="$Rows" exact="$Rows + 1" />
+          </do_all>
+
+          <set_value name="$St" exact="table[$Supplies = 0, $Returns = 0, $Units = 0, $Fees = 0Cr]" />
+          <do_if value="$Init.$DCStats?">
+            <do_if value="$Init.$DCStats.{$S}?">
+              <set_value name="$St" exact="$Init.$DCStats.{$S}" />
+            </do_if>
+          </do_if>
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $text = 'Totals: %1 supplies sent, %2 returns received, %3 units moved, fees paid %4'.[$St.$Supplies, $St.$Returns, $St.$Units, $St.$Fees.formatted.default + ' Cr']]" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+          <do_if value="$Cut">
+            <break />
+          </do_if>
+        </do_all>
+
+        <do_if value="$Cut">
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $text = 'More not shown: the page holds at most 160 rows. %1 of %2 DCs listed, the last one may be incomplete'.[$Shown, $DCs.count]]" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+        </do_if>
+
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="4" />
+          <param name="Text" value="'overview page opened: %1 DCs, %2 listed, %3 rows%4'.[$DCs.count, $Shown, $Rows, (if $Cut then ', more not shown' else '')]" />
+        </run_actions>
+      </actions>
+    </cue>
+
+    <cue name="On_Refresh" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <signal_cue_instantly cue="md.Simple_Menu_API.Refresh_Menu" param="table[]" />
+      </actions>
+    </cue>
+  </cues>
+</mdscript>
