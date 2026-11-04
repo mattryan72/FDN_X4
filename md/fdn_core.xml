@@ -405,7 +405,7 @@
         Station_Cfg_Set   params Station, Key, Value writes the key. Returns true, false if the station or key is unknown
         Station_Cfg_Reset params Station, Key        removes one key. Leave Key out (null) to remove all of that station's keys. Returns true
         Station_Cfg_Purge no params                  drops entries for stations that no longer exist (run each poll, like Claim_Purge)
-      Nothing calls Set or Reset yet; the settings menu will.
+      Card X4-11a: the station right-click menu (md/fdn_menu.xml) calls Station_Cfg_Set with Source ' (menu)'.
     -->
     <library name="Station_Cfg_Get" purpose="run_actions">
       <params>
@@ -435,6 +435,7 @@
         <param name="Station" />
         <param name="Key" />
         <param name="Value" />
+        <param name="Source" default="''" comment="card X4-11a: optional, added to the log line, e.g. ' (menu)'" />
       </params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
@@ -452,10 +453,14 @@
         <do_if value="not $Init.$StationCfg.{$Station}?">
           <set_value name="$Init.$StationCfg.{$Station}" exact="table[]" comment="station object as table key, same as $Claims / $ReturnLog" />
         </do_if>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Old">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="$Key" />
+        </run_actions>
         <set_value name="$Init.$StationCfg.{$Station}.{$K}" exact="$Value" />
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'station setting %1 at %2 set to %3'.[$Key, $Station.knownname, $Value]" />
+          <param name="Text" value="'station setting %1 at %2 changed from %3 to %4%5'.[$Key, $Station.knownname, $Old, $Value, $Source]" />
         </run_actions>
         <return value="true" />
       </actions>

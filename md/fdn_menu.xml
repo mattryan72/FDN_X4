@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mdscript name="FDN_Menu" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <!--
+    Card X4-11a. Station right-click entries, using SirNuke's Mod Support APIs (Interact Menu API).
+    OPTIONAL like fdn_options.xml: without that extension md.Interact_Menu_API.Get_Actions is never
+    signalled, so nothing here runs and FDN keeps working.
+
+    On every player-owned station's right-click menu two entries are added:
+       'FDN: resource supply ON/OFF'   per-station ResourcesFdnManaged
+      'FDN: send products to DC ON/OFF' per-station ProductsFdnManaged
+    The label shows the value in effect for that station (station override, else player setting, else default).
+    Picking one flips it (1 to 0, 0 to 1) with md.FDN_Core.Station_Cfg_Set, which writes the fdn.log line
+    "station setting Key at Station changed from old to new (menu)". A logbook 'info' entry (LogbookLevel 2+)
+    records the change; a refused change writes a logbook 'problem' entry (LogbookLevel 1+).
+    The API removes its actions when a menu closes, so they are re-added on every menu opening.
+    If FDN is not set up yet in this save, one greyed-out entry says so.
+  -->
+  <cues>
+    <cue name="Add_Station_Actions" instantiate="true">
+      <conditions>
+        <event_cue_signalled cue="md.Interact_Menu_API.Get_Actions" />
+      </conditions>
+      <actions>
+        <do_if value="event.param.$object?">
+          <set_value name="$Station" exact="event.param.$object" />
+          <do_if value="$Station != null and $Station.exists and $Station.isclass.station and $Station.isplayerowned">
+            <do_if value="not md.FDN_Core.Init.$Defaults?">
+              <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
+                $id = 'fdn_station_notready',
+                $text = 'FDN: not ready',
+                $mouseover = 'FDN is not set up in this save yet. Save and reload, then try again',
+                $active = false]" />
+            </do_if>
+            <do_else>
+              <include_actions ref="Entry_List" />
+              <do_for_each name="$E" in="$List">
+                <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Cur">
+                  <param name="Station" value="$Station" />
+                  <param name="Key" value="$E.$Key" />
+                </run_actions>
+                <set_value name="$State" exact="'OFF'" />
+                <set_value name="$Next" exact="'on'" />
+                <do_if value="$Cur == 1">
+                  <set_value name="$State" exact="'ON'" />
+                  <set_value name="$Next" exact="'off'" />
+                </do_if>
+                <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
+                  $id = 'fdn_station_' + $E.$Key,
+                  $text = 'FDN: ' + $E.$Label + ' ' + $State,
+                  $mouseover = $E.$Mouseover + '. Click to turn it ' + $Next + ' for this station',
+                  $callback = On_Toggle,
+                  $echo = $E.$Key]" />
+              </do_for_each>
+            </do_else>
+          </do_if>
+        </do_if>
+      </actions>
+    </cue>
+
+    <!-- Player picked an entry. event.param = table[$id, $echo (setting key), $object (station), ...] -->
+    <cue name="On_Toggle" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <do_if value="md.FDN_Core.Init.$Defaults? and event.param.$echo? and event.param.$object?">
+          <set_value name="$Station" exact="event.param.$object" />
+          <set_value name="$Key" exact="event.param.$echo" />
+          <set_value name="$Ok" exact="false" />
+          <set_value name="$Name" exact="'unknown station'" />
+          <do_if value="$Station != null and $Station.exists">
+            <set_value name="$Name" exact="$Station.knownname" />
+            <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Cur">
+              <param name="Station" value="$Station" />
+              <param name="Key" value="$Key" />
+            </run_actions>
+            <set_value name="$New" exact="1" />
+            <do_if value="$Cur == 1">
+              <set_value name="$New" exact="0" />
+            </do_if>
+            <run_actions ref="md.FDN_Core.Station_Cfg_Set" result="$Ok">
+              <param name="Station" value="$Station" />
+              <param name="Key" value="$Key" />
+              <param name="Value" value="$New" />
+              <param name="Source" value="' (menu)'" />
+            </run_actions>
+          </do_if>
+          <do_if value="$Ok">
+            <set_value name="$Word" exact="'OFF'" />
+            <do_if value="$New == 1">
+              <set_value name="$Word" exact="'ON'" />
+            </do_if>
+            <run_actions ref="md.FDN_Core.Logbook_Event">
+              <param name="Tier" value="'info'" />
+              <param name="Category" value="'general'" />
+              <param name="Title" value="'%1 %2 at %3'.[$Key, $Word, $Name]" />
+              <param name="Text" value="'Station setting %1 at %2 turned %3 from the station menu.'.[$Key, $Name, $Word]" />
+              <param name="Object" value="$Station" />
+            </run_actions>
+          </do_if>
+          <do_else>
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'station setting %1 at %2 not changed (menu)'.[$Key, $Name]" />
+            </run_actions>
+            <run_actions ref="md.FDN_Core.Logbook_Event">
+              <param name="Tier" value="'problem'" />
+              <param name="Title" value="'station setting not changed'" />
+              <param name="Text" value="'Station setting %1 at %2 could not be changed: the station is gone or the setting is not known.'.[$Key, $Name]" />
+            </run_actions>
+          </do_else>
+        </do_if>
+      </actions>
+    </cue>
+
+    <!-- The station entries, in display order. Keys are per-station settings in md.FDN_Core (flags 0/1) -->
+    <library name="Entry_List">
+      <actions>
+        <set_value name="$List" exact="[]" />
+        <append_to_list name="$List" exact="table[$Key = 'ResourcesFdnManaged', $Label = 'resource supply', $Mouseover = 'FDN delivers the resources this station needs']" />
+        <append_to_list name="$List" exact="table[$Key = 'ProductsFdnManaged', $Label = 'send products to DC', $Mouseover = 'This station products are moved to the nearest Distribution Centre']" />
+      </actions>
+    </library>
+  </cues>
+</mdscript>
