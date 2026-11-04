@@ -17,8 +17,9 @@
                    station -> table[$Supplies, $Returns, $Units, $Fees] (see DC_Stat_Add). Removed with the charter.
       $Attention : card X4-15e, saved table for the FDN Overview 'Needs attention' section, station -> table[$Ware,
                    $Reason, $Kind, $Time]: the latest skip per station (see Attention_Set). At most 30 entries.
-      $Activity  : card X4-15e, saved list for the FDN Overview 'Recent activity' section, newest first, at most 10
-                   entries [time, kind, ware, qty, from name, to name, fee] (see Activity_Add).
+      $Activity  : card X4-15e, saved list for the FDN Overview 'Recent activity' section, newest first, at most 50
+                   entries [time, kind, ware, qty, from name, to name, fee] (see Activity_Add). Card X4-16b: cap 10 -> 50,
+                   skip entries add [.., reason, skip kind] (9 items); older 7-item entries still read fine.
       $NoDcWarned: card X4-14c, true once the 'no DC exists' warning was written this session (reset on load).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
@@ -720,6 +721,12 @@
         Activity_Add    params Kind, Ware, Qty, From, To, Fee[, Served]  puts [player.age, Kind, Ware, Qty, From name,
                         To name, Fee] first in $Activity and keeps 10. Names are stored as text so the list still reads
                         after a station is gone. Then clears the attention entry of Served for this ware. Returns true
+                        Card X4-16b: keeps 50. Optional Reason, SkipKind: Kind 'skip' (from Skip_Report) stores
+                        [time, 'skip', ware, need, '-', station name, 0 Cr, reason, skip kind]. Kinds in the list:
+                        'supply', 'pull', 'NPC buy', 'return', 'skip'. De-duplication for 'skip': the newest entry for
+                        the same ware and station name (as from or to) is looked up; if it is a skip with the same
+                        reason, nothing is added (so a skip repeated every poll pass is listed once, and listed again
+                        only after something else happened for that station and ware, or the reason changed).
     -->
     <library name="Attention_Set" purpose="run_actions">
       <params>
@@ -793,6 +800,8 @@
         <param name="To" />
         <param name="Fee" default="0Cr" />
         <param name="Served" default="null" />
+        <param name="Reason" default="''" comment="card X4-16b: skip entries only" />
+        <param name="SkipKind" default="''" comment="card X4-16b: skip entries only, Skip_Report Kind (supply, return, ...)" />
       </params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
@@ -801,9 +810,26 @@
         </do_if>
         <set_value name="$FromName" exact="if $From != null and $From.exists then $From.knownname else '?'" />
         <set_value name="$ToName" exact="if $To != null and $To.exists then $To.knownname else '?'" />
-        <set_value name="$New" exact="[[player.age, $Kind, $Ware, $Qty, $FromName, $ToName, $Fee]]" comment="newest first" />
+        <do_if value="$Kind == 'skip'" comment="card X4-16b: de-duplicate repeated skips (see header)">
+          <set_value name="$FromName" exact="'-'" />
+          <do_all exact="$Init.$Activity.count" counter="$k">
+            <set_value name="$P" exact="$Init.$Activity.{$k}" />
+            <do_if value="$P.{3} == $Ware and ($P.{6} == $ToName or $P.{5} == $ToName)">
+              <do_if value="$P.{2} == 'skip' and $P.count ge 8">
+                <do_if value="$P.{8} == $Reason">
+                  <return value="true" />
+                </do_if>
+              </do_if>
+              <break />
+            </do_if>
+          </do_all>
+          <set_value name="$New" exact="[[player.age, $Kind, $Ware, $Qty, $FromName, $ToName, $Fee, $Reason, $SkipKind]]" comment="newest first" />
+        </do_if>
+        <do_else>
+          <set_value name="$New" exact="[[player.age, $Kind, $Ware, $Qty, $FromName, $ToName, $Fee]]" comment="newest first" />
+        </do_else>
         <do_all exact="$Init.$Activity.count" counter="$k">
-          <do_if value="$New.count lt 10">
+          <do_if value="$New.count lt 50" comment="card X4-16b: was 10">
             <append_to_list name="$New" exact="$Init.$Activity.{$k}" />
           </do_if>
         </do_all>

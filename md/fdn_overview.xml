@@ -39,6 +39,10 @@
       page within the DCNetworkRange setting (Cfg_Get, default 10), by gate jumps as Build_Networks in md/fdn_supply.xml
       (0 le gatedistance le range), nearest first, at most 3 names then '+N more'; 'Network: none in range' otherwise.
       Names only (no sector) to keep the row short. The DC tables now stop at $Max - 21 (129); worst case about 155 rows.
+    - Card X4-16b (display only here): heading 'Recent activity (last X of N)', N = stored entries (up to 50, see
+      Activity_Add). Still the 10 newest shown, so the row budget is unchanged. Skip entries (kind 'skip', 9 items) show
+      row 1 'N min ago, skipped' (plus the skip kind when not supply) | 'need ware' and row 2 '    at station: reason',
+      both in Color.text_warning. Older entries without a reason are drawn as before.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -285,13 +289,13 @@
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
 
-        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" comment="card X4-15e: Recent activity" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Recent activity (last 10)']" />
-        <set_value name="$Rows" exact="$Rows + 1" />
         <set_value name="$Act" exact="[]" />
         <do_if value="$Init.$Activity?">
           <set_value name="$Act" exact="$Init.$Activity" />
         </do_if>
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" comment="card X4-15e: Recent activity" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Recent activity (last %1 of %2)'.[[$Act.count, 10].min, $Act.count]]" comment="card X4-16b" />
+        <set_value name="$Rows" exact="$Rows + 1" />
         <do_if value="$Act.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No supplies or returns recorded yet']" />
@@ -300,12 +304,22 @@
         <do_all exact="[$Act.count, 10].min" counter="$a">
           <set_value name="$E" exact="$Act.{$a}" />
           <set_value name="$Mins" exact="((player.age - $E.{1}) / 60s)i" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = '%1 min ago, %2'.[$Mins, $E.{2}]]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = '%1 %2'.[$E.{4}, $E.{3}.name]]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = 'fee ' + $E.{7}.formatted.default + ' Cr', $halign = 'right']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" comment="card X4-15f: route on its own full-width row" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '    from %1 to %2'.[$E.{5}, $E.{6}]]" />
+          <do_if value="$E.{2} == 'skip' and $E.count ge 9" comment="card X4-16b: skip entry, warning colour">
+            <set_value name="$SkipTxt" exact="if $E.{9} == 'supply' or $E.{9} == '' then 'skipped' else 'skipped ' + $E.{9}" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = '%1 min ago, %2'.[$Mins, $SkipTxt], $color = 'Color.text_warning']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = '%1 %2'.[$E.{4}, $E.{3}.name], $color = 'Color.text_warning']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '    at %1: %2'.[$E.{6}, $E.{8}], $color = 'Color.text_warning']" />
+          </do_if>
+          <do_else>
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = '%1 min ago, %2'.[$Mins, $E.{2}]]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = '%1 %2'.[$E.{4}, $E.{3}.name]]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = 'fee ' + $E.{7}.formatted.default + ' Cr', $halign = 'right']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" comment="card X4-15f: route on its own full-width row" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '    from %1 to %2'.[$E.{5}, $E.{6}]]" />
+          </do_else>
           <set_value name="$Rows" exact="$Rows + 2" />
         </do_all>
 

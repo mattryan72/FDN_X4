@@ -1748,6 +1748,16 @@
           <param name="Reason" value="$Reason" />
           <param name="Kind" value="$Kind" />
         </run_actions>
+        <run_actions ref="md.FDN_Core.Activity_Add" comment="card X4-16b: skip into the Recent activity history, de-duplicated there (no Served, nothing cleared)">
+          <param name="Kind" value="'skip'" />
+          <param name="Ware" value="$Ware" />
+          <param name="Qty" value="$Need" />
+          <param name="From" value="null" />
+          <param name="To" value="$Station" />
+          <param name="Fee" value="0Cr" />
+          <param name="Reason" value="$Reason" />
+          <param name="SkipKind" value="$Kind" />
+        </run_actions>
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Gap">
           <param name="Key" value="'LogbookSkipInterval'" />
         </run_actions>
