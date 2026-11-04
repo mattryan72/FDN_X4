@@ -1298,6 +1298,15 @@
                         <param name="DC" value="$Home" />
                         <param name="Fee" value="$Fee" />
                       </run_actions>
+                      <run_actions ref="md.FDN_Core.Activity_Add" comment="card X4-15e: FDN Overview 'Recent activity', and clears this station's attention entry for the ware">
+                        <param name="Kind" value="'NPC buy'" />
+                        <param name="Ware" value="$Ware" />
+                        <param name="Qty" value="$Qty" />
+                        <param name="From" value="$Seller" />
+                        <param name="To" value="$Station" />
+                        <param name="Fee" value="$Fee" />
+                        <param name="Served" value="$Station" />
+                      </run_actions>
                       <run_actions ref="md.FDN_Core.Log">
                         <param name="Level" value="3" />
                         <param name="Text" value="'NPC BUY: %1 bought %2 %3 from %4 (%5) for %6, %7 jumps, unit %8 (cap %9)'.[$Home.knownname, $Qty, $Ware.name, $Seller.knownname, (if $Seller.owner != null then $Seller.owner.knownname else '?'), $Station.knownname, $Jumps, $Unit.formatted.default + ' Cr', (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')] + ', cost %1, fee %2, %3: %4 -> %5'.[$Paid.formatted.default + ' Cr', $Fee.formatted.default + ' Cr', $Home.knownname, $HomeBefore.formatted.default + ' Cr', $Home.money.formatted.default + ' Cr'] + ', seller stock %1 -> %2, offer was %3, paid to %4'.[$SellerStockBefore, $Seller.cargo.{$Ware}.count, $OfAmtBefore, (if $PaidTo == $Seller then 'station' else 'owner faction')]" />
@@ -1564,6 +1573,15 @@
             <param name="Fee" value="$Fee" />
           </run_actions>
         </do_else>
+        <run_actions ref="md.FDN_Core.Activity_Add" comment="card X4-15e: FDN Overview 'Recent activity', and clears this station's attention entry for the ware">
+          <param name="Kind" value="if $Home != null then 'pull' else 'supply'" />
+          <param name="Ware" value="$Ware" />
+          <param name="Qty" value="$Qty" />
+          <param name="From" value="$DC" />
+          <param name="To" value="$Station" />
+          <param name="Fee" value="$Fee" />
+          <param name="Served" value="$Station" />
+        </run_actions>
         <return value="true" />
       </actions>
     </library>
@@ -1724,6 +1742,12 @@
         <do_if value="not $Station.exists">
           <return />
         </do_if>
+        <run_actions ref="md.FDN_Core.Attention_Set" comment="card X4-15e: latest skip per station for the FDN Overview 'Needs attention' section (not for LogOnly skips)">
+          <param name="Station" value="$Station" />
+          <param name="Ware" value="$Ware" />
+          <param name="Reason" value="$Reason" />
+          <param name="Kind" value="$Kind" />
+        </run_actions>
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Gap">
           <param name="Key" value="'LogbookSkipInterval'" />
         </run_actions>
@@ -2062,6 +2086,15 @@
                             <param name="Returns" value="1" />
                             <param name="Units" value="$Qty" />
                             <param name="Fee" value="$Fee" />
+                          </run_actions>
+                          <run_actions ref="md.FDN_Core.Activity_Add" comment="card X4-15e: FDN Overview 'Recent activity', and clears this station's attention entry for the ware">
+                            <param name="Kind" value="'return'" />
+                            <param name="Ware" value="$Ware" />
+                            <param name="Qty" value="$Qty" />
+                            <param name="From" value="$Station" />
+                            <param name="To" value="$DC" />
+                            <param name="Fee" value="$Fee" />
+                            <param name="Served" value="$Station" />
                           </run_actions>
                           <set_value name="$RetText" exact="$RetText + (if $RetText == '' then '' else '; ') + '%1 %2'.[$Ware.name, $Qty]" comment="card 09o" />
                           <set_value name="$RetFee" exact="$RetFee + $Fee" />

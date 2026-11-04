@@ -25,6 +25,12 @@
       colour. Colour names are Color mapping ids from libraries/colors.xml; the Simple Menu API replaces any arg
       string starting with 'Color.' with the game Color table entry (ui/simple_menu/library.lua Replace_Color_Args).
       Sorting uses sort_list sortbyvalue, as the game scripts do (scenario_transport_refugees.xml, build.buildstorage.xml).
+    - Card X4-15e (display only): a 'Needs attention' section after the summary row, from Init.$Attention (latest skip
+      per station, see Attention_Set in md/fdn_core.xml), newest first, at most 15 rows plus a 'more' row, station in
+      Color.text_warning. With no DC it is one line instead. A 'Recent activity' section at the end, from Init.$Activity
+      (last 10 supplies, pulls, NPC buys and returns, newest first). Ages are whole game minutes,
+      ((player.age - time) / 60s)i as vanilla cpu_ship_manager.xml. The DC tables stop 12 rows earlier so the
+      activity rows always fit under the 160-row limit.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -89,6 +95,58 @@
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 3, $text = 'Totals: %1 sent, %2 returned, %3 units, %4 fees'.[$Sum.$Supplies, $Sum.$Returns, $Sum.$Units, $Sum.$Fees.formatted.default + ' Cr']]" />
         <set_value name="$Rows" exact="$Rows + 1" />
 
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" comment="card X4-15e: Needs attention" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Needs attention']" />
+        <set_value name="$Rows" exact="$Rows + 1" />
+        <set_value name="$Att" exact="[]" />
+        <do_if value="$DCs.count gt 0 and $Init.$Attention?">
+          <set_value name="$Keys" exact="$Init.$Attention.keys.list" />
+          <do_all exact="$Keys.count" counter="$k">
+            <set_value name="$S" exact="$Keys.{$k}" />
+            <do_if value="$S != null and $S.exists and $S.isplayerowned">
+              <append_to_list name="$Att" exact="$S" />
+            </do_if>
+          </do_all>
+          <sort_list list="$Att" sortbyvalue="$Init.$Attention.{loop.element}.$Time" comment="oldest first, read back to front below" />
+        </do_if>
+        <do_if value="$DCs.count == 0">
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No DC exists, so the FDN supplies nothing and stations trade as normal']" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+        </do_if>
+        <do_elseif value="$Att.count == 0">
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Nothing needs attention']" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+        </do_elseif>
+        <do_else>
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Station']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Ware']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = 'Reason, last seen']" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+          <set_value name="$AttShown" exact="0" />
+          <do_all exact="$Att.count" counter="$a" reverse="true">
+            <do_if value="$AttShown ge 15">
+              <break />
+            </do_if>
+            <set_value name="$S" exact="$Att.{$a}" />
+            <set_value name="$E" exact="$Init.$Attention.{$S}" />
+            <set_value name="$Mins" exact="((player.age - $E.$Time) / 60s)i" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = $S.knownname, $color = 'Color.text_warning']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = $E.$Ware.name]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = '%1, %2 min ago'.[$E.$Reason, $Mins]]" />
+            <set_value name="$Rows" exact="$Rows + 1" />
+            <set_value name="$AttShown" exact="$AttShown + 1" />
+          </do_all>
+          <do_if value="$Att.count gt $AttShown">
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '%1 more not shown'.[$Att.count - $AttShown]]" />
+            <set_value name="$Rows" exact="$Rows + 1" />
+          </do_if>
+        </do_else>
+
         <do_if value="$DCs.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No Freight Distribution Centres. Buy an FDN charter from a station right-click menu to make one']" />
@@ -96,7 +154,7 @@
         </do_if>
 
         <do_all exact="$DCs.count" counter="$d">
-          <do_if value="$Rows ge $Max">
+          <do_if value="$Rows ge $Max - 12" comment="card X4-15e: room for Recent activity">
             <set_value name="$Cut" exact="true" />
             <break />
           </do_if>
@@ -139,7 +197,7 @@
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
           <do_all exact="$Wares.count" counter="$w">
-            <do_if value="$Rows ge $Max">
+            <do_if value="$Rows ge $Max - 12" comment="card X4-15e: room for Recent activity">
               <set_value name="$Cut" exact="true" />
               <break />
             </do_if>
@@ -189,9 +247,32 @@
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
 
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" comment="card X4-15e: Recent activity" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Recent activity (last 10)']" />
+        <set_value name="$Rows" exact="$Rows + 1" />
+        <set_value name="$Act" exact="[]" />
+        <do_if value="$Init.$Activity?">
+          <set_value name="$Act" exact="$Init.$Activity" />
+        </do_if>
+        <do_if value="$Act.count == 0">
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No supplies or returns recorded yet']" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+        </do_if>
+        <do_all exact="[$Act.count, 10].min" counter="$a">
+          <set_value name="$E" exact="$Act.{$a}" />
+          <set_value name="$Mins" exact="((player.age - $E.{1}) / 60s)i" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = '%1 min ago, %2'.[$Mins, $E.{2}]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = '%1 %2'.[$E.{4}, $E.{3}.name]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = '%1 to %2'.[$E.{5}, $E.{6}]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = 'fee ' + $E.{7}.formatted.default + ' Cr', $halign = 'right']" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+        </do_all>
+
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="4" />
-          <param name="Text" value="'overview page opened: %1 DCs, %2 listed, %3 rows%4'.[$DCs.count, $Shown, $Rows, (if $Cut then ', more not shown' else '')]" />
+          <param name="Text" value="'overview page opened: %1 DCs, %2 listed, %3 rows%4, %5 attention, %6 activity'.[$DCs.count, $Shown, $Rows, (if $Cut then ', more not shown' else ''), $Att.count, $Act.count]" />
         </run_actions>
       </actions>
     </cue>

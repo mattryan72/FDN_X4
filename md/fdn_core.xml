@@ -15,6 +15,10 @@
                    Card X4-14c: a station is a DC only while it has a charter here AND a working qualifying dock.
       $DCStats   : card X4-15a, saved table of per-DC running counters for the FDN Overview page,
                    station -> table[$Supplies, $Returns, $Units, $Fees] (see DC_Stat_Add). Removed with the charter.
+      $Attention : card X4-15e, saved table for the FDN Overview 'Needs attention' section, station -> table[$Ware,
+                   $Reason, $Kind, $Time]: the latest skip per station (see Attention_Set). At most 30 entries.
+      $Activity  : card X4-15e, saved list for the FDN Overview 'Recent activity' section, newest first, at most 10
+                   entries [time, kind, ware, qty, from name, to name, fee] (see Activity_Add).
       $NoDcWarned: card X4-14c, true once the 'no DC exists' warning was written this session (reset on load).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
@@ -43,6 +47,12 @@
         </do_if>
         <do_if value="not $DCStats?">
           <set_value name="$DCStats" exact="table[]" comment="card X4-15a: per-DC counters for the FDN Overview page" />
+        </do_if>
+        <do_if value="not $Attention?">
+          <set_value name="$Attention" exact="table[]" comment="card X4-15e: latest skip per station for the FDN Overview page" />
+        </do_if>
+        <do_if value="not $Activity?">
+          <set_value name="$Activity" exact="[]" comment="card X4-15e: last 10 supplies and returns for the FDN Overview page" />
         </do_if>
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
@@ -694,6 +704,116 @@
           <param name="Level" value="4" />
           <param name="Text" value="'DC counters %1: supplies %2, returns %3, units %4, fees %5'.[$DC.knownname, $St.$Supplies, $St.$Returns, $St.$Units, $St.$Fees.formatted.default + ' Cr']" />
         </run_actions>
+        <return value="true" />
+      </actions>
+    </library>
+
+    <!--
+      OVERVIEW LISTS (card X4-15e), shown on the FDN Overview page (md/fdn_overview.xml). Display data only, nothing
+      reads them for supply decisions. Saved in md.FDN_Core.Init (created on first use, nothing stored on stations,
+      so removing the mod leaves nothing behind).
+        Attention_Set   params Station, Ware, Reason[, Kind]  called by Skip_Report (not for LogOnly skips). Keeps the
+                        latest skip per station: table[$Ware, $Reason, $Kind, $Time]. Drops stations that are gone or
+                        no longer player owned, and the oldest entries above 30. Returns true, false if the station is gone
+        Attention_Clear params Station, Ware                  removes the station entry when it is for this ware (called
+                        by Activity_Add after a successful supply or return). Returns true
+        Activity_Add    params Kind, Ware, Qty, From, To, Fee[, Served]  puts [player.age, Kind, Ware, Qty, From name,
+                        To name, Fee] first in $Activity and keeps 10. Names are stored as text so the list still reads
+                        after a station is gone. Then clears the attention entry of Served for this ware. Returns true
+    -->
+    <library name="Attention_Set" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="Reason" />
+        <param name="Kind" default="'supply'" />
+      </params>
+      <actions>
+        <do_if value="$Station == null or not $Station.exists">
+          <return value="false" />
+        </do_if>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$Attention?">
+          <set_value name="$Init.$Attention" exact="table[]" />
+        </do_if>
+        <set_value name="$Init.$Attention.{$Station}" exact="table[$Ware = $Ware, $Reason = $Reason, $Kind = $Kind, $Time = player.age]" comment="station object as table key, same as $DCStats" />
+        <set_value name="$Keys" exact="$Init.$Attention.keys.list" />
+        <do_all exact="$Keys.count" counter="$k">
+          <set_value name="$K" exact="$Keys.{$k}" />
+          <do_if value="$K == null or not $K.exists or not $K.isplayerowned">
+            <remove_value name="$Init.$Attention.{$K}" comment="purge stations that are gone, as Station_Cfg_Purge" />
+          </do_if>
+        </do_all>
+        <do_while value="$Init.$Attention.keys.count gt 30">
+          <set_value name="$Keys" exact="$Init.$Attention.keys.list" />
+          <set_value name="$Old" exact="null" />
+          <do_all exact="$Keys.count" counter="$k">
+            <do_if value="$Keys.{$k} != $Station">
+              <do_if value="$Old == null">
+                <set_value name="$Old" exact="$Keys.{$k}" />
+              </do_if>
+              <do_elseif value="$Init.$Attention.{$Keys.{$k}}.$Time lt $Init.$Attention.{$Old}.$Time">
+                <set_value name="$Old" exact="$Keys.{$k}" />
+              </do_elseif>
+            </do_if>
+          </do_all>
+          <do_if value="$Old == null">
+            <break />
+          </do_if>
+          <remove_value name="$Init.$Attention.{$Old}" comment="drops the oldest entry, never the one just written" />
+        </do_while>
+        <return value="true" />
+      </actions>
+    </library>
+
+    <library name="Attention_Clear" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Station != null and $Init.$Attention?">
+          <do_if value="$Init.$Attention.{$Station}?">
+            <do_if value="$Init.$Attention.{$Station}.$Ware == $Ware">
+              <remove_value name="$Init.$Attention.{$Station}" />
+            </do_if>
+          </do_if>
+        </do_if>
+        <return value="true" />
+      </actions>
+    </library>
+
+    <library name="Activity_Add" purpose="run_actions">
+      <params>
+        <param name="Kind" />
+        <param name="Ware" />
+        <param name="Qty" />
+        <param name="From" />
+        <param name="To" />
+        <param name="Fee" default="0Cr" />
+        <param name="Served" default="null" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$Activity?">
+          <set_value name="$Init.$Activity" exact="[]" />
+        </do_if>
+        <set_value name="$FromName" exact="if $From != null and $From.exists then $From.knownname else '?'" />
+        <set_value name="$ToName" exact="if $To != null and $To.exists then $To.knownname else '?'" />
+        <set_value name="$New" exact="[[player.age, $Kind, $Ware, $Qty, $FromName, $ToName, $Fee]]" comment="newest first" />
+        <do_all exact="$Init.$Activity.count" counter="$k">
+          <do_if value="$New.count lt 10">
+            <append_to_list name="$New" exact="$Init.$Activity.{$k}" />
+          </do_if>
+        </do_all>
+        <set_value name="$Init.$Activity" exact="$New" />
+        <do_if value="$Served != null">
+          <run_actions ref="md.FDN_Core.Attention_Clear">
+            <param name="Station" value="$Served" />
+            <param name="Ware" value="$Ware" />
+          </run_actions>
+        </do_if>
         <return value="true" />
       </actions>
     </library>
