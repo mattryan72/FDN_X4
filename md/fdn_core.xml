@@ -12,7 +12,8 @@
       $StationCfg: saved table of per-station overrides, station -> key -> value (card 10a, created on first use).
       $Claims    : saved table of reserved ware amounts, station -> ware -> amount (see Claim_* libraries).
       $Charters  : card X4-14a, saved table of FDN charters, station -> table (see Charter_* libraries).
-                   Created on first use. Nothing reads or writes it yet (no behaviour change in 14a).
+                   Card X4-14c: a station is a DC only while it has a charter here AND a working qualifying dock.
+      $NoDcWarned: card X4-14c, true once the 'no DC exists' warning was written this session (reset on load).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
       Read a setting from any file with run_actions ref="md.FDN_Core.Cfg_Get" (see below).
@@ -36,7 +37,7 @@
           <set_value name="$Claims" exact="table[]" />
         </do_if>
         <do_if value="not $Charters?">
-          <set_value name="$Charters" exact="table[]" comment="card X4-14a: per-station charter data, inert until 14b/14c" />
+          <set_value name="$Charters" exact="table[]" comment="card X4-14a: per-station charter data. Card X4-14c: decides which stations are DCs" />
         </do_if>
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
@@ -62,6 +63,8 @@
           </conditions>
           <actions>
             <include_actions ref="Cfg_LoadDefaults" />
+            <set_value name="$InitCue" exact="md.FDN_Core.Init" />
+            <set_value name="$InitCue.$NoDcWarned" exact="false" comment="card X4-14c: the 'no DC exists' warning is written once per session" />
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="3" />
               <param name="Text" value="'defaults loaded on game load, %1 settings, %2 overridden'.[$Defaults.keys.count, $Overrides.keys.count]" />
@@ -91,6 +94,26 @@
                   </run_actions>
                 </do_if>
               </do_for_each>
+            </do_if>
+          </actions>
+        </cue>
+
+        <!-- Card X4-14c: a chartered station was destroyed. Ends its charter at once (Charter_Review also catches it
+             on the next pass). event_player_owned_destroyed: param = killed object (common.xsd); fires for every
+             player-owned object, so this only does one table lookup. -->
+        <cue name="Charter_Destroyed" instantiate="true">
+          <conditions>
+            <event_player_owned_destroyed />
+          </conditions>
+          <actions>
+            <set_value name="$Init" exact="md.FDN_Core.Init" />
+            <do_if value="event.param != null and $Init.$Charters?">
+              <do_if value="$Init.$Charters.{event.param}?">
+                <run_actions ref="md.FDN_Core.Charter_End" result="$Ended">
+                  <param name="Station" value="event.param" />
+                  <param name="Reason" value="'station destroyed'" />
+                </run_actions>
+              </do_if>
             </do_if>
           </actions>
         </cue>
@@ -125,7 +148,7 @@
             <set_value name="$Defaults.{'$NpcFallback'}" exact="1" comment="1 = buy shortfalls from NPC offers when no own station can cover (card 09r: on by default, proven in game; 0 turns it off). NPCs only qualify when the station buy price is raised above the ware minimum" />
 
             <!-- ===== Distribution Centres (step 9) ===== -->
-            <set_value name="$Defaults.{'$DCMacros'}" exact="['dockarea_arg_m_02_tradestation_01_macro', 'pier_bor_tradestation_01_macro', 'pier_ter_tradestation_01_macro']" comment="macro ids of marker modules: a player station with one of these is a DC (Argon trade dock, Boron and Terran trade piers)" />
+            <set_value name="$Defaults.{'$DCMacros'}" exact="['dockarea_arg_m_02_tradestation_01_macro', 'pier_bor_tradestation_01_macro', 'pier_ter_tradestation_01_macro']" comment="DEPRECATED from card X4-14c, no code reads it: DCs are now stations with an FDN charter (CharterMacros decides the docks). Kept so saved overrides keep their key" />
             <set_value name="$Defaults.{'$DCNetworkRange'}" exact="10" comment="max gate jumps between two DCs for them to join one network" />
             <set_value name="$Defaults.{'$DCKeepPercent'}" exact="10" comment="percent of each ware a DC always keeps (used from card 9b)" />
             <set_value name="$Defaults.{'$DCKeepWare'}" exact="table[]" comment="per-ware keep percent override, ware -> percent (used from card 9b)" />
@@ -158,7 +181,7 @@
             <set_value name="$Defaults.{'$CharterDisc2'}" exact="25" comment="discount 2, percent off the fee" />
             <set_value name="$Defaults.{'$CharterDiscStep3'}" exact="30" comment="standing for discount 3" />
             <set_value name="$Defaults.{'$CharterDisc3'}" exact="40" comment="discount 3, percent off the fee" />
-            <set_value name="$Defaults.{'$CharterMacros'}" exact="['dockarea_arg_m_station_01_macro', 'dockarea_arg_m_station_01_hightech_macro', 'dockarea_arg_m_station_01_lowtech_macro', 'dockarea_arg_m_station_02_macro', 'dockarea_arg_m_station_02_hightech_macro', 'dockarea_arg_m_station_02_lowtech_macro', 'dockarea_arg_m_02_tradestation_01_macro', 'pier_arg_harbor_01_macro', 'pier_arg_harbor_02_macro', 'pier_arg_harbor_03_macro', 'pier_arg_harbor_04_macro', 'pier_arg_single_01_tradestation_01_macro', 'pier_par_harbor_01_macro', 'pier_par_harbor_02_macro', 'pier_par_harbor_03_macro', 'pier_tel_harbor_01_macro', 'pier_tel_harbor_02_macro', 'pier_tel_harbor_03_macro', 'pier_spl_harbor_01_macro', 'pier_spl_harbor_02_macro', 'pier_spl_harbor_03_macro', 'dockarea_bor_m_station_01_standard_macro', 'pier_bor_harbor_01_macro', 'pier_bor_harbor_02_macro', 'pier_bor_harbor_03_macro', 'pier_bor_harbor_04_macro', 'pier_bor_tradestation_01_macro', 'dockarea_ter_m_station_01_hightech_macro', 'pier_ter_harbor_01_macro', 'pier_ter_harbor_02_macro', 'pier_ter_harbor_03_macro', 'pier_ter_harbor_04_macro', 'pier_ter_tradestation_01_macro']" comment="card X4-14a: dock areas and piers that qualify for a charter (base, Split, Boron, Terran). Not ship-build bays, equipment docks, showroom, venturer, Xenon or Teladi landmark parts. Kept separate from DCMacros, which still decides DCs" />
+            <set_value name="$Defaults.{'$CharterMacros'}" exact="['dockarea_arg_m_station_01_macro', 'dockarea_arg_m_station_01_hightech_macro', 'dockarea_arg_m_station_01_lowtech_macro', 'dockarea_arg_m_station_02_macro', 'dockarea_arg_m_station_02_hightech_macro', 'dockarea_arg_m_station_02_lowtech_macro', 'dockarea_arg_m_02_tradestation_01_macro', 'pier_arg_harbor_01_macro', 'pier_arg_harbor_02_macro', 'pier_arg_harbor_03_macro', 'pier_arg_harbor_04_macro', 'pier_arg_single_01_tradestation_01_macro', 'pier_par_harbor_01_macro', 'pier_par_harbor_02_macro', 'pier_par_harbor_03_macro', 'pier_tel_harbor_01_macro', 'pier_tel_harbor_02_macro', 'pier_tel_harbor_03_macro', 'pier_spl_harbor_01_macro', 'pier_spl_harbor_02_macro', 'pier_spl_harbor_03_macro', 'dockarea_bor_m_station_01_standard_macro', 'pier_bor_harbor_01_macro', 'pier_bor_harbor_02_macro', 'pier_bor_harbor_03_macro', 'pier_bor_harbor_04_macro', 'pier_bor_tradestation_01_macro', 'dockarea_ter_m_station_01_hightech_macro', 'pier_ter_harbor_01_macro', 'pier_ter_harbor_02_macro', 'pier_ter_harbor_03_macro', 'pier_ter_harbor_04_macro', 'pier_ter_tradestation_01_macro']" comment="card X4-14a: dock areas and piers that qualify for a charter (base, Split, Boron, Terran). Not ship-build bays, equipment docks, showroom, venturer, Xenon or Teladi landmark parts. Card X4-14c: a chartered station is a DC only while it has one of these, operational" />
           </actions>
         </library>
 
@@ -652,15 +675,23 @@
     </library>
 
     <!--
-      FDN CHARTER DATA (card X4-14a). Inert: nothing in 14a buys, checks or clears a charter.
-      DC detection (md.FDN_Supply.Find_DCs) is unchanged and still uses DCMacros.
-      Stored in md.FDN_Core.Init.$Charters as station -> table[$Fee, $Time, $Dock, $Faction, $Standing] (saved, created on first use).
-      Card X4-14b: bought from the station menu (md/fdn_menu.xml, Charter_Buy). $Time is player.age (game seconds) at purchase.
-      Still no effect on DC detection until card 14c.
+      FDN CHARTER DATA (card X4-14a).
+      Stored in md.FDN_Core.Init.$Charters as station -> table[$Fee, $Time, $Dock, $Faction, $Standing, $Name] (saved, created on first use).
+      $Name (card X4-14c) is the station name at purchase, for messages after the station is gone; older charters lack it.
+      $DockMiss (card X4-14c, optional) is player.age when the review first saw no working qualifying dock.
+      Card X4-14b: bought from the station menu (md/fdn_menu.xml, On_Buy_Charter). $Time is player.age (game seconds) at purchase.
+      Card X4-14c: DC detection (md.FDN_Supply.Find_DCs) uses Charter_Review: a DC is a player-owned station with a charter
+      and at least one operational qualifying dock (CharterMacros). DCMacros is no longer read.
+      A charter ENDS (Charter_End, fdn.log WARN + logbook 'problem') when the station is destroyed, is no longer player owned,
+      or has had no working qualifying dock on two reviews at least 30 game seconds apart (fixed, not a setting). Revoke from the
+      menu also uses Charter_End (logbook 'notice'). No refund in any case.
         Charter_Get        params Station                     returns the charter table, or null
         Charter_Set        params Station, Fee, Dock[, Faction, Source, Standing]  writes the charter. Returns true, false if the station is gone
         Charter_Clear      params Station[, Reason]           removes the charter. Returns true
-        Charter_Purge      no params                          drops charters of stations that no longer exist (not wired up yet)
+        Charter_Purge      no params                          drops charters of stations that no longer exist (silent; not wired up, Charter_Review replaces it)
+        Charter_Has_Dock   params Station                     card X4-14c: true when the station has an operational CharterMacros dock
+        Charter_End        params Station, Reason[, Revoke]   card X4-14c: clears the charter, logs it. Returns true if one was cleared
+        Charter_Review     no params                          card X4-14c: ends charters that broke the rules, returns the list of DCs
         Charter_Dock_Price params Station                     returns table[$Price (money), $Macro] of the most expensive
                                                               operational qualifying dock (CharterMacros), or null when none
         Charter_Standing   params Station                     returns table[$Faction, $Standing (-30 to +30)]
@@ -703,7 +734,7 @@
         <do_if value="not $Init.$Charters?">
           <set_value name="$Init.$Charters" exact="table[]" />
         </do_if>
-        <set_value name="$Init.$Charters.{$Station}" exact="table[$Fee = $Fee, $Time = player.age, $Dock = $Dock, $Faction = $Faction, $Standing = $Standing]" comment="station object as table key, same as $StationCfg" />
+        <set_value name="$Init.$Charters.{$Station}" exact="table[$Fee = $Fee, $Time = player.age, $Dock = $Dock, $Faction = $Faction, $Standing = $Standing, $Name = $Station.knownname]" comment="station object as table key, same as $StationCfg" />
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
           <param name="Text" value="'charter set at %1, fee %2, dock %3%4'.[$Station.knownname, $Fee.formatted.default + ' Cr', $Dock, $Source]" />
@@ -744,6 +775,144 @@
             <remove_value name="$Init.$Charters.{$Keys.{$k}}" />
           </do_if>
         </do_all>
+      </actions>
+    </library>
+
+    <library name="Charter_Has_Dock" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <do_if value="not $Station.exists">
+          <return value="false" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Macros">
+          <param name="Key" value="'CharterMacros'" />
+        </run_actions>
+        <do_if value="not $Macros">
+          <return value="false" />
+        </do_if>
+        <find_object_component object="$Station" name="$Docks" class="[class.dockarea, class.pier]" checkoperational="true" multiple="true" />
+        <do_for_each name="$D" in="$Docks">
+          <do_if value="$Macros.indexof.{$D.macro.id}">
+            <return value="true" />
+          </do_if>
+        </do_for_each>
+        <return value="false" />
+      </actions>
+    </library>
+
+    <library name="Charter_End" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Reason" default="'unknown reason'" />
+        <param name="Revoke" default="false" comment="true = the player revoked it from the menu" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$Charters?">
+          <return value="false" />
+        </do_if>
+        <do_if value="not $Init.$Charters.{$Station}?">
+          <return value="false" />
+        </do_if>
+        <set_value name="$Ch" exact="$Init.$Charters.{$Station}" />
+        <set_value name="$Name" exact="'a destroyed station'" />
+        <do_if value="$Station.exists">
+          <set_value name="$Name" exact="$Station.knownname" />
+        </do_if>
+        <do_elseif value="$Ch.$Name?">
+          <set_value name="$Name" exact="$Ch.$Name" />
+        </do_elseif>
+        <run_actions ref="md.FDN_Core.Charter_Clear" result="$Cleared">
+          <param name="Station" value="$Station" />
+          <param name="Reason" value="'(' + $Reason + ')'" />
+        </run_actions>
+        <set_value name="$Obj" exact="null" />
+        <do_if value="$Station.exists">
+          <set_value name="$Obj" exact="$Station" />
+        </do_if>
+        <do_if value="$Revoke">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'CHARTER REVOKED: %1, %2, no refund. It is no longer a DC'.[$Name, $Reason]" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.Logbook_Event">
+            <param name="Tier" value="'notice'" />
+            <param name="Category" value="'general'" />
+            <param name="Title" value="'charter revoked for %1'.[$Name]" />
+            <param name="Text" value="'The FDN charter for %1 was revoked. No refund. The station is no longer a Distribution Centre.'.[$Name]" />
+            <param name="Object" value="$Obj" />
+          </run_actions>
+        </do_if>
+        <do_else>
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'CHARTER ENDED: %1 (%2). It is no longer a DC, no refund'.[$Name, $Reason]" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.Logbook_Event">
+            <param name="Tier" value="'problem'" />
+            <param name="Title" value="'charter ended for %1 (%2)'.[$Name, $Reason]" />
+            <param name="Text" value="'The FDN charter for %1 ended: %2. The station is no longer a Distribution Centre. A new charter has to be bought.'.[$Name, $Reason]" />
+            <param name="Object" value="$Obj" />
+          </run_actions>
+        </do_else>
+        <return value="true" />
+      </actions>
+    </library>
+
+    <!-- Card X4-14c. Called by md.FDN_Supply.Find_DCs (every poll pass, and by the trigger loop when it has no DC list).
+         Ends broken charters and returns the list of DCs (chartered, player owned, working qualifying dock).
+         A missing dock must be seen on two reviews at least 30 game seconds apart before the charter ends,
+         so a dock that is briefly not operational (for example just after a load) does not cost the player a charter. -->
+    <library name="Charter_Review" purpose="run_actions">
+      <actions>
+        <set_value name="$Out" exact="[]" />
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$Charters?">
+          <return value="$Out" />
+        </do_if>
+        <set_value name="$Keys" exact="$Init.$Charters.keys.list" />
+        <do_all exact="$Keys.count" counter="$k">
+          <set_value name="$S" exact="$Keys.{$k}" />
+          <set_value name="$Why" exact="''" />
+          <do_if value="$S == null or not $S.exists">
+            <set_value name="$Why" exact="'station destroyed'" />
+          </do_if>
+          <do_elseif value="not $S.isplayerowned">
+            <set_value name="$Why" exact="'station no longer player owned'" />
+          </do_elseif>
+          <do_else>
+            <run_actions ref="md.FDN_Core.Charter_Has_Dock" result="$HasDock">
+              <param name="Station" value="$S" />
+            </run_actions>
+            <do_if value="$HasDock">
+              <do_if value="$Init.$Charters.{$S}.$DockMiss?">
+                <remove_value name="$Init.$Charters.{$S}.$DockMiss" />
+              </do_if>
+            </do_if>
+            <do_elseif value="not $Init.$Charters.{$S}.$DockMiss?">
+              <set_value name="$Init.$Charters.{$S}.$DockMiss" exact="player.age" />
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="2" />
+                <param name="Text" value="'charter at %1: no working qualifying dock, the charter ends if still none in 30 s'.[$S.knownname]" />
+              </run_actions>
+            </do_elseif>
+            <do_elseif value="player.age ge $Init.$Charters.{$S}.$DockMiss + 30">
+              <set_value name="$Why" exact="'no working qualifying dock'" />
+            </do_elseif>
+          </do_else>
+          <do_if value="$Why != ''">
+            <run_actions ref="md.FDN_Core.Charter_End" result="$Ended">
+              <param name="Station" value="$S" />
+              <param name="Reason" value="$Why" />
+            </run_actions>
+          </do_if>
+          <do_elseif value="not $Init.$Charters.{$S}.$DockMiss?">
+            <append_to_list name="$Out" exact="$S" />
+          </do_elseif>
+        </do_all>
+        <return value="$Out" />
       </actions>
     </library>
 

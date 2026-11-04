@@ -202,43 +202,48 @@
       </actions>
     </library>
     <!--
-      Step 9a, read-only. Distribution Centre (DC) detection.
-      A player station is a DC when it has an operational dock area or pier whose macro id is in the DCMacros setting.
-      Returns the list of DC stations. Uses component .macro.id (as vanilla npc_state_machines.xml) and list .indexof.
-      VERIFY: the three trade-station modules are class.dockarea or class.pier, and checkoperational works for them.
+      Step 9a. Distribution Centre (DC) detection. Card X4-14c: by charter.
+      A DC is a player-owned station with an FDN charter (md.FDN_Core.Init.$Charters) and at least one operational
+      dock area or pier in CharterMacros. md.FDN_Core.Charter_Review works this out and ends broken charters
+      (destroyed, no longer player owned, no working qualifying dock). DCMacros is no longer read.
+      Returns the list of DC stations. With no DC at all it returns [] and writes one WARN (fdn.log + logbook 'problem')
+      per session; the callers already skip DC supply when the list is empty.
     -->
     <library name="Find_DCs" purpose="run_actions">
       <actions>
-        <set_value name="$DCs" exact="[]" />
-        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Macros">
-          <param name="Key" value="'DCMacros'" />
-        </run_actions>
-        <set_value name="$Reg" exact="md.FDN_Stations.Registry" />
-        <do_if value="not $Macros or not $Reg.$Stations?">
-          <return value="$DCs" />
-        </do_if>
-        <do_for_each name="$S" in="$Reg.$Stations">
-          <do_if value="$S.exists">
-            <find_object_component object="$S" name="$Docks" class="[class.dockarea, class.pier]" checkoperational="true" multiple="true" />
-            <set_value name="$Marker" exact="null" />
-            <do_for_each name="$D" in="$Docks">
-              <do_if value="not $Marker and $Macros.indexof.{$D.macro.id}">
-                <set_value name="$Marker" exact="$D" />
-              </do_if>
-            </do_for_each>
-            <do_if value="$Marker">
-              <append_to_list name="$DCs" exact="$S" />
-              <run_actions ref="md.FDN_Core.Log">
-                <param name="Level" value="3" />
-                <param name="Text" value="'DC: %1, marker %2'.[$S.knownname, $Marker.macro.id]" />
-              </run_actions>
-            </do_if>
-          </do_if>
+        <run_actions ref="md.FDN_Core.Charter_Review" result="$DCs" />
+        <do_for_each name="$S" in="$DCs">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'DC: %1 (FDN charter)'.[$S.knownname]" />
+          </run_actions>
         </do_for_each>
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'DCs found: %1'.[$DCs.count]" />
+          <param name="Text" value="'DCs found: %1 (by charter)'.[$DCs.count]" />
         </run_actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <set_value name="$Warned" exact="false" />
+        <do_if value="$Init.$NoDcWarned?">
+          <set_value name="$Warned" exact="$Init.$NoDcWarned" />
+        </do_if>
+        <do_if value="$DCs.count == 0">
+          <do_if value="not $Warned">
+            <set_value name="$Init.$NoDcWarned" exact="true" />
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'no DC exists: no station has an FDN charter and a working qualifying dock. DC supply and product returns are idle until you buy a charter (station right-click menu)'" />
+            </run_actions>
+            <run_actions ref="md.FDN_Core.Logbook_Event">
+              <param name="Tier" value="'problem'" />
+              <param name="Title" value="'no Distribution Centre'" />
+              <param name="Text" value="'No station has an FDN charter and a working dock, so there is no Distribution Centre. Buy a charter from a station right-click menu.'" />
+            </run_actions>
+          </do_if>
+        </do_if>
+        <do_elseif value="$Warned">
+          <set_value name="$Init.$NoDcWarned" exact="false" comment="warn again if the DCs are lost later" />
+        </do_elseif>
         <return value="$DCs" />
       </actions>
     </library>
@@ -393,6 +398,9 @@
         </run_actions>
         <do_all exact="$DCs.count" counter="$i">
           <set_value name="$DC" exact="$DCs.{$i}" />
+          <do_if value="not $DC.exists or not md.FDN_Core.Init.$Charters.{$DC}?" comment="card X4-14c: skip a DC whose charter ended or was revoked since the list was built">
+            <continue />
+          </do_if>
           <do_if value="$DC == $Station">
             <set_value name="$Jumps" exact="0" />
           </do_if>
@@ -558,7 +566,7 @@
         <set_value name="$InRange" exact="table[]" comment="DC -> jumps, only DCs in range and not the station itself" />
         <do_all exact="$DCs.count" counter="$i">
           <set_value name="$DC" exact="$DCs.{$i}" />
-          <do_if value="$DC.exists and $DC != $Station">
+          <do_if value="$DC.exists and $DC != $Station and md.FDN_Core.Init.$Charters.{$DC}?" comment="card X4-14c: charter still active">
             <set_value name="$Jumps" exact="$Station.gatedistance.{$DC}" />
             <do_if value="$Jumps ge 0 and (not $Limit or $Jumps le $MaxJumps)">
               <set_value name="$InRange.{$DC}" exact="$Jumps" />

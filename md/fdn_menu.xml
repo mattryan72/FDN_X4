@@ -8,7 +8,8 @@
     On every player-owned station's right-click menu two entries are added:
        'FDN: resource supply ON/OFF'   per-station ResourcesFdnManaged
       'FDN: send products to DC ON/OFF' per-station ProductsFdnManaged
-    On a DC (same test as Find_DCs) the products entry is hidden: a DC keeps its own products.
+    On a DC the products entry is hidden: a DC keeps its own products. Card X4-14c: DC = FDN charter plus a working
+    qualifying dock (same rule as md.FDN_Supply.Find_DCs / md.FDN_Core.Charter_Review).
     The label shows the value in effect for that station (station override, else player setting, else default).
     Picking one flips it (1 to 0, 0 to 1) with md.FDN_Core.Station_Cfg_Set, which writes the fdn.log line
     "station setting Key at Station changed from old to new (menu)". A logbook 'info' entry (LogbookLevel 2+)
@@ -20,7 +21,10 @@
       'FDN: buy charter (X Cr)'   allowed: clicking charges the player at once (no confirmation, no refund)
       'FDN: charter blocked - reason'  greyed, the reason is in the label and the mouseover
       'FDN: charter active'       greyed, the station already has one
-    The charter is recorded in md.FDN_Core.Init.$Charters but does not change DC behaviour yet (card 14c).
+      'FDN: revoke charter (no refund)'  card X4-14c, shown with 'charter active': clicking ends the charter at once
+                                  (no confirmation, no refund) and the station stops being a DC
+    Card X4-14c: the charter makes the station a DC (md.FDN_Supply.Find_DCs). A revoke writes fdn.log (WARN) and a
+    logbook 'notice' entry (md.FDN_Core.Charter_End).
     Every purchase and every refusal on click writes an fdn.log line (level 2) and a logbook entry
     ('notice' for a purchase, 'problem' for a refusal, both LogbookLevel 1+).
   -->
@@ -42,18 +46,15 @@
             </do_if>
             <do_else>
               <include_actions ref="Entry_List" />
-              <!-- Card X4-11b: same DC test as md.FDN_Supply.Find_DCs (operational dock area or pier whose macro id is in DCMacros) -->
-              <run_actions ref="md.FDN_Core.Cfg_Get" result="$Macros">
-                <param name="Key" value="'DCMacros'" />
-              </run_actions>
+              <!-- Card X4-14c: a DC is a station with an FDN charter and a working qualifying dock (as Find_DCs) -->
               <set_value name="$IsDC" exact="false" />
-              <do_if value="$Macros">
-                <find_object_component object="$Station" name="$Docks" class="[class.dockarea, class.pier]" checkoperational="true" multiple="true" />
-                <do_for_each name="$D" in="$Docks">
-                  <do_if value="$Macros.indexof.{$D.macro.id}">
-                    <set_value name="$IsDC" exact="true" />
-                  </do_if>
-                </do_for_each>
+              <run_actions ref="md.FDN_Core.Charter_Get" result="$ChDC">
+                <param name="Station" value="$Station" />
+              </run_actions>
+              <do_if value="$ChDC != null">
+                <run_actions ref="md.FDN_Core.Charter_Has_Dock" result="$IsDC">
+                  <param name="Station" value="$Station" />
+                </run_actions>
               </do_if>
               <do_for_each name="$E" in="$List">
                 <do_if value="$IsDC and $E.$Key == 'ProductsFdnManaged'">
@@ -86,7 +87,6 @@
     <!-- Card X4-14b: the charter entry. Uses $Station from Add_Station_Actions -->
     <library name="Charter_Entry">
       <actions>
-        <set_value name="$Note" exact="' (charter is recorded but does not yet change DC behaviour)'" />
         <run_actions ref="md.FDN_Core.Charter_Get" result="$Ch">
           <param name="Station" value="$Station" />
         </run_actions>
@@ -94,8 +94,14 @@
           <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
             $id = 'fdn_station_charter',
             $text = 'FDN: charter active',
-            $mouseover = 'This station has an FDN charter' + $Note,
+            $mouseover = 'This station has an FDN charter and is a Distribution Centre while it has a working dock or pier',
             $active = false]" />
+          <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
+            $id = 'fdn_station_charter_revoke',
+            $text = 'FDN: revoke charter (no refund)',
+            $mouseover = 'Click to end the FDN charter of this station at once. No confirmation and no refund. The station stops being a Distribution Centre',
+            $callback = md.FDN_Menu.On_Revoke_Charter,
+            $echo = 'revoke']" />
         </do_if>
         <do_else>
           <run_actions ref="md.FDN_Menu.Charter_Check" result="$Chk">
@@ -105,7 +111,7 @@
             <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
               $id = 'fdn_station_charter',
               $text = 'FDN: buy charter (%1 Cr)'.[$Chk.$Info.$Fee.formatted.default],
-              $mouseover = 'Click to pay %1 Cr now for an FDN charter on this station. No confirmation and no refund'.[$Chk.$Info.$Fee.formatted.default] + $Note,
+              $mouseover = 'Click to pay %1 Cr now for an FDN charter on this station. It becomes a Distribution Centre. No confirmation and no refund'.[$Chk.$Info.$Fee.formatted.default],
               $callback = md.FDN_Menu.On_Buy_Charter,
               $echo = 'charter']" />
           </do_if>
@@ -113,7 +119,7 @@
             <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
               $id = 'fdn_station_charter',
               $text = 'FDN: charter blocked - ' + $Chk.$Reason,
-              $mouseover = 'FDN charter not possible here: ' + $Chk.$Reason + $Note,
+              $mouseover = 'FDN charter not possible here: ' + $Chk.$Reason,
               $active = false]" />
           </do_else>
         </do_else>
@@ -208,7 +214,7 @@
                       <param name="Tier" value="'notice'" />
                       <param name="Category" value="'general'" />
                       <param name="Title" value="'charter bought for %1'.[$Name]" />
-                      <param name="Text" value="'FDN charter bought for %1 for %2 Cr (standing %3 with %4, %5 pct discount). The charter is recorded but does not yet change DC behaviour.'.[$Name, $Taken.formatted.default, $Info.$Standing, $FName, $Info.$Discount]" />
+                      <param name="Text" value="'FDN charter bought for %1 for %2 Cr (standing %3 with %4, %5 pct discount). The station becomes a Distribution Centre on the next FDN pass.'.[$Name, $Taken.formatted.default, $Info.$Standing, $FName, $Info.$Discount]" />
                       <param name="Money" value="$Taken" />
                       <param name="Object" value="$Station" />
                     </run_actions>
@@ -227,6 +233,39 @@
               <param name="Title" value="'charter refused at %1'.[$Name]" />
               <param name="Text" value="'FDN charter not bought for %1: %2. Nothing was charged.'.[$Name, $Reason]" />
               <param name="Object" value="(if $Station != null and $Station.exists then $Station else null)" />
+            </run_actions>
+          </do_if>
+        </do_if>
+      </actions>
+    </cue>
+
+    <!-- Card X4-14c: player clicked 'revoke charter'. Ends it at once, no refund (md.FDN_Core.Charter_End logs it). -->
+    <cue name="On_Revoke_Charter" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <do_if value="md.FDN_Core.Init.$Defaults? and event.param.$object?">
+          <set_value name="$Station" exact="event.param.$object" />
+          <set_value name="$Done" exact="false" />
+          <set_value name="$Name" exact="'unknown station'" />
+          <do_if value="$Station != null and $Station.exists">
+            <set_value name="$Name" exact="$Station.knownname" />
+            <run_actions ref="md.FDN_Core.Charter_End" result="$Done">
+              <param name="Station" value="$Station" />
+              <param name="Reason" value="'revoked from the station menu'" />
+              <param name="Revoke" value="true" />
+            </run_actions>
+          </do_if>
+          <do_if value="not $Done">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'CHARTER REVOKE FAILED: %1 has no charter or is gone (menu)'.[$Name]" />
+            </run_actions>
+            <run_actions ref="md.FDN_Core.Logbook_Event">
+              <param name="Tier" value="'problem'" />
+              <param name="Title" value="'charter not revoked at %1'.[$Name]" />
+              <param name="Text" value="'FDN charter for %1 not revoked: the station has no charter or is gone.'.[$Name]" />
             </run_actions>
           </do_if>
         </do_if>
