@@ -35,6 +35,10 @@
       (spans columns 2 and 3) | 'fee X Cr'. Row 2: one full-width line (4-column span, as the headings) 'from X to Y',
       so long station names are not cut off in a narrow column. Up to 20 activity rows, so the DC tables now stop
       at $Max - 20 (130). Worst case about 154 rows, under the 160-row limit.
+    - Card X4-16a (display only, nothing saved): one 'Network:' row under each DC heading, listing the other DCs on this
+      page within the DCNetworkRange setting (Cfg_Get, default 10), by gate jumps as Build_Networks in md/fdn_supply.xml
+      (0 le gatedistance le range), nearest first, at most 3 names then '+N more'; 'Network: none in range' otherwise.
+      Names only (no sector) to keep the row short. The DC tables now stop at $Max - 21 (129); worst case about 155 rows.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -81,6 +85,9 @@
           </do_all>
         </do_if>
         <sort_list list="$DCs" sortbyvalue="loop.element.knownname" comment="card X4-15c: DCs by name" />
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$NetRange" comment="card X4-16a: same setting as Build_Networks">
+          <param name="Key" value="'DCNetworkRange'" />
+        </run_actions>
 
         <set_value name="$Sum" exact="table[$Supplies = 0, $Returns = 0, $Units = 0, $Fees = 0Cr]" comment="card X4-15c: totals over all DCs" />
         <do_if value="$Init.$DCStats?">
@@ -158,7 +165,7 @@
         </do_if>
 
         <do_all exact="$DCs.count" counter="$d">
-          <do_if value="$Rows ge $Max - 20" comment="card X4-15f: room for Recent activity (heading + 2 rows per entry)">
+          <do_if value="$Rows ge $Max - 21" comment="card X4-15f/16a: room for Recent activity (heading + 2 rows per entry) and the Network row">
             <set_value name="$Cut" exact="true" />
             <break />
           </do_if>
@@ -176,6 +183,33 @@
           </do_if>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = '%1%2%3'.[$S.knownname, $Where, $State]]" />
+          <set_value name="$Near" exact="table[]" comment="card X4-16a: other DC -> gate jumps, within DCNetworkRange" />
+          <do_all exact="$DCs.count" counter="$o">
+            <set_value name="$O" exact="$DCs.{$o}" />
+            <do_if value="$O != $S">
+              <set_value name="$J" exact="$S.gatedistance.{$O}" />
+              <do_if value="$J ge 0 and $J le $NetRange">
+                <set_value name="$Near.{$O}" exact="$J" />
+              </do_if>
+            </do_if>
+          </do_all>
+          <set_value name="$NearList" exact="$Near.keys.sorted" comment="sorted by value (jumps), nearest first (keys.sorted, as used in md/fdn_supply.xml)" />
+          <set_value name="$NetText" exact="'Network: none in range'" />
+          <do_if value="$NearList.count gt 0">
+            <set_value name="$NetText" exact="'Network: '" />
+            <do_all exact="[$NearList.count, 3].min" counter="$n">
+              <do_if value="$n gt 1">
+                <set_value name="$NetText" exact="$NetText + ', '" />
+              </do_if>
+              <set_value name="$NetText" exact="$NetText + '%1 (%2 %3)'.[$NearList.{$n}.knownname, $Near.{$NearList.{$n}}, (if $Near.{$NearList.{$n}} == 1 then 'jump' else 'jumps')]" />
+            </do_all>
+            <do_if value="$NearList.count gt 3">
+              <set_value name="$NetText" exact="$NetText + ', +%1 more'.[$NearList.count - 3]" />
+            </do_if>
+          </do_if>
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = $NetText]" />
+          <set_value name="$Rows" exact="$Rows + 1" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Ware']" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Stock', $halign = 'right']" />
@@ -201,7 +235,7 @@
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
           <do_all exact="$Wares.count" counter="$w">
-            <do_if value="$Rows ge $Max - 20" comment="card X4-15f: room for Recent activity (heading + 2 rows per entry)">
+            <do_if value="$Rows ge $Max - 21" comment="card X4-15f/16a: room for Recent activity (heading + 2 rows per entry) and the Network row">
               <set_value name="$Cut" exact="true" />
               <break />
             </do_if>
