@@ -15,6 +15,14 @@
     records the change; a refused change writes a logbook 'problem' entry (LogbookLevel 1+).
     The API removes its actions when a menu closes, so they are re-added on every menu opening.
     If FDN is not set up yet in this save, one greyed-out entry says so.
+
+    Card X4-14b: a third entry buys an FDN charter for the station (md.FDN_Core.Charter_Fee works out the fee).
+      'FDN: buy charter (X Cr)'   allowed: clicking charges the player at once (no confirmation, no refund)
+      'FDN: charter blocked - reason'  greyed, the reason is in the label and the mouseover
+      'FDN: charter active'       greyed, the station already has one
+    The charter is recorded in md.FDN_Core.Init.$Charters but does not change DC behaviour yet (card 14c).
+    Every purchase and every refusal on click writes an fdn.log line (level 2) and a logbook entry
+    ('notice' for a purchase, 'problem' for a refusal, both LogbookLevel 1+).
   -->
   <cues>
     <cue name="Add_Station_Actions" instantiate="true">
@@ -68,7 +76,158 @@
                   $callback = On_Toggle,
                   $echo = $E.$Key]" />
               </do_for_each>
+              <include_actions ref="Charter_Entry" />
             </do_else>
+          </do_if>
+        </do_if>
+      </actions>
+    </cue>
+
+    <!-- Card X4-14b: the charter entry. Uses $Station from Add_Station_Actions -->
+    <library name="Charter_Entry">
+      <actions>
+        <set_value name="$Note" exact="' (charter is recorded but does not yet change DC behaviour)'" />
+        <run_actions ref="md.FDN_Core.Charter_Get" result="$Ch">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <do_if value="$Ch != null">
+          <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
+            $id = 'fdn_station_charter',
+            $text = 'FDN: charter active',
+            $mouseover = 'This station has an FDN charter' + $Note,
+            $active = false]" />
+        </do_if>
+        <do_else>
+          <run_actions ref="md.FDN_Menu.Charter_Check" result="$Chk">
+            <param name="Station" value="$Station" />
+          </run_actions>
+          <do_if value="$Chk.$Ok">
+            <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
+              $id = 'fdn_station_charter',
+              $text = 'FDN: buy charter (%1 Cr)'.[$Chk.$Info.$Fee.formatted.default],
+              $mouseover = 'Click to pay %1 Cr now for an FDN charter on this station. No confirmation and no refund'.[$Chk.$Info.$Fee.formatted.default] + $Note,
+              $callback = md.FDN_Menu.On_Buy_Charter,
+              $echo = 'charter']" />
+          </do_if>
+          <do_else>
+            <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
+              $id = 'fdn_station_charter',
+              $text = 'FDN: charter blocked - ' + $Chk.$Reason,
+              $mouseover = 'FDN charter not possible here: ' + $Chk.$Reason + $Note,
+              $active = false]" />
+          </do_else>
+        </do_else>
+      </actions>
+    </library>
+
+    <!-- Card X4-14b: can the player buy a charter for Station now? Returns table[$Ok, $Reason, $Info (Charter_Fee result)] -->
+    <library name="Charter_Check" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <run_actions ref="md.FDN_Core.Charter_Fee" result="$Info">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <do_if value="$Info.$Macro == ''">
+          <return value="table[$Ok = false, $Reason = 'no qualifying dock or pier', $Info = $Info]" />
+        </do_if>
+        <do_if value="not $Info.$Allowed">
+          <run_actions ref="md.FDN_Core.Cfg_Get" result="$MinSt">
+            <param name="Key" value="'CharterMinStanding'" />
+          </run_actions>
+          <return value="table[$Ok = false, $Reason = 'standing too low with %1 (have %2, need %3)'.[(if $Info.$Faction then $Info.$Faction.knownname else '?'), $Info.$Standing, $MinSt], $Info = $Info]" />
+        </do_if>
+        <do_if value="player.money lt $Info.$Fee">
+          <return value="table[$Ok = false, $Reason = 'not enough money (need %1 Cr, have %2 Cr)'.[$Info.$Fee.formatted.default, player.money.formatted.default], $Info = $Info]" />
+        </do_if>
+        <return value="table[$Ok = true, $Reason = '', $Info = $Info]" />
+      </actions>
+    </library>
+
+    <!-- Card X4-14b: player clicked 'buy charter'. Re-checks everything, then charges and records the charter. -->
+    <cue name="On_Buy_Charter" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <do_if value="md.FDN_Core.Init.$Defaults? and event.param.$object?">
+          <set_value name="$Station" exact="event.param.$object" />
+          <set_value name="$Name" exact="'unknown station'" />
+          <set_value name="$Reason" exact="''" />
+          <do_if value="$Station == null or not $Station.exists or not $Station.isclass.station or not $Station.isplayerowned">
+            <set_value name="$Reason" exact="'the station is gone or not yours'" />
+          </do_if>
+          <do_else>
+            <set_value name="$Name" exact="$Station.knownname" />
+            <run_actions ref="md.FDN_Core.Charter_Get" result="$Ch">
+              <param name="Station" value="$Station" />
+            </run_actions>
+            <do_if value="$Ch != null">
+              <set_value name="$Reason" exact="'a charter is already active'" />
+            </do_if>
+            <do_else>
+              <run_actions ref="md.FDN_Menu.Charter_Check" result="$Chk">
+                <param name="Station" value="$Station" />
+              </run_actions>
+              <do_if value="not $Chk.$Ok">
+                <set_value name="$Reason" exact="$Chk.$Reason" />
+              </do_if>
+              <do_else>
+                <set_value name="$Info" exact="$Chk.$Info" />
+                <set_value name="$Fee" exact="$Info.$Fee" />
+                <set_value name="$Before" exact="player.money" />
+                <transfer_money from="faction.player" to="faction.ownerless" amount="$Fee" comment="VERIFY: player account to the money sink, as FDN fees (Start_Transfer, Undo_Fee)" />
+                <set_value name="$Taken" exact="$Before - player.money" comment="what really left the account; the game rounds to whole credits" />
+                <do_if value="$Taken lt $Fee - 1Cr">
+                  <do_if value="player.money lt $Before">
+                    <transfer_money from="faction.ownerless" to="faction.player" amount="$Before - player.money" />
+                  </do_if>
+                  <set_value name="$Reason" exact="'payment of %1 Cr was not taken (taken %2 Cr), nothing charged'.[$Fee.formatted.default, $Taken.formatted.default]" />
+                </do_if>
+                <do_else>
+                  <run_actions ref="md.FDN_Core.Charter_Set" result="$Set">
+                    <param name="Station" value="$Station" />
+                    <param name="Fee" value="$Taken" />
+                    <param name="Dock" value="$Info.$Macro" />
+                    <param name="Faction" value="$Info.$Faction" />
+                    <param name="Standing" value="$Info.$Standing" />
+                    <param name="Source" value="' (menu purchase)'" />
+                  </run_actions>
+                  <do_if value="not $Set">
+                    <transfer_money from="faction.ownerless" to="faction.player" amount="$Taken" />
+                    <set_value name="$Reason" exact="'the charter could not be recorded, payment refunded'" />
+                  </do_if>
+                  <do_else>
+                    <set_value name="$FName" exact="(if $Info.$Faction then $Info.$Faction.knownname else '?')" />
+                    <run_actions ref="md.FDN_Core.Log">
+                      <param name="Level" value="2" />
+                      <param name="Text" value="'CHARTER BOUGHT: %1, paid %2 Cr (base %3 Cr, discount %4 pct), dock %5, standing %6 with %7, player money now %8 Cr'.[$Name, $Taken.formatted.default, $Info.$Base.formatted.default, $Info.$Discount, $Info.$Macro, $Info.$Standing, $FName, player.money.formatted.default]" />
+                    </run_actions>
+                    <run_actions ref="md.FDN_Core.Logbook_Event">
+                      <param name="Tier" value="'notice'" />
+                      <param name="Category" value="'general'" />
+                      <param name="Title" value="'charter bought for %1'.[$Name]" />
+                      <param name="Text" value="'FDN charter bought for %1 for %2 Cr (standing %3 with %4, %5 pct discount). The charter is recorded but does not yet change DC behaviour.'.[$Name, $Taken.formatted.default, $Info.$Standing, $FName, $Info.$Discount]" />
+                      <param name="Money" value="$Taken" />
+                      <param name="Object" value="$Station" />
+                    </run_actions>
+                  </do_else>
+                </do_else>
+              </do_else>
+            </do_else>
+          </do_else>
+          <do_if value="$Reason != ''">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'CHARTER REFUSED: %1, %2 (menu)'.[$Name, $Reason]" />
+            </run_actions>
+            <run_actions ref="md.FDN_Core.Logbook_Event">
+              <param name="Tier" value="'problem'" />
+              <param name="Title" value="'charter refused at %1'.[$Name]" />
+              <param name="Text" value="'FDN charter not bought for %1: %2. Nothing was charged.'.[$Name, $Reason]" />
+              <param name="Object" value="(if $Station != null and $Station.exists then $Station else null)" />
+            </run_actions>
           </do_if>
         </do_if>
       </actions>

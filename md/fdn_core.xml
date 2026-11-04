@@ -300,6 +300,7 @@
         'problem'  level 1+  written to category upkeep AND alerts, highlighted
         'summary'  level 2 only (level 3 writes each transfer instead)
         'info'     level 2+  (Category, e.g. general for DC network changes)
+        'notice'   level 1+  (Category), not highlighted. Card X4-14b: charter purchases
         'transfer' level 3   throttled per ThrottleStation + ThrottleWare + Tier for LogbookSkipInterval seconds
       Money = fee shown with the entry (money attribute, not 0). Cost = optional ware cost (NPC buys, card 09p):
       added to the money shown and named in the text. Card 09p: Money and Cost are amounts the player's DC PAID, so the
@@ -345,6 +346,9 @@
         </do_elseif>
         <do_elseif value="$Tier == 'info'">
           <set_value name="$Show" exact="$Lvl ge 2" />
+        </do_elseif>
+        <do_elseif value="$Tier == 'notice'" comment="card X4-14b: level 1+, not highlighted, written to Category (charter purchases)">
+          <set_value name="$Show" exact="true" />
         </do_elseif>
         <do_elseif value="$Tier == 'transfer'">
           <set_value name="$Show" exact="$Lvl ge 3" />
@@ -650,9 +654,11 @@
     <!--
       FDN CHARTER DATA (card X4-14a). Inert: nothing in 14a buys, checks or clears a charter.
       DC detection (md.FDN_Supply.Find_DCs) is unchanged and still uses DCMacros.
-      Stored in md.FDN_Core.Init.$Charters as station -> table[$Fee, $Time, $Dock, $Faction] (saved, created on first use).
+      Stored in md.FDN_Core.Init.$Charters as station -> table[$Fee, $Time, $Dock, $Faction, $Standing] (saved, created on first use).
+      Card X4-14b: bought from the station menu (md/fdn_menu.xml, Charter_Buy). $Time is player.age (game seconds) at purchase.
+      Still no effect on DC detection until card 14c.
         Charter_Get        params Station                     returns the charter table, or null
-        Charter_Set        params Station, Fee, Dock[, Faction, Source]  writes the charter. Returns true, false if the station is gone
+        Charter_Set        params Station, Fee, Dock[, Faction, Source, Standing]  writes the charter. Returns true, false if the station is gone
         Charter_Clear      params Station[, Reason]           removes the charter. Returns true
         Charter_Purge      no params                          drops charters of stations that no longer exist (not wired up yet)
         Charter_Dock_Price params Station                     returns table[$Price (money), $Macro] of the most expensive
@@ -683,6 +689,7 @@
         <param name="Dock" default="''" />
         <param name="Faction" default="null" />
         <param name="Source" default="''" />
+        <param name="Standing" default="null" comment="card X4-14b: standing (-30 to +30) at purchase" />
       </params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
@@ -696,7 +703,7 @@
         <do_if value="not $Init.$Charters?">
           <set_value name="$Init.$Charters" exact="table[]" />
         </do_if>
-        <set_value name="$Init.$Charters.{$Station}" exact="table[$Fee = $Fee, $Time = player.age, $Dock = $Dock, $Faction = $Faction]" comment="station object as table key, same as $StationCfg" />
+        <set_value name="$Init.$Charters.{$Station}" exact="table[$Fee = $Fee, $Time = player.age, $Dock = $Dock, $Faction = $Faction, $Standing = $Standing]" comment="station object as table key, same as $StationCfg" />
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
           <param name="Text" value="'charter set at %1, fee %2, dock %3%4'.[$Station.knownname, $Fee.formatted.default + ' Cr', $Dock, $Source]" />
