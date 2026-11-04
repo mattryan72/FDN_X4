@@ -18,6 +18,13 @@
       the six lines at one time were six real builds (open, Refresh clicks, returns from the settings page) while the
       game was paused, so game time did not move. Not a fault, nothing to fix.
     - Card X4-15b: the heading shows the sector only when the station name does not already contain it.
+    - Card X4-15c (display only): 4 columns. A summary row under Refresh (DCs online and totals summed over all DCs).
+      DCs sorted by name, wares within a DC sorted by stock as a whole percent of the storage target, emptiest
+      first (no target sorts last and shows '-'). New '% of target' column. The Stock cell is coloured by that
+      percent: under 25 Color.text_negative (red), 25 to 75 Color.text_warning (orange/amber), above 75 the normal
+      colour. Colour names are Color mapping ids from libraries/colors.xml; the Simple Menu API replaces any arg
+      string starting with 'Color.' with the game Color table entry (ui/simple_menu/library.lua Replace_Color_Args).
+      Sorting uses sort_list sortbyvalue, as the game scripts do (scenario_transport_refugees.xml, build.buildstorage.xml).
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -28,7 +35,7 @@
         <signal_cue_instantly cue="md.Simple_Menu_API.Register_Options_Menu" param="table[
           $id = 'fdn_overview',
           $title = 'FDN Overview',
-          $columns = 3,
+          $columns = 4,
           $onOpen = On_Open]" />
       </actions>
     </cue>
@@ -49,7 +56,7 @@
           $text = table[$text = 'Refresh', $halign = 'center'],
           $mouseOverText = 'Reload the figures. The page does not update by itself',
           $onClick = On_Refresh]" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = 'Freight Distribution Network, read only. Totals since charter bought']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 3, $text = 'Freight Distribution Network, read only. Totals since charter bought']" />
         <set_value name="$Rows" exact="$Rows + 1" />
 
         <set_value name="$DCs" exact="[]" />
@@ -63,10 +70,28 @@
             </do_if>
           </do_all>
         </do_if>
+        <sort_list list="$DCs" sortbyvalue="loop.element.knownname" comment="card X4-15c: DCs by name" />
+
+        <set_value name="$Sum" exact="table[$Supplies = 0, $Returns = 0, $Units = 0, $Fees = 0Cr]" comment="card X4-15c: totals over all DCs" />
+        <do_if value="$Init.$DCStats?">
+          <do_all exact="$DCs.count" counter="$d">
+            <do_if value="$Init.$DCStats.{$DCs.{$d}}?">
+              <set_value name="$T" exact="$Init.$DCStats.{$DCs.{$d}}" />
+              <set_value name="$Sum.$Supplies" exact="$Sum.$Supplies + $T.$Supplies" />
+              <set_value name="$Sum.$Returns" exact="$Sum.$Returns + $T.$Returns" />
+              <set_value name="$Sum.$Units" exact="$Sum.$Units + $T.$Units" />
+              <set_value name="$Sum.$Fees" exact="$Sum.$Fees + $T.$Fees" />
+            </do_if>
+          </do_all>
+        </do_if>
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'DCs online: %1'.[$DCs.count]]" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 3, $text = 'Totals: %1 sent, %2 returned, %3 units, %4 fees'.[$Sum.$Supplies, $Sum.$Returns, $Sum.$Units, $Sum.$Fees.formatted.default + ' Cr']]" />
+        <set_value name="$Rows" exact="$Rows + 1" />
 
         <do_if value="$DCs.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $text = 'No Freight Distribution Centres. Buy an FDN charter from a station right-click menu to make one']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No Freight Distribution Centres. Buy an FDN charter from a station right-click menu to make one']" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
 
@@ -88,18 +113,29 @@
             <set_value name="$Where" exact="''" />
           </do_if>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $font = 'Zekton bold', $text = '%1%2%3'.[$S.knownname, $Where, $State]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = '%1%2%3'.[$S.knownname, $Where, $State]]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Ware']" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Stock', $halign = 'right']" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = 'Target', $halign = 'right']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = '% of target', $halign = 'right']" />
           <set_value name="$Rows" exact="$Rows + 2" />
           <set_value name="$Shown" exact="$Shown + 1" />
 
           <set_value name="$Wares" exact="$S.cargo.list" comment="wares with a non-zero amount" />
+          <set_value name="$PctOf" exact="table[]" comment="card X4-15c: ware -> whole percent of target, 1000000 when there is no target (sorts last)" />
+          <do_all exact="$Wares.count" counter="$w">
+            <set_value name="$PctOf.{$Wares.{$w}}" exact="1000000" />
+            <do_if value="$S.cargo.{$Wares.{$w}}.target?">
+              <do_if value="$S.cargo.{$Wares.{$w}}.target gt 0">
+                <set_value name="$PctOf.{$Wares.{$w}}" exact="(($S.cargo.{$Wares.{$w}}.count * 100) / $S.cargo.{$Wares.{$w}}.target)i" />
+              </do_if>
+            </do_if>
+          </do_all>
+          <sort_list list="$Wares" sortbyvalue="$PctOf.{loop.element}" comment="card X4-15c: emptiest first" />
           <do_if value="$Wares.count == 0">
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $text = 'No wares in stock']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No wares in stock']" />
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
           <do_all exact="$Wares.count" counter="$w">
@@ -114,8 +150,22 @@
             </do_if>
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = $W.name]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = '%1'.[$S.cargo.{$W}.count], $halign = 'right']" />
+            <set_value name="$Pct" exact="$PctOf.{$W}" />
+            <do_if value="$Pct lt 25">
+              <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = '%1'.[$S.cargo.{$W}.count], $halign = 'right', $color = 'Color.text_negative']" />
+            </do_if>
+            <do_elseif value="$Pct le 75">
+              <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = '%1'.[$S.cargo.{$W}.count], $halign = 'right', $color = 'Color.text_warning']" />
+            </do_elseif>
+            <do_else>
+              <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = '%1'.[$S.cargo.{$W}.count], $halign = 'right']" />
+            </do_else>
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = '%1'.[$Target], $halign = 'right']" />
+            <set_value name="$PctText" exact="'-'" />
+            <do_if value="$Pct lt 1000000">
+              <set_value name="$PctText" exact="'%1'.[$Pct] + ' %'" comment="the percent sign is added after formatting, never inside the format string" />
+            </do_if>
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = $PctText, $halign = 'right']" />
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_all>
 
@@ -126,7 +176,7 @@
             </do_if>
           </do_if>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $text = 'Totals: %1 supplies sent, %2 returns received, %3 units moved, fees paid %4'.[$St.$Supplies, $St.$Returns, $St.$Units, $St.$Fees.formatted.default + ' Cr']]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Totals: %1 supplies sent, %2 returns received, %3 units moved, fees paid %4'.[$St.$Supplies, $St.$Returns, $St.$Units, $St.$Fees.formatted.default + ' Cr']]" />
           <set_value name="$Rows" exact="$Rows + 1" />
           <do_if value="$Cut">
             <break />
@@ -135,7 +185,7 @@
 
         <do_if value="$Cut">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $text = 'More not shown: the page holds at most 160 rows. %1 of %2 DCs listed, the last one may be incomplete'.[$Shown, $DCs.count]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'More not shown: the page holds at most 160 rows. %1 of %2 DCs listed, the last one may be incomplete'.[$Shown, $DCs.count]]" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
 
