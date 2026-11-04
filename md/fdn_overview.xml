@@ -13,7 +13,11 @@
     - With no DC there is one row saying so. The API allows at most 160 rows, so the page stops adding DC and ware
       rows at 150 and shows a "more not shown" row instead.
     - The page does not update by itself; Refresh (Simple Menu API Refresh_Menu) clears it and calls On_Open again.
-    - A debug line (log level 4) is written each time the page opens.
+    - A debug line (log level 4) is written each time the page is built: on opening, on every Refresh and when the
+      game rebuilds the page (for example coming back from another options page). Card X4-15b checked the 15a log:
+      the six lines at one time were six real builds (open, Refresh clicks, returns from the settings page) while the
+      game was paused, so game time did not move. Not a fault, nothing to fix.
+    - Card X4-15b: the heading shows the sector only when the station name does not already contain it.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -45,7 +49,7 @@
           $text = table[$text = 'Refresh', $halign = 'center'],
           $mouseOverText = 'Reload the figures. The page does not update by itself',
           $onClick = On_Refresh]" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = 'Freight Distribution Network, read only. Totals count from the day a charter was bought']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = 'Freight Distribution Network, read only. Totals since charter bought']" />
         <set_value name="$Rows" exact="$Rows + 1" />
 
         <set_value name="$DCs" exact="[]" />
@@ -76,8 +80,15 @@
           <do_if value="$Init.$Charters.{$S}.$DockMiss?">
             <set_value name="$State" exact="' (no working dock, the charter ends soon if none returns)'" />
           </do_if>
+          <set_value name="$Where" exact="', ' + $S.sector.knownname" />
+          <substitute_text text="$Probe" source="$S.knownname" comment="card X4-15b: removes the sector name from the station name; if anything changed, the name already contains the sector">
+            <replace string="$S.sector.knownname" with="''" />
+          </substitute_text>
+          <do_if value="$Probe != $S.knownname">
+            <set_value name="$Where" exact="''" />
+          </do_if>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $font = 'Zekton bold', $text = '%1, %2%3'.[$S.knownname, $S.sector.knownname, $State]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 3, $font = 'Zekton bold', $text = '%1%2%3'.[$S.knownname, $Where, $State]]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Ware']" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Stock', $halign = 'right']" />

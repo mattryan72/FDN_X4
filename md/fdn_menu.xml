@@ -183,7 +183,7 @@
                 <set_value name="$Info" exact="$Chk.$Info" />
                 <set_value name="$Fee" exact="$Info.$Fee" />
                 <set_value name="$Before" exact="player.money" />
-                <transfer_money from="faction.player" to="faction.ownerless" amount="$Fee" comment="VERIFY: player account to the money sink, as FDN fees (Start_Transfer, Undo_Fee)" />
+                <transfer_money from="faction.player" to="faction.ownerless" amount="$Fee" comment="proven in game (charter purchases): player account to the money sink, as FDN fees (Start_Transfer, Undo_Fee)" />
                 <set_value name="$Taken" exact="$Before - player.money" comment="what really left the account; the game rounds to whole credits" />
                 <do_if value="$Taken lt $Fee - 1Cr">
                   <do_if value="player.money lt $Before">

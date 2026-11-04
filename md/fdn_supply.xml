@@ -112,7 +112,7 @@
           </actions>
           <cues>
             <cue name="Reset">
-              <delay exact="$Interval * 1s" comment="VERIFY: delay accepts a parent variable and a time expression like this" />
+              <delay exact="$Interval * 1s" comment="proven in game: delay accepts a parent variable and a time expression like this" />
               <actions>
                 <reset_cue cue="Loop" />
               </actions>
@@ -542,7 +542,7 @@
     <!--
       Step 9b. DCs that may supply a station, nearest first.
       Order (Matt's design): the nearest DC in range, then the other DCs of that DC's network that are also in range.
-      A DC never supplies itself, and own non-DC stations are never sources (TransferOwn is ignored).
+      A DC never supplies itself, and own non-DC stations are never sources.
       Range per station: RangeLimit / RangeMaxJumps (Station_Cfg_Get), same rule as Nearest_DC.
       Returns a list of [DC, jumps].
       VERIFY: two stations in the same sector give gatedistance 0.
@@ -668,7 +668,7 @@
         <do_if value="not $SelfHome and $Cands.count gt 2" comment="card 9g: a self-home DC keeps the order by distance from the station. card 9f: other DCs ordered nearest to the home DC first">
           <set_value name="$ByHome" exact="table[]" />
           <do_all exact="$Cands.count - 1" counter="$h">
-            <set_value name="$ByHome.{$Cands.{$h + 1}.{1}}" exact="$Home.gatedistance.{$Cands.{$h + 1}.{1}}" comment="VERIFY: gatedistance between two stations" />
+            <set_value name="$ByHome.{$Cands.{$h + 1}.{1}}" exact="$Home.gatedistance.{$Cands.{$h + 1}.{1}}" comment="proven in game: gatedistance between two stations" />
           </do_all>
           <set_value name="$HomeSorted" exact="$ByHome.keys.sorted" />
           <set_value name="$NewCands" exact="[$Cands.{1}]" />
@@ -700,15 +700,15 @@
                 <set_value name="$Stock" exact="$DC.cargo.{$Ware}.count" />
                 <set_value name="$Reserve" exact="($Stock * $Keep + 99) / 100" comment="integer maths, rounds up. VERIFY: integer division truncates" />
                 <set_value name="$Avail" exact="$Stock - $Reserve" />
-                <set_value name="$Free" exact="$Station.cargo.{$Ware}.free" comment="VERIFY: per-ware free amount (used like this in vanilla aiscripts)" />
+                <set_value name="$Free" exact="$Station.cargo.{$Ware}.free" comment="proven in game: per-ware free amount (used like this in vanilla aiscripts)" />
                 <set_value name="$Qty" exact="[$Left, $Avail, $Free].min" />
                 <do_if value="$Free le 0">
                   <set_value name="$Reason" exact="'station has no free storage for it'" />
                   <set_value name="$NoMoney" exact="false" />
                 </do_if>
                 <do_if value="$Qty gt 0">
-                  <set_value name="$FeeFactor" exact="($Pct * (1.0 + $Jumps * $RangeMult) * $VolMult * $TypeMult * 1000)i" comment="all multipliers as one whole number, percent x 1000 (2 pct x 1.6 = 3200). Money x float is not allowed (log: Loss of data ... 3840000ct * 1.6f). VERIFY: (x)i converts to integer, as vanilla crisis_xenon_khaak_combo.xml uses ($ValueFactor * 100)i" />
-                  <set_value name="$Fee" exact="($Ware.averageprice * $Qty * $FeeFactor) / 100000" comment="money x integer, then / 100 (percent) / 1000 (scale). Same pattern as vanilla ($MinTotalValue * ($ValueFactor * 100)i) / 100. VERIFY: averageprice is type money" />
+                  <set_value name="$FeeFactor" exact="($Pct * (1.0 + $Jumps * $RangeMult) * $VolMult * $TypeMult * 1000)i" comment="all multipliers as one whole number, percent x 1000 (2 pct x 1.6 = 3200). Money x float is not allowed (log: Loss of data ... 3840000ct * 1.6f). Proven in game (fee tests): (x)i converts to integer, as vanilla crisis_xenon_khaak_combo.xml uses ($ValueFactor * 100)i" />
+                  <set_value name="$Fee" exact="($Ware.averageprice * $Qty * $FeeFactor) / 100000" comment="money x integer, then / 100 (percent) / 1000 (scale). Same pattern as vanilla ($MinTotalValue * ($ValueFactor * 100)i) / 100. Proven in game (fee tests): averageprice is type money" />
                   <do_if value="$Fee lt 0Cr">
                     <set_value name="$Fee" exact="0Cr" />
                   </do_if>
@@ -1389,7 +1389,7 @@
           <param name="Ware" value="$Ware" />
           <param name="Amount" value="$Qty" />
         </run_actions>
-        <remove_cargo object="$DC" ware="$Ware" exact="$Qty" result="$Removed" comment="VERIFY: result is the amount removed" />
+        <remove_cargo object="$DC" ware="$Ware" exact="$Qty" result="$Removed" comment="proven in game: result is the amount removed" />
         <do_if value="$Removed lt $Qty">
           <do_if value="$Removed gt 0">
             <add_cargo object="$DC" ware="$Ware" exact="$Removed" />
@@ -1466,7 +1466,7 @@
         </do_if>
         <set_value name="$Added" exact="0" />
         <do_if value="$Station.exists and $Station.owner == faction.player">
-          <add_cargo object="$Station" ware="$Ware" exact="$Qty" result="$Added" comment="VERIFY: result is the amount added" />
+          <add_cargo object="$Station" ware="$Ware" exact="$Qty" result="$Added" comment="proven in game: result is the amount added" />
         </do_if>
         <run_actions ref="md.FDN_Core.Claim_Release">
           <param name="Station" value="$Station" />
@@ -1661,7 +1661,7 @@
     <!--
       Step 9b. Supply ledger, saved in md.FDN_Core.Init.$Ledger: DC -> list of [time, station, ware, qty, fee, jumps].
       Oldest entries are dropped above LedgerMax per DC.
-      VERIFY: a station object works as a table key (same open point as $Claims).
+      Proven in game: a station object works as a table key (same as $Claims).
     -->
     <library name="Ledger_Add" purpose="run_actions">
       <params>
@@ -1916,7 +1916,7 @@
                 <set_value name="$RLInit.$ReturnLog" exact="table[]" />
               </do_if>
               <do_if value="not $RLInit.$ReturnLog.{$Station}?">
-                <set_value name="$RLInit.$ReturnLog.{$Station}" exact="table[]" comment="VERIFY: station object as table key, same as $Claims" />
+                <set_value name="$RLInit.$ReturnLog.{$Station}" exact="table[]" comment="proven in game: station object as table key, same as $Claims" />
               </do_if>
               <set_value name="$RLSkip" exact="0" />
               <do_if value="$Stock le $Target">

@@ -2,7 +2,7 @@
 <mdscript name="FDN_Core" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
   <cues>
     <!--
-      X4-09a-fix VERIFY: '@' prefixes were removed where combined with '?' (game rejects that).
+      X4-09a-fix (proven in game): '@' prefixes were removed where combined with '?' (game rejects that).
       Behaviour of '?' when an intermediate key/variable is missing (e.g. $Init.$Claims.{$Station}.{$Ware}?)
       is to be confirmed in the next debug log (look for new errors on those lines).
     -->
@@ -47,7 +47,7 @@
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'core loaded, version 1.0.0 (step 9b), %1 default settings'.[$Defaults.keys.count]" />
+          <param name="Text" value="'core loaded, version 1.00, %1 default settings'.[$Defaults.keys.count]" />
         </run_actions>
       </actions>
       <patch sinceversion="2">
@@ -141,8 +141,7 @@
             <set_value name="$Defaults.{'$PollInterval'}" exact="60" comment="seconds between supply passes" />
             <set_value name="$Defaults.{'$PollStationsPerPass'}" exact="3" comment="how many stations each supply pass looks at" />
 
-            <!-- ===== Own-station transfers (step 9) ===== -->
-            <set_value name="$Defaults.{'$TransferOwn'}" exact="0" comment="IGNORED from card 9b: no code reads it, own stations are never sources. Kept so old saves keep the key" />
+            <!-- ===== Transfers (step 9). Card X4-15b: unused TransferOwn removed, own non-DC stations are never sources ===== -->
             <set_value name="$Defaults.{'$TransferFeePercent'}" exact="2" comment="fee as percent of transfer value (Matt: 2 is OK as a placeholder)" />
             <set_value name="$Defaults.{'$TransferDelay'}" exact="0" comment="1 = delay transfers by gate distance. Instant when 0" />
             <set_value name="$Defaults.{'$TransferDelayMult'}" exact="8" comment="seconds of delay per gate jump (Matt: start at 8)" />
@@ -195,7 +194,7 @@
     <!--
       Read a setting from any FDN file:
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Value">
-          <param name="Key" value="'TransferOwn'" />
+          <param name="Key" value="'PollInterval'" />
         </run_actions>
       Override wins, then default, else null.
     -->
@@ -220,7 +219,6 @@
       Card 10a. Change or reset a player setting from any FDN file (the settings menu will use these).
       Values are saved with the game in md.FDN_Core.Init.$Overrides. $Defaults is never changed.
         Cfg_Set       params Key, Value[, Source]  returns true, or false (WARN logged) when Key is not a known setting
-        Cfg_Reset     params Key         removes one override, so the default applies again. Returns true
         Cfg_Reset_All no params          removes every override. Returns true
     -->
     <library name="Cfg_Set" purpose="run_actions">
@@ -250,24 +248,6 @@
           <param name="Level" value="3" />
           <param name="Text" value="'setting %1 changed from %2 to %3%4'.[$Key, $Old, $Value, $Source]" />
         </run_actions>
-        <return value="true" />
-      </actions>
-    </library>
-
-    <library name="Cfg_Reset" purpose="run_actions">
-      <params>
-        <param name="Key" />
-      </params>
-      <actions>
-        <set_value name="$Init" exact="md.FDN_Core.Init" />
-        <set_value name="$K" exact="'$' + $Key" comment="table string keys must start with $" />
-        <do_if value="$Init.$Overrides? and $Init.$Overrides.{$K}?">
-          <remove_value name="$Init.$Overrides.{$K}" />
-          <run_actions ref="md.FDN_Core.Log">
-            <param name="Level" value="3" />
-            <param name="Text" value="'setting %1 reset to default'.[$Key]" />
-          </run_actions>
-        </do_if>
         <return value="true" />
       </actions>
     </library>
@@ -478,7 +458,6 @@
       Lookup order: station override, then player override (Cfg_Get), then default.
         Station_Cfg_Get   params Station, Key        returns the effective value
         Station_Cfg_Set   params Station, Key, Value writes the key. Returns true, false if the station or key is unknown
-        Station_Cfg_Reset params Station, Key        removes one key. Leave Key out (null) to remove all of that station's keys. Returns true
         Station_Cfg_Purge no params                  drops entries for stations that no longer exist (run each poll, like Claim_Purge)
       Card X4-11a: the station right-click menu (md/fdn_menu.xml) calls Station_Cfg_Set with Source ' (menu)'.
     -->
@@ -541,35 +520,6 @@
       </actions>
     </library>
 
-    <library name="Station_Cfg_Reset" purpose="run_actions">
-      <params>
-        <param name="Station" />
-        <param name="Key" default="null" />
-      </params>
-      <actions>
-        <set_value name="$Init" exact="md.FDN_Core.Init" />
-        <do_if value="not $Init.$StationCfg?">
-          <return value="true" />
-        </do_if>
-        <do_if value="not $Init.$StationCfg.{$Station}?">
-          <return value="true" />
-        </do_if>
-        <do_if value="$Key == null">
-          <remove_value name="$Init.$StationCfg.{$Station}" />
-        </do_if>
-        <do_else>
-          <set_value name="$K" exact="'$' + $Key" comment="X4-09a-fix2: table string keys must start with $" />
-          <do_if value="$Init.$StationCfg.{$Station}.{$K}?">
-            <remove_value name="$Init.$StationCfg.{$Station}.{$K}" />
-          </do_if>
-          <do_if value="$Init.$StationCfg.{$Station}.keys.count == 0">
-            <remove_value name="$Init.$StationCfg.{$Station}" />
-          </do_if>
-        </do_else>
-        <return value="true" />
-      </actions>
-    </library>
-
     <library name="Station_Cfg_Purge" purpose="run_actions">
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
@@ -621,7 +571,7 @@
         </do_if>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
         <do_if value="not $Init.$Claims.{$Station}?">
-          <set_value name="$Init.$Claims.{$Station}" exact="table[]" comment="VERIFY: a station object works as a table key and nested tables can be written like this" />
+          <set_value name="$Init.$Claims.{$Station}" exact="table[]" comment="proven in game: a station object works as a table key and nested tables can be written like this" />
         </do_if>
         <set_value name="$Current" exact="0" />
         <do_if value="$Init.$Claims.{$Station}.{$Ware}?">
