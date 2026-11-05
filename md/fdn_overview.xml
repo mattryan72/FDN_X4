@@ -43,6 +43,15 @@
       Activity_Add). Still the 10 newest shown, so the row budget is unchanged. Skip entries (kind 'skip', 9 items) show
       row 1 'N min ago, skipped' (plus the skip kind when not supply) | 'need ware' and row 2 '    at station: reason',
       both in Color.text_warning. Older entries without a reason are drawn as before.
+    - Card X4-16c (display only, plus one small view value): a control row under the Recent activity heading.
+      Col 1 is one cycling button 'Show: <view>' (All, Supplies = supply and pull, Returns = return, NPC = NPC buy,
+      Problems = skip). Col 2 'page X of Y'. Col 3 'Newer' and col 4 'Older' buttons, each only drawn when there is a
+      page that way (otherwise an empty cell). 10 entries per page, 2 rows each, so the row budget is the heading,
+      the control row and 20 rows: the DC tables now stop at $Max - 22 (128), worst case about 155 rows.
+      View state: md.FDN_Core.Init.$OvView = table[$Filter (1 to 5), $Page], created when missing. The click handlers
+      (and Refresh) set md.FDN_Core.Init.$OvKeep = true before Refresh_Menu; On_Open keeps the view only when that flag
+      is set and then clears it, so opening the page fresh (or the game rebuilding it) starts at All, page 1.
+      Same button pattern as Refresh (Make_Button with $col and $onClick in a row that also holds Make_Text cells).
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -169,7 +178,7 @@
         </do_if>
 
         <do_all exact="$DCs.count" counter="$d">
-          <do_if value="$Rows ge $Max - 21" comment="card X4-15f/16a: room for Recent activity (heading + 2 rows per entry) and the Network row">
+          <do_if value="$Rows ge $Max - 22" comment="card X4-15f/16a/16c: room for Recent activity (heading, control row, 2 rows per entry) and the Network row">
             <set_value name="$Cut" exact="true" />
             <break />
           </do_if>
@@ -239,7 +248,7 @@
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
           <do_all exact="$Wares.count" counter="$w">
-            <do_if value="$Rows ge $Max - 21" comment="card X4-15f/16a: room for Recent activity (heading + 2 rows per entry) and the Network row">
+            <do_if value="$Rows ge $Max - 22" comment="card X4-15f/16a/16c: room for Recent activity (heading, control row, 2 rows per entry) and the Network row">
               <set_value name="$Cut" exact="true" />
               <break />
             </do_if>
@@ -293,16 +302,72 @@
         <do_if value="$Init.$Activity?">
           <set_value name="$Act" exact="$Init.$Activity" />
         </do_if>
+        <set_value name="$Keep" exact="false" comment="card X4-16c: view state, see header" />
+        <do_if value="$Init.$OvKeep?">
+          <set_value name="$Keep" exact="$Init.$OvKeep" />
+        </do_if>
+        <set_value name="$Init.$OvKeep" exact="false" />
+        <do_if value="not $Keep or not $Init.$OvView?">
+          <set_value name="$Init.$OvView" exact="table[$Filter = 1, $Page = 1]" />
+        </do_if>
+        <set_value name="$View" exact="$Init.$OvView" />
+        <set_value name="$ViewNames" exact="['All', 'Supplies', 'Returns', 'NPC', 'Problems']" />
+        <do_if value="$View.$Filter lt 1 or $View.$Filter gt 5">
+          <set_value name="$View.$Filter" exact="1" />
+        </do_if>
+        <set_value name="$F" exact="[]" />
+        <do_all exact="$Act.count" counter="$a">
+          <set_value name="$K" exact="$Act.{$a}.{2}" />
+          <do_if value="$View.$Filter == 1 or ($View.$Filter == 2 and ($K == 'supply' or $K == 'pull')) or ($View.$Filter == 3 and $K == 'return') or ($View.$Filter == 4 and $K == 'NPC buy') or ($View.$Filter == 5 and $K == 'skip')">
+            <append_to_list name="$F" exact="$Act.{$a}" />
+          </do_if>
+        </do_all>
+        <set_value name="$Pages" exact="[(($F.count + 9) / 10)i, 1].max" />
+        <set_value name="$View.$Page" exact="[[$View.$Page, 1].max, $Pages].min" />
+        <set_value name="$First" exact="($View.$Page - 1) * 10 + 1" />
+        <set_value name="$Last" exact="[$View.$Page * 10, $F.count].min" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" comment="card X4-15e: Recent activity" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Recent activity (last %1 of %2)'.[[$Act.count, 10].min, $Act.count]]" comment="card X4-16b" />
+        <do_if value="$F.count == 0">
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Recent activity (%1, none of %2 stored)'.[$ViewNames.{$View.$Filter}, $Act.count]]" comment="card X4-16c" />
+        </do_if>
+        <do_else>
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Recent activity (%1, page %2 of %3, entries %4-%5 of %6)'.[$ViewNames.{$View.$Filter}, $View.$Page, $Pages, $First, $Last, $F.count]]" comment="card X4-16c" />
+        </do_else>
         <set_value name="$Rows" exact="$Rows + 1" />
-        <do_if value="$Act.count == 0">
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="card X4-16c: control row" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
+          $col = 1,
+          $text = table[$text = 'Show: ' + $ViewNames.{$View.$Filter}, $halign = 'center'],
+          $mouseOverText = 'Change what Recent activity shows: All, Supplies, Returns, NPC, Problems',
+          $onClick = On_Filter]" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'page %1 of %2'.[$View.$Page, $Pages], $halign = 'center']" />
+        <do_if value="$View.$Page gt 1">
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
+            $col = 3,
+            $text = table[$text = 'Newer', $halign = 'center'],
+            $mouseOverText = 'Show the previous (newer) 10 entries',
+            $onClick = On_Newer]" />
+        </do_if>
+        <do_if value="$View.$Page lt $Pages">
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
+            $col = 4,
+            $text = table[$text = 'Older', $halign = 'center'],
+            $mouseOverText = 'Show the next (older) 10 entries',
+            $onClick = On_Older]" />
+        </do_if>
+        <set_value name="$Rows" exact="$Rows + 1" />
+        <do_if value="$F.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No supplies or returns recorded yet']" />
+          <do_if value="$Act.count == 0">
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No supplies or returns recorded yet']" />
+          </do_if>
+          <do_else>
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No ' + $ViewNames.{$View.$Filter} + ' entries']" />
+          </do_else>
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
-        <do_all exact="[$Act.count, 10].min" counter="$a">
-          <set_value name="$E" exact="$Act.{$a}" />
+        <do_all exact="[$Last - $First + 1, 0].max" counter="$a">
+          <set_value name="$E" exact="$F.{$First + $a - 1}" />
           <set_value name="$Mins" exact="((player.age - $E.{1}) / 60s)i" />
           <do_if value="$E.{2} == 'skip' and $E.count ge 9" comment="card X4-16b: skip entry, warning colour">
             <set_value name="$SkipTxt" exact="if $E.{9} == 'supply' or $E.{9} == '' then 'skipped' else 'skipped ' + $E.{9}" />
@@ -325,7 +390,7 @@
 
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="4" />
-          <param name="Text" value="'overview page opened: %1 DCs, %2 listed, %3 rows%4, %5 attention, %6 activity'.[$DCs.count, $Shown, $Rows, (if $Cut then ', more not shown' else ''), $Att.count, $Act.count]" />
+          <param name="Text" value="'overview page opened: %1 DCs, %2 listed, %3 rows%4, %5 attention, %6 activity'.[$DCs.count, $Shown, $Rows, (if $Cut then ', more not shown' else ''), $Att.count, $Act.count] + ', view %1 page %2 of %3, %4 match'.[$ViewNames.{$View.$Filter}, $View.$Page, $Pages, $F.count]" />
         </run_actions>
       </actions>
     </cue>
@@ -335,6 +400,51 @@
         <event_cue_signalled />
       </conditions>
       <actions>
+        <set_value name="md.FDN_Core.Init.$OvKeep" exact="true" comment="card X4-16c: Refresh keeps the current view" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Refresh_Menu" param="table[]" />
+      </actions>
+    </cue>
+
+    <cue name="On_Filter" instantiate="true" comment="card X4-16c: next view (All, Supplies, Returns, NPC, Problems), back to page 1">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$OvView?">
+          <set_value name="$Init.$OvView" exact="table[$Filter = 1, $Page = 1]" />
+        </do_if>
+        <set_value name="$Init.$OvView.$Filter" exact="if $Init.$OvView.$Filter ge 5 then 1 else $Init.$OvView.$Filter + 1" />
+        <set_value name="$Init.$OvView.$Page" exact="1" />
+        <set_value name="$Init.$OvKeep" exact="true" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Refresh_Menu" param="table[]" />
+      </actions>
+    </cue>
+
+    <cue name="On_Newer" instantiate="true" comment="card X4-16c: one page newer (On_Open clamps the page)">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$OvView?">
+          <set_value name="$Init.$OvView.$Page" exact="$Init.$OvView.$Page - 1" />
+        </do_if>
+        <set_value name="$Init.$OvKeep" exact="true" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Refresh_Menu" param="table[]" />
+      </actions>
+    </cue>
+
+    <cue name="On_Older" instantiate="true" comment="card X4-16c: one page older (On_Open clamps the page)">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$OvView?">
+          <set_value name="$Init.$OvView.$Page" exact="$Init.$OvView.$Page + 1" />
+        </do_if>
+        <set_value name="$Init.$OvKeep" exact="true" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Refresh_Menu" param="table[]" />
       </actions>
     </cue>
