@@ -214,24 +214,60 @@
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Value">
           <param name="Key" value="'PollInterval'" />
         </run_actions>
-      Override wins, then default, else null.
+      Override wins, then default, else null. Card X4-17b: for UI code that must tell "unknown"
+      from a real value of 0, use Cfg_Lookup (table $Found / $Value) instead of Cfg_Get.
     -->
-    <library name="Cfg_Get" purpose="run_actions">
+    <!--
+      Card X4-17b. Cfg_Lookup returns table[$Found, $Value] so integer 0 stays distinguishable from
+      "unknown key". Existence uses keys.list.indexof (key membership), not value '?'.
+      $Found is 1 or 0. Proven locally: list.indexof is 0 when absent (lib_generic.xml compares
+      indexof == 0; many scripts use not $list.indexof.{$x}). FDN already uses .keys.list.
+      Cfg_Get keeps the old scalar API for supply callers (unknown -> null; known -> $Value).
+      Whether a bare run_actions return of integer 0 becomes null at the caller is unproven; UI
+      paths use Cfg_Lookup so Value 0 is read from the result table, not returned bare.
+    -->
+    <library name="Cfg_Lookup" purpose="run_actions">
       <params>
         <param name="Key" />
       </params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
-        <set_value name="$K" exact="'$' + $Key" comment="X4-09a-fix2: table string keys must start with $" />
-        <do_if value="$Init.$Overrides.{$K}?">
-          <return value="$Init.$Overrides.{$K}" />
+        <set_value name="$K" exact="'$' + $Key" comment="table string keys must start with $" />
+        <do_if value="not $Init.$Defaults?">
+          <return value="table[$Found = 0, $Value = null]" />
         </do_if>
-        <do_elseif value="$Init.$Defaults.{$K}?">
-          <return value="$Init.$Defaults.{$K}" />
-        </do_elseif>
-        <return value="null" />
+        <set_value name="$DKeys" exact="$Init.$Defaults.keys.list" />
+        <do_if value="not $DKeys.indexof.{$K}">
+          <return value="table[$Found = 0, $Value = null]" />
+        </do_if>
+        <do_if value="$Init.$Overrides?">
+          <set_value name="$OKeys" exact="$Init.$Overrides.keys.list" />
+          <do_if value="$OKeys.indexof.{$K}">
+            <return value="table[$Found = 1, $Value = $Init.$Overrides.{$K}]" />
+          </do_if>
+        </do_if>
+        <return value="table[$Found = 1, $Value = $Init.$Defaults.{$K}]" />
       </actions>
     </library>
+
+    <library name="Cfg_Get" purpose="run_actions">
+      <params>
+        <param name="Key" />
+      </params>
+      <actions>
+        <run_actions ref="md.FDN_Core.Cfg_Lookup" result="$Res">
+          <param name="Key" value="$Key" />
+        </run_actions>
+        <do_if value="not $Res?">
+          <return value="null" />
+        </do_if>
+        <do_if value="not $Res.$Found">
+          <return value="null" />
+        </do_if>
+        <return value="$Res.$Value" />
+      </actions>
+    </library>
+
 
     <!--
       Card 10a. Change or reset a player setting from any FDN file (the settings menu will use these).
@@ -248,7 +284,15 @@
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
         <set_value name="$K" exact="'$' + $Key" comment="table string keys must start with $" />
-        <do_if value="not $Init.$Defaults.{$K}?">
+        <do_if value="not $Init.$Defaults?">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'setting %1 is not known, not changed'.[$Key]" />
+          </run_actions>
+          <return value="false" />
+        </do_if>
+        <set_value name="$DKeys" exact="$Init.$Defaults.keys.list" comment="card X4-17b: key membership, not value ?" />
+        <do_if value="not $DKeys.indexof.{$K}">
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="2" />
             <param name="Text" value="'setting %1 is not known, not changed'.[$Key]" />
@@ -489,7 +533,8 @@
         <set_value name="$K" exact="'$' + $Key" comment="X4-09a-fix2: table string keys must start with $" />
         <do_if value="$Init.$StationCfg?">
           <do_if value="$Init.$StationCfg.{$Station}?">
-            <do_if value="$Init.$StationCfg.{$Station}.{$K}?">
+            <set_value name="$SKeys" exact="$Init.$StationCfg.{$Station}.keys.list" comment="card X4-17b: key membership so override value 0 is kept" />
+            <do_if value="$SKeys.indexof.{$K}">
               <return value="$Init.$StationCfg.{$Station}.{$K}" />
             </do_if>
           </do_if>
@@ -512,7 +557,15 @@
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
         <set_value name="$K" exact="'$' + $Key" comment="X4-09a-fix2: table string keys must start with $" />
-        <do_if value="not $Station.exists or not $Init.$Defaults.{$K}?">
+        <do_if value="not $Station.exists or not $Init.$Defaults?">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'station setting %1 not changed: station gone or setting not known'.[$Key]" />
+          </run_actions>
+          <return value="false" />
+        </do_if>
+        <set_value name="$DKeys" exact="$Init.$Defaults.keys.list" comment="card X4-17b: key membership, not value ?" />
+        <do_if value="not $DKeys.indexof.{$K}">
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="2" />
             <param name="Text" value="'station setting %1 not changed: station gone or setting not known'.[$Key]" />

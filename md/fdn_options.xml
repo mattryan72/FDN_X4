@@ -13,6 +13,9 @@
       and untouched settings never become overrides (later default changes still apply).
     - Only when the player changes an option does On_Change call md.FDN_Core.Cfg_Set, which logs
       the change in fdn.log and refuses unknown keys.
+    - Card X4-17b: registration and On_Change use Cfg_Lookup (Found/Value) so default-off buttons
+      (OverstockCollect, TransferDelay) whose value is 0 still appear and can be turned off again.
+      Unknown keys are still skipped (Found 0), not silently shown as 0.
     - Card X4-10c: On_Change compares in page units (whole percent for fee factors) with the value
       in effect and writes nothing when they match (slider released on the same value). The log line is
       "setting Key changed from old to new (options page)". Displayed values are clamped to the
@@ -39,12 +42,18 @@
         <do_else>
         <include_actions ref="Option_List" />
         <do_for_each name="$Opt" in="$List">
-          <run_actions ref="md.FDN_Core.Cfg_Get" result="$Cur">
+          <!-- Card X4-17b: Cfg_Lookup so value 0 (OverstockCollect / TransferDelay) still registers.
+               Unknown keys (Found 0) still skip - not silently shown as 0. -->
+          <run_actions ref="md.FDN_Core.Cfg_Lookup" result="$Res">
             <param name="Key" value="$Opt.$Key" />
           </run_actions>
-          <do_if value="$Cur == null">
+          <do_if value="not $Res?">
             <continue />
           </do_if>
+          <do_if value="not $Res.$Found">
+            <continue />
+          </do_if>
+          <set_value name="$Cur" exact="$Res.$Value" />
           <do_if value="$Opt.$Scale == 0">
             <set_value name="$Show" exact="((($Cur * 100.0) + 0.5)i) / 100.0" />
           </do_if>
@@ -94,26 +103,37 @@
         <event_cue_signalled />
       </conditions>
       <actions>
-        <do_if value="md.FDN_Core.Init.$Defaults? and event.param.$echo? and event.param.$value?">
+        <!-- Card X4-17b: do not gate on event.param.$value? (blocks off/zero). Require echo.
+             Presence of $value is keys.list.indexof == 0 means absent (lib_generic / not indexof);
+             do not compare the value to null (unproven whether integer 0 equals null). Compare via Cfg_Lookup. -->
+        <do_if value="md.FDN_Core.Init.$Defaults? and event.param.$echo?">
         <set_value name="$Echo" exact="event.param.$echo" />
-        <do_if value="$Echo.$Scale == 0">
-          <set_value name="$Value" exact="(((event.param.$value * 100.0) + 0.5)i) / 100.0" />
+        <set_value name="$PKeys" exact="event.param.keys.list" />
+        <do_if value="$PKeys.indexof.{'$value'} == 0">
+          <debug_text text="player.age + ' FDN WARN options On_Change missing $value key for ' + $Echo.$Key" filter="general" />
         </do_if>
         <do_else>
-          <set_value name="$Value" exact="(event.param.$value)i" />
+        <set_value name="$Raw" exact="event.param.$value" />
+        <do_if value="$Echo.$Scale == 0">
+          <set_value name="$Value" exact="((($Raw * 100.0) + 0.5)i) / 100.0" />
+        </do_if>
+        <do_else>
+          <set_value name="$Value" exact="($Raw)i" />
         </do_else>
-        <!-- Card X4-10c: compare in page units with the value in effect; same value = write and log nothing -->
-        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Cur">
+        <run_actions ref="md.FDN_Core.Cfg_Lookup" result="$Res">
           <param name="Key" value="$Echo.$Key" />
         </run_actions>
         <set_value name="$Same" exact="false" />
-        <do_if value="$Cur != null">
-          <do_if value="$Echo.$Scale == 0">
-            <set_value name="$Same" exact="(($Cur * 100.0) + 0.5)i == ((event.param.$value * 100.0) + 0.5)i" />
+        <do_if value="$Res?">
+          <do_if value="$Res.$Found">
+            <set_value name="$Cur" exact="$Res.$Value" />
+            <do_if value="$Echo.$Scale == 0">
+              <set_value name="$Same" exact="(($Cur * 100.0) + 0.5)i == (($Raw * 100.0) + 0.5)i" />
+            </do_if>
+            <do_else>
+              <set_value name="$Same" exact="($Cur)i == ($Raw)i" />
+            </do_else>
           </do_if>
-          <do_else>
-            <set_value name="$Same" exact="($Cur)i == (event.param.$value)i" />
-          </do_else>
         </do_if>
         <do_if value="not $Same">
           <run_actions ref="md.FDN_Core.Cfg_Set" result="$Ok">
@@ -122,6 +142,7 @@
             <param name="Source" value="' (options page)'" />
           </run_actions>
         </do_if>
+        </do_else>
         </do_if>
       </actions>
     </cue>
@@ -141,10 +162,12 @@
         <!-- Put the page's stored values back to the defaults (no callbacks) -->
         <include_actions ref="Option_List" />
         <do_for_each name="$Opt" in="$List">
-          <run_actions ref="md.FDN_Core.Cfg_Get" result="$Cur">
+          <run_actions ref="md.FDN_Core.Cfg_Lookup" result="$Res">
             <param name="Key" value="$Opt.$Key" />
           </run_actions>
-          <do_if value="$Cur != null">
+          <do_if value="$Res?">
+          <do_if value="$Res.$Found">
+            <set_value name="$Cur" exact="$Res.$Value" />
             <do_if value="$Opt.$Scale == 0">
               <set_value name="$Show" exact="((($Cur * 100.0) + 0.5)i) / 100.0" />
             </do_if>
@@ -158,6 +181,7 @@
               <set_value name="$Show" exact="$Opt.$args.$max" />
             </do_if>
             <signal_cue_instantly cue="md.Simple_Menu_Options.Write_Option_Value" param="table[$id = 'fdn_' + $Opt.$Key + $Opt.$IdSuffix, $value = $Show]" />
+          </do_if>
           </do_if>
         </do_for_each>
         <signal_cue_instantly cue="md.Simple_Menu_Options.Write_Option_Value" param="table[$id = 'fdn_ResetAll', $value = 0]" />
