@@ -20,6 +20,8 @@
       $Activity  : card X4-15e, saved list for the FDN Overview 'Recent activity' section, newest first, at most 50
                    entries [time, kind, ware, qty, from name, to name, fee] (see Activity_Add). Card X4-16b: cap 10 -> 50,
                    skip entries add [.., reason, skip kind] (9 items); older 7-item entries still read fine.
+      $FeeTrend  : card X4-16d, saved table for the FDN Overview fee trend, station -> table[$Start, $B]: $B is a list of
+                   24 hourly fee totals, newest first, $Start the game time the newest bucket began (see DC_Stat_Add).
       $NoDcWarned: card X4-14c, true once the 'no DC exists' warning was written this session (reset on load).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
@@ -54,6 +56,9 @@
         </do_if>
         <do_if value="not $Activity?">
           <set_value name="$Activity" exact="[]" comment="card X4-15e: last 10 supplies and returns for the FDN Overview page" />
+        </do_if>
+        <do_if value="not $FeeTrend?">
+          <set_value name="$FeeTrend" exact="table[]" comment="card X4-16d: hourly fee buckets per DC for the FDN Overview page" />
         </do_if>
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
@@ -674,6 +679,10 @@
         NPC buy    (Npc_Buy)              home DC: +fee only (it pays). No supply or units, the stock came from an NPC
       Counters only start when this card is installed; earlier activity is not counted.
         DC_Stat_Add params DC[, Supplies, Returns, Units, Fee]  adds to the counters. Returns true, false if the DC is gone
+      Card X4-16d: a fee above 0 also goes into md.FDN_Core.Init.$FeeTrend.{DC} = table[$Start, $B] (24 hourly buckets,
+      newest first). When 1 hour or more has passed since $Start, one zero bucket per whole hour passed is put in front
+      (at most 24), the list is cut to 24 and $Start moves on by those whole hours; then the fee is added to bucket 1.
+      Stations that no longer exist are purged here; Charter_Clear removes the entry. Additions only, no money x float.
     -->
     <library name="DC_Stat_Add" purpose="run_actions">
       <params>
@@ -700,6 +709,34 @@
         <set_value name="$St.$Units" exact="$St.$Units + $Units" />
         <do_if value="$Fee gt 0Cr">
           <set_value name="$St.$Fees" exact="$St.$Fees + $Fee" />
+          <do_if value="not $Init.$FeeTrend?" comment="card X4-16d: hourly fee buckets, see header">
+            <set_value name="$Init.$FeeTrend" exact="table[]" />
+          </do_if>
+          <set_value name="$Keys" exact="$Init.$FeeTrend.keys.list" />
+          <do_all exact="$Keys.count" counter="$k">
+            <do_if value="$Keys.{$k} == null or not $Keys.{$k}.exists">
+              <remove_value name="$Init.$FeeTrend.{$Keys.{$k}}" comment="purge stations that are gone" />
+            </do_if>
+          </do_all>
+          <do_if value="not $Init.$FeeTrend.{$DC}?">
+            <set_value name="$Init.$FeeTrend.{$DC}" exact="table[$Start = player.age, $B = [0Cr]]" comment="station object as table key, same as $DCStats" />
+          </do_if>
+          <set_value name="$Tr" exact="$Init.$FeeTrend.{$DC}" />
+          <set_value name="$Hrs" exact="((player.age - $Tr.$Start) / 3600s)i" />
+          <do_if value="$Hrs ge 1">
+            <set_value name="$NewB" exact="[]" />
+            <do_all exact="[$Hrs, 24].min" counter="$h">
+              <append_to_list name="$NewB" exact="0Cr" />
+            </do_all>
+            <do_all exact="$Tr.$B.count" counter="$h">
+              <do_if value="$NewB.count lt 24">
+                <append_to_list name="$NewB" exact="$Tr.$B.{$h}" />
+              </do_if>
+            </do_all>
+            <set_value name="$Tr.$B" exact="$NewB" />
+            <set_value name="$Tr.$Start" exact="$Tr.$Start + $Hrs * 3600s" />
+          </do_if>
+          <set_value name="$Tr.$B.{1}" exact="$Tr.$B.{1} + $Fee" />
         </do_if>
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="4" />
@@ -902,6 +939,11 @@
             <do_if value="$Init.$DCStats?">
               <do_if value="$Init.$DCStats.{$Station}?">
                 <remove_value name="$Init.$DCStats.{$Station}" comment="card X4-15a: a new charter starts with fresh counters" />
+              </do_if>
+            </do_if>
+            <do_if value="$Init.$FeeTrend?">
+              <do_if value="$Init.$FeeTrend.{$Station}?">
+                <remove_value name="$Init.$FeeTrend.{$Station}" comment="card X4-16d: fee trend starts fresh with a new charter" />
               </do_if>
             </do_if>
             <run_actions ref="md.FDN_Core.Log">
