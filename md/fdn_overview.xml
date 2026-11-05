@@ -57,6 +57,8 @@
       the current hour plus the 23 before it. Buckets are aged at display time without writing anything. One
       'Network fees' row under the summary row and one 'Fees (last 1h / 6h / 24h)' row per DC after its totals row.
       The DC tables now stop at $Max - 23 (127); worst case about 156 rows.
+    - Card X4-17a (display only here): activity kind 'collect' (overstock resources moved to a DC) shows in All
+      and under Returns. Skip kind 'overstock' still appears in Problems. No new rows added to the DC tables.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -357,7 +359,7 @@
         <set_value name="$F" exact="[]" />
         <do_all exact="$Act.count" counter="$a">
           <set_value name="$K" exact="$Act.{$a}.{2}" />
-          <do_if value="$View.$Filter == 1 or ($View.$Filter == 2 and ($K == 'supply' or $K == 'pull')) or ($View.$Filter == 3 and $K == 'return') or ($View.$Filter == 4 and $K == 'NPC buy') or ($View.$Filter == 5 and $K == 'skip')">
+          <do_if value="$View.$Filter == 1 or ($View.$Filter == 2 and ($K == 'supply' or $K == 'pull')) or ($View.$Filter == 3 and ($K == 'return' or $K == 'collect')) or ($View.$Filter == 4 and $K == 'NPC buy') or ($View.$Filter == 5 and $K == 'skip')">
             <append_to_list name="$F" exact="$Act.{$a}" />
           </do_if>
         </do_all>
@@ -377,7 +379,7 @@
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
           $col = 1,
           $text = table[$text = 'Show: ' + $ViewNames.{$View.$Filter}, $halign = 'center'],
-          $mouseOverText = 'Change what Recent activity shows: All, Supplies, Returns, NPC, Problems',
+          $mouseOverText = 'Change what Recent activity shows: All, Supplies, Returns (incl. collect), NPC, Problems',
           $onClick = On_Filter]" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'page %1 of %2'.[$View.$Page, $Pages], $halign = 'center']" />
         <do_if value="$View.$Page gt 1">

@@ -109,6 +109,12 @@
                     <param name="Near" value="$Near" />
                     <param name="NoDCs" value="$DCs.count == 0" comment="card X4-15d: no DC exists, mute the per-ware no-DC return reports" />
                   </run_actions>
+                  <!-- Card X4-17a: optional overstock resource collection to the nearest DC in range -->
+                  <run_actions ref="md.FDN_Supply.Collect_Overstock">
+                    <param name="Station" value="$Station" />
+                    <param name="Near" value="$Near" />
+                    <param name="NoDCs" value="$DCs.count == 0" />
+                  </run_actions>
                   <set_value name="$Index" operation="add" />
                   <do_if value="$Index gt $Count">
                     <set_value name="$Index" exact="1" />
@@ -2145,6 +2151,210 @@
       VERIFY: which of the two works is shown by 'via object' / 'via container' in the TRIGGER queued line.
       Skipped: station not in the registry, ResourcesFdnManaged 0, module already queued. Queue capped at 50.
     -->
+
+    <!--
+      Card X4-17a. Optional overstock collection: when OverstockCollect is on, a player station that is not itself
+      a DC has surplus resources (stock above its own allocated storage, cargo.{ware}.target) collected by the
+      nearest DC in its supply range (same RangeLimit / RangeMaxJumps rule as Nearest_DC). Only the surplus above
+      the allocation is moved, and only up to the DC's free storage for that ware; if the DC has no room the ware
+      is skipped (Skip_Report kind 'overstock'). Wares are moved (remove_cargo / add_cargo), never deleted.
+      Trigger: only act when stock gt allocation x (100 + OverstockTriggerPct) / 100 (whole-number maths).
+      Allocation unreadable or le 0: that ware is left alone. Resources only (station.resources.list), not products
+      (product returns stay in Return_Products). At most 3 collects per polled station visit. Fee: same base formula
+      as Supply_Station (TransferFeePercent x (1 + jumps x FeeRangeMult) x FeeVolumeMult x FeeTypeMult), paid by the
+      receiving DC via Take_Fee. Activity kind 'collect'; DC_Stat_Add as a return (ware into the DC); FeeTrend via Fee.
+      Off by default. Runs on the existing poll (PollInterval / PollStationsPerPass), debug log only unless skipped.
+    -->
+    <library name="Collect_Overstock" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Near" />
+        <param name="NoDCs" default="false" />
+      </params>
+      <actions>
+        <do_if value="not $Station.exists">
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Enabled">
+          <param name="Key" value="'OverstockCollect'" />
+        </run_actions>
+        <do_if value="not $Enabled">
+          <return />
+        </do_if>
+        <do_if value="not $Station.isplayerowned">
+          <return />
+        </do_if>
+        <set_value name="$DC" exact="$Near.{1}" />
+        <set_value name="$Jumps" exact="$Near.{2}" />
+        <do_if value="$DC == $Station">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'overstock: %1 is a DC, not collected from'.[$Station.knownname]" />
+          </run_actions>
+          <return />
+        </do_if>
+        <do_if value="not $DC or $Jumps lt 0">
+          <do_if value="not $NoDCs">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="4" />
+              <param name="Text" value="'overstock: %1 has no DC in range'.[$Station.knownname]" />
+            </run_actions>
+          </do_if>
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$TrigPct">
+          <param name="Key" value="'OverstockTriggerPct'" />
+        </run_actions>
+        <do_if value="not ($TrigPct ge 0)">
+          <set_value name="$TrigPct" exact="10" />
+        </do_if>
+        <do_if value="$TrigPct gt 100">
+          <set_value name="$TrigPct" exact="100" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Pct">
+          <param name="Key" value="'TransferFeePercent'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$RangeMult">
+          <param name="Key" value="'FeeRangeMult'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$VolMult">
+          <param name="Key" value="'FeeVolumeMult'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$TypeMult">
+          <param name="Key" value="'FeeTypeMult'" />
+        </run_actions>
+        <set_value name="$ResList" exact="$Station.resources.list" comment="resource wares incl. habitation (same list Return_Products uses as Used)" />
+        <do_if value="$ResList.count == 0">
+          <return />
+        </do_if>
+        <set_value name="$Done" exact="0" comment="at most 3 collects per visit so a poll pass cannot stall" />
+        <do_all exact="$ResList.count" counter="$w">
+          <do_if value="$Done ge 3">
+            <break />
+          </do_if>
+          <set_value name="$Ware" exact="$ResList.{$w}" />
+          <set_value name="$Target" exact="0" />
+          <do_if value="$Station.cargo.{$Ware}.target?" comment="allocated storage / buy-sell limit; proven in Return_Products and vanilla drain_stations.xml">
+            <set_value name="$Target" exact="$Station.cargo.{$Ware}.target" />
+          </do_if>
+          <do_if value="not ($Target gt 0)" comment="no allocation set: leave the ware alone">
+            <continue />
+          </do_if>
+          <set_value name="$Stock" exact="$Station.cargo.{$Ware}.count" />
+          <set_value name="$Threshold" exact="($Target * (100 + $TrigPct)) / 100" comment="whole-number maths; act only when stock is above allocation by the trigger percent" />
+          <do_if value="not ($Stock gt $Threshold)">
+            <continue />
+          </do_if>
+          <set_value name="$Spare" exact="$Stock - $Target" comment="surplus above the allocation (not above the trigger line)" />
+          <do_if value="not ($Spare gt 0)">
+            <continue />
+          </do_if>
+          <set_value name="$Free" exact="$DC.cargo.{$Ware}.free" comment="per-ware free space at the DC (proven in Return_Products)" />
+          <set_value name="$Qty" exact="[$Spare, $Free].min" />
+          <do_if value="not ($Free gt 0) or not ($Qty gt 0)">
+            <run_actions ref="md.FDN_Supply.Skip_Report">
+              <param name="Station" value="$Station" />
+              <param name="Ware" value="$Ware" />
+              <param name="Need" value="$Spare" />
+              <param name="Reason" value="'DC storage full'" />
+              <param name="Kind" value="'overstock'" />
+            </run_actions>
+            <continue />
+          </do_if>
+          <set_value name="$FeeFactor" exact="($Pct * (1.0 + $Jumps * $RangeMult) * $VolMult * $TypeMult * 1000)i" comment="same base factor as Supply_Station; money x float is not allowed" />
+          <set_value name="$Fee" exact="($Ware.averageprice * $Qty * $FeeFactor) / 100000" />
+          <do_if value="$Fee lt 0Cr">
+            <set_value name="$Fee" exact="0Cr" />
+          </do_if>
+          <do_if value="$DC.money lt $Fee">
+            <run_actions ref="md.FDN_Supply.Skip_Report">
+              <param name="Station" value="$Station" />
+              <param name="Ware" value="$Ware" />
+              <param name="Need" value="$Qty" />
+              <param name="Reason" value="'DC %1 cannot pay the collect fee (%2 needed, %3 in account)'.[$DC.knownname, $Fee.formatted.default + ' Cr', $DC.money.formatted.default + ' Cr']" />
+              <param name="Kind" value="'overstock'" />
+              <param name="NoMoney" value="true" />
+            </run_actions>
+            <continue />
+          </do_if>
+          <run_actions ref="md.FDN_Supply.Take_Fee" result="$Taken">
+            <param name="DC" value="$DC" />
+            <param name="Fee" value="$Fee" />
+            <param name="What" value="'collect'" />
+          </run_actions>
+          <do_if value="$Taken lt 0Cr">
+            <run_actions ref="md.FDN_Supply.Skip_Report">
+              <param name="Station" value="$Station" />
+              <param name="Ware" value="$Ware" />
+              <param name="Need" value="$Qty" />
+              <param name="Reason" value="'collect fee could not be taken from DC %1, nothing moved'.[$DC.knownname]" />
+              <param name="Kind" value="'overstock'" />
+            </run_actions>
+            <continue />
+          </do_if>
+          <set_value name="$Fee" exact="$Taken" />
+          <remove_cargo object="$Station" ware="$Ware" exact="$Qty" result="$Removed" />
+          <do_if value="$Removed lt $Qty">
+            <do_if value="$Removed gt 0">
+              <add_cargo object="$Station" ware="$Ware" exact="$Removed" />
+            </do_if>
+            <run_actions ref="md.FDN_Supply.Undo_Fee">
+              <param name="DC" value="$DC" />
+              <param name="Fee" value="$Fee" />
+            </run_actions>
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'overstock: could not take %1 %2 from %3 (got %4); put back and fee refunded'.[$Qty, $Ware.name, $Station.knownname, $Removed]" />
+            </run_actions>
+            <continue />
+          </do_if>
+          <add_cargo object="$DC" ware="$Ware" exact="$Qty" result="$Added" />
+          <do_if value="$Added lt $Qty">
+            <do_if value="$Added gt 0">
+              <remove_cargo object="$DC" ware="$Ware" exact="$Added" />
+            </do_if>
+            <add_cargo object="$Station" ware="$Ware" exact="$Qty" />
+            <run_actions ref="md.FDN_Supply.Undo_Fee">
+              <param name="DC" value="$DC" />
+              <param name="Fee" value="$Fee" />
+            </run_actions>
+            <run_actions ref="md.FDN_Supply.Skip_Report">
+              <param name="Station" value="$Station" />
+              <param name="Ware" value="$Ware" />
+              <param name="Need" value="$Qty" />
+              <param name="Reason" value="'DC %1 took only %2, all put back at the station and fee refunded'.[$DC.knownname, $Added]" />
+              <param name="Kind" value="'overstock'" />
+            </run_actions>
+            <continue />
+          </do_if>
+          <run_actions ref="md.FDN_Supply.Ledger_Add">
+            <param name="DC" value="$DC" />
+            <param name="Entry" value="[player.age, $Station, $Ware, $Qty, $Fee, $Jumps, 'collect']" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'COLLECT: %1 %2 from %3 to DC %4, %5 jumps, fee %6 (stock was %7, allocation %8)'.[$Qty, $Ware.name, $Station.knownname, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr', $Stock, $Target]" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.DC_Stat_Add" comment="card X4-17a: ware into the DC, same counters as a return; Fee goes into FeeTrend">
+            <param name="DC" value="$DC" />
+            <param name="Returns" value="1" />
+            <param name="Units" value="$Qty" />
+            <param name="Fee" value="$Fee" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.Activity_Add">
+            <param name="Kind" value="'collect'" />
+            <param name="Ware" value="$Ware" />
+            <param name="Qty" value="$Qty" />
+            <param name="From" value="$Station" />
+            <param name="To" value="$DC" />
+            <param name="Fee" value="$Fee" />
+            <param name="Served" value="$Station" />
+          </run_actions>
+          <set_value name="$Done" exact="$Done + 1" />
+        </do_all>
+      </actions>
+    </library>
+
     <library name="Queue_Trigger" purpose="run_actions">
       <params>
         <param name="Object" />
