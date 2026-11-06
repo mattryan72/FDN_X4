@@ -1,0 +1,554 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mdscript name="FDN_Stock_Levels" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <!--
+    Card X4-18b. FDN sets the station's REAL Logical Overview storage levels (no FDN thresholds of its own).
+    Matt's rules (t363/t364):
+      Resources and intermediates (wares the station's operational production modules use), when ResourcesFdnManaged
+        is on: level = the amount needed for CyclesToCover production cycles. Same per-ware sum as supply uses
+        (md.FDN_Supply.Calc_Need with ReturnRequired, recipe x CyclesToCover). Capped at the station's storage
+        capacity for the ware, at least 1.
+      Pure products (made, not used locally, same rule as Return_Products), when ProductsFdnManaged is on:
+        level = 1 (ProductLevel below). 1, not 0: the vanilla station overview hides the storage level controls
+        when the limit is 0 and its own slider never selects below 1 (helper.lua minSelect = 1, math.max(1, ...)).
+      Switch off, ware no longer used/made, station sold/destroyed/now a DC: the ware goes back to its ORIGINAL
+        state (automatic, or the player's own manual level), not just automatic.
+    Only wares FDN changed are ever touched. The original state (had override 0/1 + amount) is read by Lua and
+    saved in md.FDN_Core.Init.$StockLevels (station -> ware -> table[$Had, $Orig, $Set]) BEFORE any change.
+    $Set = the level FDN last verified (-1 = not set yet). An entry is removed only after a verified restore.
+    If the player changes a level FDN manages, FDN logs it (WARN) and sets its level again on its next pass.
+    Lua bridge: ui/fdn_stock_levels.lua (vanilla Has/Set/ClearContainerStockLimitOverride, GetWareProductionLimit,
+    GetWareCapacity; proven by card X4-18a). Two phases per station: 'read' (no change) then 'set'/'restore'.
+    One station at a time; replies carry a token, stale ones are ignored. Watchdog 10 s; on timeout nothing is
+    assumed: saved originals stay and the next pass retries. Writes only when the value differs.
+    Card X4-18b also removes the X4-18a proof (md/fdn_stock_proof.xml, ui/fdn_stock_proof.lua): superseded.
+    Its four delayed child cues were instantiate="true" with no conditions (load errors); the watchdog here uses the
+    instantiate + event_cue_signalled + delay pattern already proven in this mod (md.FDN_Core Charter_Probe).
+  -->
+  <cues>
+
+    <cue name="State" version="1">
+      <conditions>
+        <check_any>
+          <event_cue_signalled cue="md.Setup.Start" />
+          <event_game_loaded />
+        </check_any>
+      </conditions>
+      <actions>
+        <set_value name="$ProductLevel" exact="1" comment="level FDN sets for pure products (see header)" />
+        <set_value name="$Busy" exact="0" />
+        <set_value name="$Token" exact="0" />
+        <set_value name="$Queue" exact="[]" />
+        <set_value name="$Ops" exact="[]" />
+        <set_value name="$LuaWarned" exact="0" />
+      </actions>
+      <cues>
+        <!-- Lua is restarted on every load: nothing in flight survives. Saved originals stay in md.FDN_Core.Init. -->
+        <cue name="OnLoad" instantiate="true">
+          <conditions>
+            <event_game_loaded />
+          </conditions>
+          <actions>
+            <set_value name="State.$ProductLevel" exact="1" />
+            <do_if value="State.$Busy == 1">
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="2" />
+                <param name="Text" value="'stock levels: load during %1 for %2 (token %3); nothing assumed, saved originals kept, next pass retries'.[@State.$Phase, @State.$Station.knownname, State.$Token]" />
+              </run_actions>
+            </do_if>
+            <set_value name="State.$Busy" exact="0" />
+            <set_value name="State.$Token" exact="State.$Token + 1" comment="replies from before the load can never match" />
+            <set_value name="State.$Queue" exact="[]" />
+            <set_value name="State.$Ops" exact="[]" />
+            <set_value name="State.$LuaWarned" exact="0" />
+            <set_value name="$Init" exact="md.FDN_Core.Init" />
+            <do_if value="$Init.$StockLevels?">
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="3" />
+                <param name="Text" value="'stock levels: %1 station(s) with FDN-set levels and saved originals'.[$Init.$StockLevels.keys.count]" />
+              </run_actions>
+            </do_if>
+          </actions>
+        </cue>
+      </cues>
+    </cue>
+
+    <!-- Queue one station for a level check (poll visit, menu toggle, sweep). -->
+    <library name="Request" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <do_if value="not State.$Queue?">
+          <return />
+        </do_if>
+        <do_if value="$Station == null">
+          <return />
+        </do_if>
+        <do_if value="not State.$Queue.indexof.{$Station} and not (State.$Busy == 1 and @State.$Station == $Station)">
+          <append_to_list name="State.$Queue" exact="$Station" />
+        </do_if>
+        <signal_cue_instantly cue="Pump" />
+      </actions>
+    </library>
+
+    <!-- Once per poll pass: stations with saved originals that left FDN get their levels restored. -->
+    <library name="Sweep" purpose="run_actions">
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$StockLevels?">
+          <return />
+        </do_if>
+        <set_value name="$Keys" exact="$Init.$StockLevels.keys.list" />
+        <do_all exact="$Keys.count" counter="$k">
+          <set_value name="$S" exact="$Keys.{$k}" />
+          <do_if value="not $S.exists">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'stock levels: a station with FDN-set levels no longer exists, saved originals dropped'" />
+            </run_actions>
+            <remove_value name="$Init.$StockLevels.{$S}" />
+          </do_if>
+          <do_elseif value="$S.owner != faction.player">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'stock levels: %1 is no longer yours, its levels could NOT be restored (%2 ware(s)); saved originals dropped'.[$S.knownname, $Init.$StockLevels.{$S}.keys.count]" />
+            </run_actions>
+            <remove_value name="$Init.$StockLevels.{$S}" />
+          </do_elseif>
+          <do_else>
+            <run_actions ref="Is_DC" result="$IsDC">
+              <param name="Station" value="$S" />
+            </run_actions>
+            <do_if value="$IsDC or not md.FDN_Stations.Registry.$Stations.indexof.{$S}">
+              <run_actions ref="Request">
+                <param name="Station" value="$S" />
+              </run_actions>
+            </do_if>
+          </do_else>
+        </do_all>
+      </actions>
+    </library>
+
+    <library name="Is_DC" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <set_value name="$IsDC" exact="false" />
+        <run_actions ref="md.FDN_Core.Charter_Get" result="$Ch">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <do_if value="$Ch != null">
+          <run_actions ref="md.FDN_Core.Charter_Has_Dock" result="$IsDC">
+            <param name="Station" value="$Station" />
+          </run_actions>
+        </do_if>
+        <return value="$IsDC" />
+      </actions>
+    </library>
+
+    <!--
+      Wanted levels for one station: table ware -> level (whole number ge 1). Empty when the station is gone, not
+      yours, not in the FDN registry, a DC, or both switches are off.
+    -->
+    <library name="Plan" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <set_value name="$Want" exact="table[]" />
+        <do_if value="not $Station.exists or $Station.owner != faction.player or not md.FDN_Stations.Registry.$Stations? or not md.FDN_Stations.Registry.$Stations.indexof.{$Station}">
+          <return value="$Want" />
+        </do_if>
+        <run_actions ref="Is_DC" result="$IsDC">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <do_if value="$IsDC">
+          <return value="$Want" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$ResOn">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'ResourcesFdnManaged'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$ProdOn">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'ProductsFdnManaged'" />
+        </run_actions>
+        <do_if value="$ResOn == 1">
+          <run_actions ref="md.FDN_Supply.Calc_Need" result="$Req" comment="empty when CyclesToCover is 0: wares then go back to their original state">
+            <param name="Station" value="$Station" />
+            <param name="ReturnRequired" value="true" />
+          </run_actions>
+          <set_value name="$RKeys" exact="$Req.keys.list" />
+          <do_all exact="$RKeys.count" counter="$r">
+            <set_value name="$W" exact="$RKeys.{$r}" />
+            <set_value name="$Want.{$W}" exact="[($Req.{$W})i, 1].max" />
+          </do_all>
+        </do_if>
+        <do_if value="$ProdOn == 1">
+          <set_value name="$Made" exact="[]" />
+          <set_value name="$Used" exact="[]" />
+          <find_object_component object="$Station" name="$Modules" class="class.production" checkoperational="true" multiple="true" />
+          <do_all exact="$Modules.count" counter="$m">
+            <set_value name="$Products" exact="$Modules.{$m}.products.list" />
+            <do_all exact="$Products.count" counter="$p">
+              <set_value name="$Product" exact="$Products.{$p}" />
+              <do_if value="not $Made.indexof.{$Product}">
+                <append_to_list name="$Made" exact="$Product" />
+              </do_if>
+              <set_value name="$Resources" exact="$Product.resources.list" />
+              <do_all exact="$Resources.count" counter="$q">
+                <do_if value="not $Used.indexof.{$Resources.{$q}}">
+                  <append_to_list name="$Used" exact="$Resources.{$q}" />
+                </do_if>
+              </do_all>
+            </do_all>
+          </do_all>
+          <set_value name="$StationRes" exact="$Station.resources.list" comment="same exclusion as Return_Products" />
+          <do_all exact="$StationRes.count" counter="$q">
+            <do_if value="not $Used.indexof.{$StationRes.{$q}}">
+              <append_to_list name="$Used" exact="$StationRes.{$q}" />
+            </do_if>
+          </do_all>
+          <do_for_each name="$W" in="$Made">
+            <do_if value="not $Used.indexof.{$W}">
+              <set_value name="$Want.{$W}" exact="State.$ProductLevel" />
+            </do_if>
+          </do_for_each>
+        </do_if>
+        <return value="$Want" />
+      </actions>
+    </library>
+
+    <!-- Start the next queued station when idle. -->
+    <cue name="Pump" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <do_if value="State.$Busy == 1 and State.$SentAt? and player.age gt State.$SentAt + 30" comment="backstop if a watchdog was lost">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="1" />
+            <param name="Text" value="'stock levels: batch for %1 (%2) stuck over 30 s, released; saved originals kept, retried next pass'.[@State.$Station.knownname, @State.$Phase]" />
+          </run_actions>
+          <set_value name="State.$Token" exact="State.$Token + 1" />
+          <set_value name="State.$Busy" exact="0" />
+          <set_value name="State.$Ops" exact="[]" />
+        </do_if>
+        <do_while value="State.$Busy == 0 and State.$Queue.count gt 0">
+          <set_value name="$S" exact="State.$Queue.{1}" />
+          <remove_value name="State.$Queue.{1}" />
+          <run_actions ref="Begin_Station">
+            <param name="Station" value="$S" />
+          </run_actions>
+        </do_while>
+      </actions>
+    </cue>
+
+    <!-- Phase 1: read the current state of every wanted ware and every ware FDN changed before. Changes nothing. -->
+    <library name="Begin_Station" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <do_if value="not md.FDN_Core.Init.$Defaults? or $Station == null or not $Station.exists or $Station.owner != faction.player">
+          <return />
+        </do_if>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$StockLevels?">
+          <set_value name="$Init.$StockLevels" exact="table[]" comment="card X4-18b: station -> ware -> table[$Had, $Orig, $Set]" />
+        </do_if>
+        <run_actions ref="Plan" result="$Want">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <set_value name="$Ops" exact="[]" />
+        <set_value name="$WKeys" exact="$Want.keys.list" />
+        <do_all exact="$WKeys.count" counter="$i">
+          <append_to_list name="$Ops" exact="table[$Ware = $WKeys.{$i}, $Want = $Want.{$WKeys.{$i}}, $Read = 0]" />
+        </do_all>
+        <do_if value="$Init.$StockLevels.{$Station}?">
+          <set_value name="$EKeys" exact="$Init.$StockLevels.{$Station}.keys.list" />
+          <do_all exact="$EKeys.count" counter="$i">
+            <do_if value="not $WKeys.indexof.{$EKeys.{$i}}">
+              <append_to_list name="$Ops" exact="table[$Ware = $EKeys.{$i}, $Want = -1, $Read = 0]" comment="-1 = restore the original" />
+            </do_if>
+          </do_all>
+        </do_if>
+        <do_if value="$Ops.count == 0">
+          <return />
+        </do_if>
+        <set_value name="State.$Token" exact="State.$Token + 1" />
+        <set_value name="State.$Busy" exact="1" />
+        <set_value name="State.$Phase" exact="'read'" />
+        <set_value name="State.$Station" exact="$Station" />
+        <set_value name="State.$Ops" exact="$Ops" />
+        <set_value name="State.$Replies" exact="0" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="4" />
+          <param name="Text" value="'stock levels: read %1, %2 ware(s), token %3'.[$Station.knownname, $Ops.count, State.$Token]" />
+        </run_actions>
+        <do_if value="not player.entity.$fdn_stock_levels_args?">
+          <set_value name="player.entity.$fdn_stock_levels_args" exact="[]" />
+        </do_if>
+        <do_all exact="$Ops.count" counter="$i">
+          <append_to_list name="player.entity.$fdn_stock_levels_args" exact="table[$cmd = 'read', $token = State.$Token, $seq = $i, $station = $Station, $wareid = $Ops.{$i}.$Ware.id]" />
+        </do_all>
+        <raise_lua_event name="'FDN_StockLevels.Command'" />
+        <set_value name="State.$SentAt" exact="player.age" />
+        <signal_cue_instantly cue="Watchdog" param="State.$Token" />
+      </actions>
+    </library>
+
+    <cue name="On_Item" instantiate="true">
+      <conditions>
+        <event_ui_triggered screen="'FDN_StockLevels'" control="'item'" />
+      </conditions>
+      <actions>
+        <set_value name="$R" exact="event.param3" />
+        <do_if value="not $R?">
+          <set_value name="$R" exact="event.param" />
+        </do_if>
+        <do_if value="not $R? or State.$Busy != 1 or @$R.$token != State.$Token or not $R.$seq? or $R.$seq lt 1 or $R.$seq gt State.$Ops.count">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'stock levels: stale Lua reply ignored (token %1, current %2, busy %3)'.[@$R.$token, State.$Token, State.$Busy]" />
+          </run_actions>
+        </do_if>
+        <do_else>
+          <set_value name="State.$Ops.{$R.$seq}.$R" exact="$R" />
+          <set_value name="State.$Replies" exact="State.$Replies + 1" />
+        </do_else>
+      </actions>
+    </cue>
+
+    <cue name="On_Done" instantiate="true">
+      <conditions>
+        <event_ui_triggered screen="'FDN_StockLevels'" control="'done'" />
+      </conditions>
+      <actions>
+        <set_value name="$R" exact="event.param3" />
+        <do_if value="not $R?">
+          <set_value name="$R" exact="event.param" />
+        </do_if>
+        <do_if value="not $R? or State.$Busy != 1 or @$R.$token != State.$Token">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'stock levels: stale Lua done ignored (token %1, current %2)'.[@$R.$token, State.$Token]" />
+          </run_actions>
+        </do_if>
+        <do_elseif value="State.$Phase == 'read'">
+          <include_actions ref="After_Read" />
+        </do_elseif>
+        <do_elseif value="State.$Phase == 'apply'">
+          <include_actions ref="After_Apply" />
+        </do_elseif>
+      </actions>
+    </cue>
+
+    <!--
+      Phase 2: save originals for new wares FIRST, then decide. Wanted ware: set the level when it differs.
+      Ware no longer wanted: restore its original. Nothing written when the value already matches.
+    -->
+    <library name="After_Read">
+      <actions>
+        <set_value name="$Station" exact="State.$Station" />
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Station.exists or $Station.owner != faction.player">
+          <include_actions ref="Finish" />
+          <return />
+        </do_if>
+        <do_if value="not $Init.$StockLevels.{$Station}?">
+          <set_value name="$Init.$StockLevels.{$Station}" exact="table[]" />
+        </do_if>
+        <set_value name="$Tbl" exact="$Init.$StockLevels.{$Station}" />
+        <set_value name="$Apply" exact="[]" />
+        <do_all exact="State.$Ops.count" counter="$i">
+          <set_value name="$Op" exact="State.$Ops.{$i}" />
+          <set_value name="$W" exact="$Op.$Ware" />
+          <set_value name="$Has" exact="$Tbl.keys.list.indexof.{$W}" />
+          <do_if value="not $Op.$R? or $Op.$R.$ok != 1">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'stock levels: %1 %2 could not be read (%3), nothing changed'.[$Station.knownname, $W.name, if $Op.$R? then @$Op.$R.$error else 'no reply']" />
+            </run_actions>
+          </do_if>
+          <do_elseif value="$Op.$Want ge 1">
+            <set_value name="$Had" exact="$Op.$R.$had" />
+            <set_value name="$Cur" exact="$Op.$R.$amount" />
+            <set_value name="$Cap" exact="$Op.$R.$capacity" />
+            <do_if value="not ($Cap gt 0)">
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="2" />
+                <param name="Text" value="'stock levels: SKIP %1 %2, the station has no storage for it (wanted %3)'.[$Station.knownname, $W.name, $Op.$Want]" />
+              </run_actions>
+              <do_if value="$Has">
+                <append_to_list name="$Apply" exact="table[$Ware = $W, $Cmd = 'restore', $Had = $Tbl.{$W}.$Had, $Amount = $Tbl.{$W}.$Orig]" />
+              </do_if>
+            </do_if>
+            <do_else>
+              <set_value name="$Level" exact="[[$Op.$Want, $Cap].min, 1].max" />
+              <do_if value="$Level lt $Op.$Want">
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="3" />
+                  <param name="Text" value="'stock levels: %1 %2 wanted %3, capped at storage capacity %4'.[$Station.knownname, $W.name, $Op.$Want, $Cap]" />
+                </run_actions>
+              </do_if>
+              <do_if value="not $Has">
+                <set_value name="$Tbl.{$W}" exact="table[$Had = $Had, $Orig = $Cur, $Set = -1]" comment="original saved before any change" />
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="3" />
+                  <param name="Text" value="'stock levels: %1 %2 original saved: %3 %4'.[$Station.knownname, $W.name, if $Had == 1 then 'manual' else 'automatic', $Cur]" />
+                </run_actions>
+              </do_if>
+              <do_elseif value="$Tbl.{$W}.$Set ge 1 and ($Had != 1 or $Cur != $Tbl.{$W}.$Set)">
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="2" />
+                  <param name="Text" value="'stock levels: %1 %2 was changed outside FDN (now %3 %4, FDN set %5); FDN sets %6 again. Turn the FDN switch off to keep your own level'.[$Station.knownname, $W.name, if $Had == 1 then 'manual' else 'automatic', $Cur, $Tbl.{$W}.$Set, $Level]" />
+                </run_actions>
+              </do_elseif>
+              <do_if value="$Had == 1 and $Cur == $Level">
+                <set_value name="$Tbl.{$W}.$Set" exact="$Level" />
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="4" />
+                  <param name="Text" value="'stock levels: %1 %2 already %3'.[$Station.knownname, $W.name, $Level]" />
+                </run_actions>
+              </do_if>
+              <do_else>
+                <append_to_list name="$Apply" exact="table[$Ware = $W, $Cmd = 'set', $Had = 1, $Amount = $Level, $From = $Cur, $FromHad = $Had]" />
+              </do_else>
+            </do_else>
+          </do_elseif>
+          <do_elseif value="$Has">
+            <set_value name="$E" exact="$Tbl.{$W}" />
+            <do_if value="($E.$Had == 1 and $Op.$R.$had == 1 and $Op.$R.$amount == $E.$Orig) or ($E.$Had != 1 and $Op.$R.$had != 1)">
+              <remove_value name="$Tbl.{$W}" />
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="3" />
+                <param name="Text" value="'stock levels: %1 %2 already at its original (%3), FDN lets go'.[$Station.knownname, $W.name, if $E.$Had == 1 then 'manual ' + $E.$Orig else 'automatic']" />
+              </run_actions>
+            </do_if>
+            <do_else>
+              <append_to_list name="$Apply" exact="table[$Ware = $W, $Cmd = 'restore', $Had = $E.$Had, $Amount = $E.$Orig]" />
+            </do_else>
+          </do_elseif>
+        </do_all>
+        <do_if value="$Apply.count == 0">
+          <include_actions ref="Finish" />
+          <return />
+        </do_if>
+        <set_value name="State.$Token" exact="State.$Token + 1" comment="new token: late read replies are stale" />
+        <set_value name="State.$Phase" exact="'apply'" />
+        <set_value name="State.$Ops" exact="$Apply" />
+        <set_value name="State.$Replies" exact="0" />
+        <do_if value="not player.entity.$fdn_stock_levels_args?">
+          <set_value name="player.entity.$fdn_stock_levels_args" exact="[]" />
+        </do_if>
+        <do_all exact="$Apply.count" counter="$i">
+          <append_to_list name="player.entity.$fdn_stock_levels_args" exact="table[$cmd = $Apply.{$i}.$Cmd, $token = State.$Token, $seq = $i, $station = $Station, $wareid = $Apply.{$i}.$Ware.id, $had = $Apply.{$i}.$Had, $amount = $Apply.{$i}.$Amount]" />
+        </do_all>
+        <raise_lua_event name="'FDN_StockLevels.Command'" />
+        <set_value name="State.$SentAt" exact="player.age" />
+        <signal_cue_instantly cue="Watchdog" param="State.$Token" />
+      </actions>
+    </library>
+
+    <library name="After_Apply">
+      <actions>
+        <set_value name="$Station" exact="State.$Station" />
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <set_value name="$Tbl" exact="null" />
+        <do_if value="$Init.$StockLevels.{$Station}?">
+          <set_value name="$Tbl" exact="$Init.$StockLevels.{$Station}" />
+        </do_if>
+        <do_all exact="State.$Ops.count" counter="$i">
+          <set_value name="$Op" exact="State.$Ops.{$i}" />
+          <set_value name="$W" exact="$Op.$Ware" />
+          <set_value name="$Ok" exact="0" />
+          <do_if value="$Op.$R? and $Op.$R.$ok == 1">
+            <do_if value="$Op.$Had == 1">
+              <do_if value="$Op.$R.$had_after == 1 and $Op.$R.$after == $Op.$Amount">
+                <set_value name="$Ok" exact="1" />
+              </do_if>
+            </do_if>
+            <do_elseif value="$Op.$R.$had_after != 1">
+              <set_value name="$Ok" exact="1" />
+            </do_elseif>
+          </do_if>
+          <do_if value="$Ok == 1 and $Op.$Cmd == 'set'">
+            <do_if value="$Tbl != null and $Tbl.keys.list.indexof.{$W}">
+              <set_value name="$Tbl.{$W}.$Set" exact="$Op.$Amount" />
+            </do_if>
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="3" />
+              <param name="Text" value="'stock levels: SET %1 %2 %3 %4 -> %5 (cargo.target now %6)'.[$Station.knownname, $W.name, if $Op.$FromHad == 1 then 'manual' else 'automatic', $Op.$From, $Op.$Amount, @$Station.cargo.{$W}.target]" />
+            </run_actions>
+          </do_if>
+          <do_elseif value="$Ok == 1">
+            <do_if value="$Tbl != null and $Tbl.keys.list.indexof.{$W}">
+              <remove_value name="$Tbl.{$W}" />
+            </do_if>
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="3" />
+              <param name="Text" value="'stock levels: RESTORED %1 %2 to its original %3 (now %4)'.[$Station.knownname, $W.name, if $Op.$Had == 1 then 'manual ' + $Op.$Amount else 'automatic', @$Op.$R.$after]" />
+            </run_actions>
+          </do_elseif>
+          <do_else>
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="1" />
+              <param name="Text" value="'stock levels: %1 FAILED %2 %3 (wanted %4 %5, got override %6 amount %7, %8); original kept, retried next pass'.[$Op.$Cmd, $Station.knownname, $W.name, if $Op.$Had == 1 then 'manual' else 'automatic', $Op.$Amount, if $Op.$R? then @$Op.$R.$had_after else -1, if $Op.$R? then @$Op.$R.$after else -1, if $Op.$R? then @$Op.$R.$error else 'no reply']" />
+            </run_actions>
+            <do_if value="$Station.exists">
+              <run_actions ref="md.FDN_Supply.Skip_Report">
+                <param name="Station" value="$Station" />
+                <param name="Ware" value="$W" />
+                <param name="Need" value="$Op.$Amount" />
+                <param name="Reason" value="'storage level could not be ' + (if $Op.$Cmd == 'set' then 'set' else 'restored') + ', FDN retries'" />
+                <param name="Kind" value="'stock level'" />
+              </run_actions>
+            </do_if>
+          </do_else>
+        </do_all>
+        <do_if value="$Tbl != null and $Tbl.keys.count == 0">
+          <remove_value name="$Init.$StockLevels.{$Station}" />
+        </do_if>
+        <include_actions ref="Finish" />
+      </actions>
+    </library>
+
+    <library name="Finish">
+      <actions>
+        <set_value name="State.$Busy" exact="0" />
+        <set_value name="State.$Phase" exact="''" />
+        <set_value name="State.$Ops" exact="[]" />
+        <signal_cue_instantly cue="Pump" />
+      </actions>
+    </library>
+
+    <!-- 10 s watchdog per batch (State.$SentAt). Same pattern as md.FDN_Core Charter_Probe: conditions + delay. -->
+    <cue name="Watchdog" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <delay exact="10s" />
+      <actions>
+        <do_if value="State.$Busy == 1 and State.$SentAt? and player.age ge State.$SentAt + 9" comment="time based, not event.param: a watchdog from an older batch fires too early and does nothing">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="1" />
+            <param name="Text" value="'stock levels: no reply from the Lua helper for %1 (%2, token %3, %4 of %5 replies). Nothing assumed; saved originals kept; retried next pass. Check SirNuke Mod Support APIs is enabled'.[@State.$Station.knownname, State.$Phase, State.$Token, State.$Replies, State.$Ops.count]" />
+          </run_actions>
+          <do_if value="State.$LuaWarned == 0">
+            <set_value name="State.$LuaWarned" exact="1" />
+            <run_actions ref="md.FDN_Core.Logbook_Event">
+              <param name="Tier" value="'problem'" />
+              <param name="Title" value="'FDN storage levels not answered'" />
+              <param name="Text" value="'FDN could not reach its UI helper to set storage levels. Make sure SirNuke Mod Support APIs is enabled. Saved original levels are kept.'" />
+            </run_actions>
+          </do_if>
+          <set_value name="State.$Token" exact="State.$Token + 1" />
+          <include_actions ref="Finish" />
+        </do_if>
+      </actions>
+    </cue>
+
+  </cues>
+</mdscript>

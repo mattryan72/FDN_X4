@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon name="fdn_x4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../core/coreaddon.xsd">
   <!--
-    Card X4-18a. Load the stock-limit proof Lua helper through ui.xml (PUI-safe).
+    Card X4-18a/18b. Load the FDN stock levels Lua helper through ui.xml (PUI-safe).
+    Card X4-18b replaces the X4-18a proof helper (ui/fdn_stock_proof.lua) with ui/fdn_stock_levels.lua.
     Depends on sn_mod_support_apis so Register_OnLoad_Init exists. Does NOT use the
     legacy Lua_Loader path and does NOT require Protected UI Mode to be disabled.
   -->
   <environment type="menus">
-    <file name="ui/fdn_stock_proof.lua" />
+    <file name="ui/fdn_stock_levels.lua" />
     <dependency name="sn_mod_support_apis" />
   </environment>
 </addon>

@@ -23,7 +23,6 @@
       'FDN: charter active'       greyed, the station already has one
       'FDN: revoke charter (no refund)'  card X4-14c, shown with 'charter active': clicking ends the charter at once
                                   (no confirmation, no refund) and the station stops being a DC
-    Card X4-18a: a stock-limit proof entry on non-DC FDN-managed stations.
     Card X4-14c: the charter makes the station a DC (md.FDN_Supply.Find_DCs). A revoke writes fdn.log (WARN) and a
     logbook 'notice' entry (md.FDN_Core.Charter_End).
     Every purchase and every refusal on click writes an fdn.log line (level 2) and a logbook entry
@@ -78,25 +77,6 @@
                   $callback = On_Toggle,
                   $echo = $E.$Key]" />
               </do_for_each>
-              <!-- Card X4-18a: one-shot stock-limit proof on non-DC FDN-managed stations -->
-              <do_if value="not $IsDC">
-                <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$ProofProd">
-                  <param name="Station" value="$Station" />
-                  <param name="Key" value="'ProductsFdnManaged'" />
-                </run_actions>
-                <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$ProofRes">
-                  <param name="Station" value="$Station" />
-                  <param name="Key" value="'ResourcesFdnManaged'" />
-                </run_actions>
-                <do_if value="$ProofProd == 1 or $ProofRes == 1">
-                  <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
-                    $id = 'fdn_station_stock_proof',
-                    $text = 'FDN: stock-limit proof (temp +1)',
-                    $mouseover = 'One-shot proof: raise one production ware stock limit by 1 via vanilla Lua, let MD read cargo.target while changed, then restore. Does not change buy/sell/price. Requires SirNuke Mod Support APIs.',
-                    $callback = md.FDN_Stock_Proof.On_Menu,
-                    $echo = 'stock_proof']" />
-                </do_if>
-              </do_if>
               <include_actions ref="Charter_Entry" />
             </do_else>
           </do_if>
@@ -318,6 +298,11 @@
               <param name="Key" value="$Key" />
               <param name="Value" value="$New" />
               <param name="Source" value="' (menu)'" />
+            </run_actions>
+          </do_if>
+          <do_if value="$Ok and ($Key == 'ResourcesFdnManaged' or $Key == 'ProductsFdnManaged')" comment="card X4-18b: apply or restore this station's real stock levels now">
+            <run_actions ref="md.FDN_Stock_Levels.Request">
+              <param name="Station" value="$Station" />
             </run_actions>
           </do_if>
           <do_if value="$Ok">
