@@ -1,6 +1,6 @@
 # LI Freight Distribution Network (FDN) for X4: Foundations
 
-**Version:** 0.90 **BETA**
+**Version:** 1.00 **BETA**
 **Author:** Logain Abler (Logain Industries)
 **Game:** X4: Foundations **9.00**
 **Extension id / folder:** `fdn_x4`
@@ -89,6 +89,8 @@ Workshop link: [Workshop URL pending publication]
 3. Install SirNukes Mod Support APIs into `X4 Foundations\extensions\sn_mod_support_apis`
 4. Enable both in the Extension Manager
 
+> **Install location:** Manual installs must go in the game's own `X4 Foundations\extensions\` folder, not under `Documents\Egosoft\X4\<id>\extensions\`. The required Mod Support APIs dependency is not found when FDN is installed only in the Documents extensions folder (tested).
+
 `README.md` and `LICENSE` ship in the extension root. The PDF user guide will be linked from GitHub when available (not shipped in the package for now).
 
 ## Save safety / Uninstall
@@ -108,7 +110,7 @@ Reason: FDN sets real station storage levels, which stay in the save if the mod 
 
 Please report on the Egosoft forum thread ([forum thread URL pending publication]) and include:
 
-- X4 version, DLC, and FDN v0.90
+- X4 version, DLC, and FDN v1.00
 - What you did and what went wrong
 - `fdn.log` from `Documents\Egosoft\X4\<id>\fdn.log`, with **log level 4**, then reproduce the issue
 
