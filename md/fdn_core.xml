@@ -187,9 +187,9 @@
             <set_value name="$Defaults.{'$ResourcesFdnManaged'}" exact="1" comment="1 = FDN supplies this station's resources" />
             <set_value name="$Defaults.{'$ProductsFdnManaged'}" exact="1" comment="1 = this station's products go to its nearest DC (card 9c)" />
             <set_value name="$Defaults.{'$ProductMinBatch'}" exact="100" comment="card 9c: smallest amount of a product sent to the DC in one go" />
-            <set_value name="$Defaults.{'$OverstockCollect'}" exact="0" comment="card X4-17a: 1 = DCs collect surplus resources above a station's own allocated storage (cargo.target). Off by default" />
-            <set_value name="$Defaults.{'$OverstockTriggerPct'}" exact="10" comment="card X4-17a: only collect when stock is this percent above the allocation (0 = any surplus). 0 to 100" />
-            <set_value name="$Defaults.{'$ProductKeepWare'}" exact="table[]" comment="card 9c: per-ware amount a station keeps of its own product, ware -> amount. Empty = keep 0" />
+            <set_value name="$Defaults.{'$ProductCyclesToKeep'}" exact="0" comment="card X4-18i: cycles of each product a station keeps before returning the rest. 0 = return all above ProductMinBatch. ProductKeepWare overrides per ware when set" />
+            <set_value name="$Defaults.{'$OverstockTriggerPct'}" exact="10" comment="card X4-17a/18i: only collect when stock is this percent above keep (0 = any surplus). Dual-use keep = CyclesToCover required; other resources = cargo.target. 0 to 100" />
+            <set_value name="$Defaults.{'$ProductKeepWare'}" exact="table[]" comment="card 9c/18i: per-ware keep amount override for returns, ware -> amount. When set for a ware it overrides ProductCyclesToKeep for that ware" />
 
             <!-- ===== FDN charter (card X4-14a: settings only, nothing charges or uses a charter yet) ===== -->
             <set_value name="$Defaults.{'$CharterFeePercent'}" exact="75" comment="charter fee = this percent of the average price of the most expensive qualifying dock on the station" />

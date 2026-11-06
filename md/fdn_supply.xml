@@ -2047,9 +2047,11 @@
       Product  = a ware made by one of the station's operational production modules (module .products, as Scan_Station).
       Excluded = any ware that is also a resource of one of its own modules (recipe ware.resources, as Calc_Need)
                  or is listed in station .resources (VERIFY: station.resources.list = all resource wares incl. habitation).
-      qty      = stock - keep, limited by the DC's free space for the ware. Card X4-18h (Matt t389):
-                 keep = ProductKeepWare.{ware} only (per-ware amount; default empty table = keep 0 = return all
-                 above ProductMinBatch). cargo.target is not used (FDN no longer sets product levels).
+      qty      = stock - keep, limited by the DC's free space for the ware. Card X4-18i (Matt t391):
+                 keep = ProductKeepWare.{ware} if set for that ware (override); else ProductCyclesToKeep x the
+                 station's output of that ware per cycle (sum of player.blueprints.{ware}.any.product.amount across
+                 operational production modules that make it; 0 if the amount cannot be read). Default cycles 0 =
+                 keep 0 = return all above ProductMinBatch. cargo.target is not used.
                  Sent only when qty ge ProductMinBatch. All or nothing. Dual-use still held (Collect_Overstock).
       Fee (card 9c-fee, Matt): a return costs the supply fee (same formula as Supply_Station) x ReturnFeeMult
       (default 0.5), folded into the same whole-number factor. The DC pays (Take_Fee, same steps as Start_Transfer).
@@ -2123,6 +2125,31 @@
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$KeepTbl">
           <param name="Key" value="'ProductKeepWare'" />
         </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$ProdCycles">
+          <param name="Key" value="'ProductCyclesToKeep'" />
+        </run_actions>
+        <do_if value="not ($ProdCycles ge 0)">
+          <set_value name="$ProdCycles" exact="0" />
+        </do_if>
+        <set_value name="$ProdOut" exact="table[]" comment="card X4-18i: ware -> output per production cycle from operational modules" />
+        <do_all exact="$Modules.count" counter="$m">
+          <set_value name="$PList" exact="$Modules.{$m}.products.list" />
+          <do_all exact="$PList.count" counter="$p">
+            <set_value name="$PW" exact="$PList.{$p}" />
+            <set_value name="$Amt" exact="0" />
+            <do_if value="player.blueprints.{$PW}.any.exists">
+              <set_value name="$Amt" exact="player.blueprints.{$PW}.any.product.amount" />
+            </do_if>
+            <do_if value="$Amt gt 0">
+              <do_if value="$ProdOut.{$PW}?">
+                <set_value name="$ProdOut.{$PW}" exact="$ProdOut.{$PW} + $Amt" />
+              </do_if>
+              <do_else>
+                <set_value name="$ProdOut.{$PW}" exact="$Amt" />
+              </do_else>
+            </do_if>
+          </do_all>
+        </do_all>
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Pct">
           <param name="Key" value="'TransferFeePercent'" />
         </run_actions>
@@ -2149,17 +2176,24 @@
             </run_actions>
           </do_if>
           <do_else>
-            <set_value name="$Keep" exact="0" comment="card X4-18h: ProductKeepWare only; default 0 = return all above ProductMinBatch" />
-            <do_if value="$KeepTbl and $KeepTbl.{$Ware}?" comment="per-ware keep amount (same table shape as DCKeepWare)">
+            <set_value name="$Keep" exact="0" />
+            <set_value name="$KeepSrc" exact="'cycles'" comment="card X4-18i: 'override' | 'cycles'" />
+            <do_if value="$KeepTbl and $KeepTbl.{$Ware}?" comment="ProductKeepWare override when set for this ware">
               <set_value name="$Keep" exact="$KeepTbl.{$Ware}" />
+              <set_value name="$KeepSrc" exact="'override'" />
             </do_if>
+            <do_else>
+              <do_if value="$ProdCycles gt 0 and $ProdOut.{$Ware}?">
+                <set_value name="$Keep" exact="$ProdOut.{$Ware} * $ProdCycles" />
+              </do_if>
+            </do_else>
             <do_if value="not ($Keep ge 0)">
               <set_value name="$Keep" exact="0" />
             </do_if>
             <set_value name="$Stock" exact="$Station.cargo.{$Ware}.count" />
             <set_value name="$Spare" exact="$Stock - $Keep" />
             <do_if value="$Stock gt 0">
-              <!-- card 9j / X4-18h: log RETURN CHECK / RETURN SKIP on keep or skip change, or stock change after 600 s. State: station -> ware -> [stock, keep, skip, time] -->
+              <!-- card 9j / X4-18i: log RETURN CHECK / RETURN SKIP on keep/source/skip change, or stock change after 600 s. State: [stock, keep, skip, time, source] -->
               <set_value name="$RLInit" exact="md.FDN_Core.Init" />
               <do_if value="not $RLInit.$ReturnLog?">
                 <set_value name="$RLInit.$ReturnLog" exact="table[]" />
@@ -2174,22 +2208,22 @@
               <set_value name="$RLDo" exact="1" />
               <do_if value="$RLInit.$ReturnLog.{$Station}.{$Ware}?">
                 <set_value name="$RLLast" exact="$RLInit.$ReturnLog.{$Station}.{$Ware}" />
-                <do_if value="$RLLast.{2} == $Keep and $RLLast.{3} == $RLSkip">
+                <do_if value="$RLLast.{2} == $Keep and $RLLast.{3} == $RLSkip and @$RLLast.{5} == $KeepSrc">
                   <do_if value="$RLLast.{1} == $Stock or player.age lt $RLLast.{4} + 600">
                     <set_value name="$RLDo" exact="0" />
                   </do_if>
                 </do_if>
               </do_if>
               <do_if value="$RLDo == 1">
-                <set_value name="$RLInit.$ReturnLog.{$Station}.{$Ware}" exact="[$Stock, $Keep, $RLSkip, player.age]" />
+                <set_value name="$RLInit.$ReturnLog.{$Station}.{$Ware}" exact="[$Stock, $Keep, $RLSkip, player.age, $KeepSrc]" />
                 <run_actions ref="md.FDN_Core.Log">
                   <param name="Level" value="3" />
-                  <param name="Text" value="'RETURN CHECK: %1 %2 stock %3, keep %4, returnable %5'.[$Station.knownname, $Ware.name, $Stock, $Keep, [$Spare, 0].max]" />
+                  <param name="Text" value="'RETURN CHECK: %1 %2 stock %3, keep %4 (%5), returnable %6'.[$Station.knownname, $Ware.name, $Stock, $Keep, $KeepSrc, [$Spare, 0].max]" />
                 </run_actions>
                 <do_if value="$Stock le $Keep">
                   <run_actions ref="md.FDN_Core.Log">
                     <param name="Level" value="3" />
-                    <param name="Text" value="'RETURN SKIP: %1 %2 stock %3 not above keep %4'.[$Station.knownname, $Ware.name, $Stock, $Keep]" />
+                    <param name="Text" value="'RETURN SKIP: %1 %2 stock %3 not above keep %4 (%5)'.[$Station.knownname, $Ware.name, $Stock, $Keep, $KeepSrc]" />
                   </run_actions>
                 </do_if>
               </do_if>
@@ -2395,24 +2429,22 @@
     -->
 
     <!--
-      Card X4-17a. Optional overstock collection: when OverstockCollect is on, a player station that is not itself
-      a DC has surplus resources collected by the nearest DC in its supply range (same RangeLimit / RangeMaxJumps
-      rule as Nearest_DC). Only the surplus above the keep amount is moved, and only up to the DC's free storage
-      for that ware; if the DC has no room the ware is skipped (Skip_Report kind 'overstock'). Wares are moved
-      (remove_cargo / add_cargo), never deleted. Immediate (TransferDelay is not used, same as returns).
+      Card X4-17a / X4-18i. Overstock collection: when the station has ProductsFdnManaged on (send products to DC;
+      Station_Cfg: per-station then global), a player station that is not itself a DC has surplus resources
+      collected by the nearest DC in its supply range (same RangeLimit / RangeMaxJumps rule as Nearest_DC).
+      Only the surplus above the keep amount is moved, and only up to the DC's free storage for that ware; if the
+      DC has no room the ware is skipped (Skip_Report kind 'overstock'). Wares are moved (remove_cargo / add_cargo),
+      never deleted. Immediate (TransferDelay is not used, same as returns).
       Trigger: only act when stock gt keep x (100 + OverstockTriggerPct) / 100 (whole-number maths).
       Keep amount:
         Pure resources (not made on this station): cargo.{ware}.target (FDN-set level, or player/game allocation).
           Unreadable or le 0: that ware is left alone.
-        Dual-use (card X4-18g, Matt t386): ware is in operational production-module .products AND in
-          station.resources / used locally. Keep = FDN CyclesToCover required from Calc_Need ReturnRequired
-          (same figure NEED lines show as 'required N'). Never collect below required. If no required (managed
-          off / CyclesToCover 0 / ware not in recipes): leave alone (conservative; do not fall back to automatic
-          cargo.target). Return_Products still holds dual-use; this path moves their surplus.
+        Dual-use (card X4-18g): ware is in operational production-module .products AND in station.resources.
+          Keep = FDN CyclesToCover required from Calc_Need ReturnRequired (NEED 'required N'). Never collect
+          below required. If no required: leave alone (conservative). Return_Products still holds dual-use.
       Resources only (station.resources.list), not pure products (those stay in Return_Products). At most 3
-      collects per polled station visit. Fee: same base formula as Supply_Station (TransferFeePercent x
-      (1 + jumps x FeeRangeMult) x FeeVolumeMult x FeeTypeMult), paid by the receiving DC via Take_Fee.
-      Activity kind 'collect'; DC_Stat_Add as a return; FeeTrend via Fee. Off by default. Legal-DC checks (18c).
+      collects per polled station visit. Fee: same base formula as Supply_Station. Legal-DC checks (18c).
+      Card X4-18i: global OverstockCollect option removed; gated by ProductsFdnManaged instead.
     -->
     <library name="Collect_Overstock" purpose="run_actions">
       <params>
@@ -2425,8 +2457,9 @@
         <do_if value="not $Station.exists">
           <return />
         </do_if>
-        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Enabled">
-          <param name="Key" value="'OverstockCollect'" />
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Enabled" comment="card X4-18i: overstock follows send-products (per-station then global)">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'ProductsFdnManaged'" />
         </run_actions>
         <do_if value="not $Enabled">
           <return />

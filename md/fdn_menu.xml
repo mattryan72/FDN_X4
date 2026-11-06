@@ -337,8 +337,8 @@
     <library name="Entry_List">
       <actions>
         <set_value name="$List" exact="[]" />
-        <append_to_list name="$List" exact="table[$Key = 'ResourcesFdnManaged', $Label = 'resource supply', $Mouseover = 'FDN delivers the resources this station needs']" />
-        <append_to_list name="$List" exact="table[$Key = 'ProductsFdnManaged', $Label = 'send products to DC', $Mouseover = 'The products of this station are moved to the nearest Distribution Centre']" />
+        <append_to_list name="$List" exact="table[$Key = 'ResourcesFdnManaged', $Label = 'resource supply', $Mouseover = 'FDN delivers the resources this station needs and sets its resource stock levels (wares it makes itself are left to the game)']" />
+        <append_to_list name="$List" exact="table[$Key = 'ProductsFdnManaged', $Label = 'send products to DC', $Mouseover = 'The products of this station are moved to the nearest Distribution Centre. Surplus resources are collected too']" />
       </actions>
     </library>
   </cues>
