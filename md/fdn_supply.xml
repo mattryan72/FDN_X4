@@ -36,6 +36,9 @@
                 <param name="Range" value="$NetRange" />
               </run_actions>
               <run_actions ref="md.FDN_Stock_Levels.Sweep" comment="card X4-18b: restore levels of stations that left FDN (gone, sold, now a DC)" />
+              <run_actions ref="md.FDN_Supply.Report_Illegal_Stock" comment="card X4-18c: warn about illegal wares already in a DC (never moved or deleted)">
+                <param name="DCs" value="$DCs" />
+              </run_actions>
               <run_actions ref="md.FDN_Supply.Dc_Watch" comment="card 09o: logbook entry when DCs or networks change">
                 <param name="DCs" value="$DCs" />
                 <param name="Networks" value="$Networks" />
@@ -107,18 +110,21 @@
                   <!-- Card X4-18b: queue the station for FDN stock levels (real Logical Overview levels, md.FDN_Stock_Levels) -->
                   <run_actions ref="md.FDN_Stock_Levels.Request">
                     <param name="Station" value="$Station" />
+                    <param name="DCs" value="$DCs" comment="card X4-18c: products with no legal DC in range keep their original level" />
                   </run_actions>
                   <!-- Step 9c: send this station's products to its nearest DC -->
                   <run_actions ref="md.FDN_Supply.Return_Products">
                     <param name="Station" value="$Station" />
                     <param name="Near" value="$Near" />
                     <param name="NoDCs" value="$DCs.count == 0" comment="card X4-15d: no DC exists, mute the per-ware no-DC return reports" />
+                    <param name="DCs" value="$DCs" comment="card X4-18c: another DC in range when the ware is illegal at the nearest" />
                   </run_actions>
                   <!-- Card X4-17a: optional overstock resource collection to the nearest DC in range -->
                   <run_actions ref="md.FDN_Supply.Collect_Overstock">
                     <param name="Station" value="$Station" />
                     <param name="Near" value="$Near" />
                     <param name="NoDCs" value="$DCs.count == 0" />
+                    <param name="DCs" value="$DCs" comment="card X4-18c" />
                   </run_actions>
                   <set_value name="$Index" operation="add" />
                   <do_if value="$Index gt $Count">
@@ -395,6 +401,172 @@
       Returns [DC, jumps]; [null, -1] means no DC in range.
       VERIFY: two stations in the same sector give gatedistance 0.
     -->
+    <!--
+      Card X4-18c. Legality of a ware at a DC (Matt: block INBOUND only; the player's licences count).
+      Police = $DC.sector.policefaction ("police faction of the sector owner", scriptproperties.xml). Sector, not
+      zone: Matt asked for the sector; vanilla trade uses zone.policefaction, which follows the same owner.
+      Blocked iff police exists, police != faction.player and $Ware.illegalto.{police}.{faction.player}
+      (scriptproperties: "illegal to first faction, taking into account licences held by second faction").
+      Player-owned, ownerless and Xenon sectors have no other police, so nothing is blocked there.
+      Returns [1 or 0, police faction or null]. Checked live every time (sector owner changes are picked up).
+    -->
+    <library name="Ware_Blocked_At" purpose="run_actions">
+      <params>
+        <param name="DC" />
+        <param name="Ware" />
+      </params>
+      <actions>
+        <set_value name="$P" exact="null" />
+        <do_if value="$DC and $DC.exists and $DC.sector">
+          <set_value name="$P" exact="@$DC.sector.policefaction" />
+        </do_if>
+        <do_if value="not $P or $P == faction.player">
+          <return value="[0, $P]" />
+        </do_if>
+        <do_if value="$Ware.illegalto.{$P}.{faction.player}">
+          <return value="[1, $P]" />
+        </do_if>
+        <return value="[0, $P]" />
+      </actions>
+    </library>
+
+    <!--
+      Card X4-18c. Nearest DC in the station's range (same RangeLimit / RangeMaxJumps rule as Nearest_DC, active
+      charter, not the station itself, not Exclude) where the ware is legal, and (RequireFree) has free storage for it.
+      Returns [DC or null, jumps or -1, number of DCs in range before the legality / storage tests].
+    -->
+    <library name="Legal_DC_For_Ware" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="DCs" />
+        <param name="Exclude" default="null" />
+        <param name="RequireFree" default="true" />
+      </params>
+      <actions>
+        <set_value name="$Best" exact="null" />
+        <set_value name="$BestJumps" exact="-1" />
+        <set_value name="$InRange" exact="0" />
+        <do_if value="not $Station.exists or $DCs == null">
+          <return value="[$Best, $BestJumps, $InRange]" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Limit">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'RangeLimit'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$MaxJumps">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'RangeMaxJumps'" />
+        </run_actions>
+        <do_all exact="$DCs.count" counter="$i">
+          <set_value name="$DC" exact="$DCs.{$i}" />
+          <do_if value="not $DC.exists or not md.FDN_Core.Init.$Charters.{$DC}? or $DC == $Station or $DC == $Exclude">
+            <continue />
+          </do_if>
+          <set_value name="$Jumps" exact="$Station.gatedistance.{$DC}" />
+          <do_if value="$Jumps lt 0 or ($Limit and $Jumps gt $MaxJumps)">
+            <continue />
+          </do_if>
+          <set_value name="$InRange" exact="$InRange + 1" />
+          <run_actions ref="md.FDN_Supply.Ware_Blocked_At" result="$Blk">
+            <param name="DC" value="$DC" />
+            <param name="Ware" value="$Ware" />
+          </run_actions>
+          <do_if value="$Blk.{1} == 1">
+            <continue />
+          </do_if>
+          <do_if value="$RequireFree and not ($DC.cargo.{$Ware}.free gt 0)">
+            <continue />
+          </do_if>
+          <do_if value="$BestJumps lt 0 or $Jumps lt $BestJumps">
+            <set_value name="$Best" exact="$DC" />
+            <set_value name="$BestJumps" exact="$Jumps" />
+          </do_if>
+        </do_all>
+        <do_if value="$Exclude and $Exclude.exists and md.FDN_Core.Init.$Charters.{$Exclude}? and $Exclude != $Station">
+          <set_value name="$XJ" exact="$Station.gatedistance.{$Exclude}" />
+          <do_if value="$XJ ge 0 and (not $Limit or $XJ le $MaxJumps)">
+            <set_value name="$InRange" exact="$InRange + 1" comment="the excluded (blocked) DC is in range too" />
+          </do_if>
+        </do_if>
+        <return value="[$Best, $BestJumps, $InRange]" />
+      </actions>
+    </library>
+
+    <!--
+      Card X4-18c. Once per poll pass: illegal wares already in a DC (put there before this card, or the sector
+      changed owner). Never moved or deleted. fdn.log WARN + Skip_Report kind 'illegal' (Problems) only when a
+      DC/ware first becomes illegal or its police faction changes; the state is saved in
+      md.FDN_Core.Init.$IllegalStock (DC -> ware -> police faction) and cleared when the ware is legal or gone.
+    -->
+    <library name="Report_Illegal_Stock" purpose="run_actions">
+      <params>
+        <param name="DCs" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$IllegalStock?">
+          <set_value name="$Init.$IllegalStock" exact="table[]" />
+        </do_if>
+        <set_value name="$Old" exact="$Init.$IllegalStock.keys.list" />
+        <do_all exact="$Old.count" counter="$k">
+          <do_if value="not $Old.{$k}.exists or not $DCs.indexof.{$Old.{$k}}">
+            <remove_value name="$Init.$IllegalStock.{$Old.{$k}}" />
+          </do_if>
+        </do_all>
+        <do_for_each name="$DC" in="$DCs">
+          <do_if value="not $DC.exists">
+            <continue />
+          </do_if>
+          <set_value name="$P" exact="null" />
+          <do_if value="$DC.sector">
+            <set_value name="$P" exact="@$DC.sector.policefaction" />
+          </do_if>
+          <set_value name="$Now" exact="table[]" comment="ware -> police, illegal wares in stock now" />
+          <do_if value="$P and $P != faction.player and $DC.cargo.illegalto.{$P}">
+            <set_value name="$Wares" exact="$DC.cargo.list" />
+            <do_all exact="$Wares.count" counter="$w">
+              <set_value name="$W" exact="$Wares.{$w}" />
+              <do_if value="$W.illegalto.{$P}.{faction.player}">
+                <set_value name="$Now.{$W}" exact="$P" />
+              </do_if>
+            </do_all>
+          </do_if>
+          <do_if value="not $Init.$IllegalStock.{$DC}?">
+            <set_value name="$Init.$IllegalStock.{$DC}" exact="table[]" />
+          </do_if>
+          <set_value name="$Seen" exact="$Init.$IllegalStock.{$DC}" />
+          <set_value name="$NowKeys" exact="$Now.keys.list" />
+          <do_all exact="$NowKeys.count" counter="$w">
+            <set_value name="$W" exact="$NowKeys.{$w}" />
+            <do_if value="not $Seen.keys.list.indexof.{$W} or $Seen.{$W} != $P">
+              <set_value name="$Seen.{$W}" exact="$P" />
+              <run_actions ref="md.FDN_Supply.Skip_Report">
+                <param name="Station" value="$DC" />
+                <param name="Ware" value="$W" />
+                <param name="Need" value="$DC.cargo.{$W}.count" />
+                <param name="Reason" value="'DC holds %1 %2, illegal in %3 (%4 police); left in place, FDN brings no more in'.[$DC.cargo.{$W}.count, $W.name, $DC.sector.knownname, $P.knownname]" />
+                <param name="Kind" value="'illegal'" />
+              </run_actions>
+            </do_if>
+          </do_all>
+          <set_value name="$SeenKeys" exact="$Seen.keys.list" />
+          <do_all exact="$SeenKeys.count" counter="$w">
+            <do_if value="not $NowKeys.indexof.{$SeenKeys.{$w}}">
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="3" />
+                <param name="Text" value="'illegal stock: DC %1 no longer holds illegal %2'.[$DC.knownname, $SeenKeys.{$w}.name]" />
+              </run_actions>
+              <remove_value name="$Seen.{$SeenKeys.{$w}}" />
+            </do_if>
+          </do_all>
+          <do_if value="$Seen.keys.count == 0">
+            <remove_value name="$Init.$IllegalStock.{$DC}" />
+          </do_if>
+        </do_for_each>
+      </actions>
+    </library>
+
     <library name="Nearest_DC" purpose="run_actions">
       <params>
         <param name="Station" />
@@ -705,7 +877,24 @@
         <set_value name="$SumDCs" exact="[]" />
         <do_all exact="$Ranked.count" counter="$w">
           <set_value name="$Ware" exact="$Ranked.{$w}" />
-          <do_if value="$Needs.{$Ware}?">
+          <set_value name="$IllegalIn" exact="false" />
+          <do_if value="$SelfHome and $Needs.{$Ware}?" comment="card X4-18c: the station is a DC; no DC-to-DC pull or NPC buy of a ware illegal in its sector">
+            <run_actions ref="md.FDN_Supply.Ware_Blocked_At" result="$Blk">
+              <param name="DC" value="$Station" />
+              <param name="Ware" value="$Ware" />
+            </run_actions>
+            <do_if value="$Blk.{1} == 1">
+              <set_value name="$IllegalIn" exact="true" />
+              <run_actions ref="md.FDN_Supply.Skip_Report">
+                <param name="Station" value="$Station" />
+                <param name="Ware" value="$Ware" />
+                <param name="Need" value="$Needs.{$Ware}.{1}" />
+                <param name="Reason" value="'illegal in the sector of this DC (%1 police); not brought in'.[$Blk.{2}.knownname]" />
+                <param name="Kind" value="'illegal'" />
+              </run_actions>
+            </do_if>
+          </do_if>
+          <do_if value="$Needs.{$Ware}? and not $IllegalIn">
             <set_value name="$Left" exact="$Needs.{$Ware}.{1}" />
             <set_value name="$Moved" exact="0" />
             <set_value name="$Reason" exact="'no DC in range has spare stock'" />
@@ -1813,9 +2002,12 @@
           <return />
         </do_if>
         <set_value name="$LbTitle" exact="'%1 skipped at %2'.[$Kind, $Station.knownname]" />
-        <do_if value="$Kind == 'pull-fallback'">
-          <set_value name="$LbTitle" exact="'fee fallback at %1'.[$Station.knownname]" />
+        <do_if value="$Kind == 'illegal'" comment="card X4-18c">
+          <set_value name="$LbTitle" exact="'illegal ware blocked at %1'.[$Station.knownname]" />
         </do_if>
+        <do_elseif value="$Kind == 'pull-fallback'">
+          <set_value name="$LbTitle" exact="'fee fallback at %1'.[$Station.knownname]" />
+        </do_elseif>
         <do_elseif value="$Kind == 'npc-price'" comment="card 09r: plain words instead of the internal kind">
           <set_value name="$LbTitle" exact="'NPC buy skipped at %1, station buy price too low'.[$Station.knownname]" />
         </do_elseif>
@@ -1861,6 +2053,7 @@
         <param name="Station" />
         <param name="Near" />
         <param name="NoDCs" default="false" comment="card X4-15d: true when no DC exists at all (set by Loop)" />
+        <param name="DCs" default="[]" comment="card X4-18c: all DCs, for a legal fallback DC" />
       </params>
       <actions>
         <do_if value="not $Station.exists">
@@ -1875,6 +2068,8 @@
         </do_if>
         <set_value name="$DC" exact="$Near.{1}" />
         <set_value name="$Jumps" exact="$Near.{2}" />
+        <set_value name="$NearDC" exact="$DC" comment="card X4-18c: per ware $DC may become a legal fallback DC" />
+        <set_value name="$NearJumps" exact="$Jumps" />
         <do_if value="$DC == $Station">
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="4" />
@@ -2003,7 +2198,48 @@
               </do_if>
             </do_if>
             <do_if value="$Spare ge $MinBatch">
-              <do_if value="not $DC">
+            <set_value name="$DC" exact="$NearDC" />
+            <set_value name="$Jumps" exact="$NearJumps" />
+            <set_value name="$IllegalHold" exact="false" />
+            <do_if value="$DC" comment="card X4-18c: never move a ware into a DC whose sector police make it illegal">
+              <run_actions ref="md.FDN_Supply.Ware_Blocked_At" result="$Blk">
+                <param name="DC" value="$DC" />
+                <param name="Ware" value="$Ware" />
+              </run_actions>
+              <do_if value="$Blk.{1} == 1">
+                <run_actions ref="md.FDN_Supply.Legal_DC_For_Ware" result="$Alt">
+                  <param name="Station" value="$Station" />
+                  <param name="Ware" value="$Ware" />
+                  <param name="DCs" value="$DCs" />
+                  <param name="Exclude" value="$DC" />
+                </run_actions>
+                <do_if value="$Alt.{1}">
+                  <run_actions ref="md.FDN_Core.Log">
+                    <param name="Level" value="3" />
+                    <param name="Text" value="'%1: %2 %3 is illegal at DC %4 (%5 police in %6), using DC %7 (%8 jumps) instead'.['return', $Station.knownname, $Ware.name, $DC.knownname, $Blk.{2}.knownname, $DC.sector.knownname, $Alt.{1}.knownname, $Alt.{2}]" />
+                  </run_actions>
+                  <set_value name="$DC" exact="$Alt.{1}" />
+                  <set_value name="$Jumps" exact="$Alt.{2}" />
+                </do_if>
+                <do_else>
+                  <set_value name="$IllegalHold" exact="true" />
+                  <run_actions ref="md.FDN_Supply.Skip_Report">
+                    <param name="Station" value="$Station" />
+                    <param name="Ware" value="$Ware" />
+                    <param name="Need" value="$Spare" />
+                    <param name="Reason" value="'illegal in the sector of DC %1 (%2 police) and no other DC in range where it is legal and has room; kept at the station'.[$DC.knownname, $Blk.{2}.knownname]" />
+                    <param name="Kind" value="'illegal'" />
+                  </run_actions>
+                </do_else>
+              </do_if>
+            </do_if>
+              <do_if value="$IllegalHold">
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="4" />
+                  <param name="Text" value="'return: %1 %2 held, illegal at every DC in range'.[$Station.knownname, $Ware.name]" />
+                </run_actions>
+              </do_if>
+              <do_elseif value="not $DC">
                 <do_if value="$NoDCs" comment="card X4-15d: no DC exists, the once-per-session no DC exists warning already tells the player">
                   <run_actions ref="md.FDN_Core.Log">
                     <param name="Level" value="4" />
@@ -2019,7 +2255,7 @@
                     <param name="Kind" value="'return'" />
                   </run_actions>
                 </do_else>
-              </do_if>
+              </do_elseif>
               <do_else>
                 <set_value name="$Free" exact="$DC.cargo.{$Ware}.free" comment="VERIFY: per-ware free space at the DC (0 when the DC has no storage of that type)" />
                 <set_value name="$Qty" exact="[$Spare, $Free].min" />
@@ -2121,7 +2357,7 @@
                             <param name="Fee" value="$Fee" />
                             <param name="Served" value="$Station" />
                           </run_actions>
-                          <set_value name="$RetText" exact="$RetText + (if $RetText == '' then '' else '; ') + '%1 %2'.[$Ware.name, $Qty]" comment="card 09o" />
+                          <set_value name="$RetText" exact="$RetText + (if $RetText == '' then '' else '; ') + '%1 %2'.[$Ware.name, $Qty] + (if $DC != $NearDC then ' (to DC ' + $DC.knownname + ')' else '')" comment="card 09o; card X4-18c names a fallback DC" />
                           <set_value name="$RetFee" exact="$RetFee + $Fee" />
                           <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09o: LogbookLevel 3 only">
                             <param name="Tier" value="'transfer'" />
@@ -2145,7 +2381,7 @@
           <run_actions ref="md.FDN_Core.Logbook_Event">
             <param name="Tier" value="'summary'" />
             <param name="Title" value="'returned from %1'.[$Station.knownname]" />
-            <param name="Text" value="'To DC %1: %2. Total fee %3 paid by the DC'.[$DC.knownname, $RetText, $RetFee.formatted.default + ' Cr']" />
+            <param name="Text" value="'To DC %1: %2. Total fee %3 paid by the DC'.[$NearDC.knownname, $RetText, $RetFee.formatted.default + ' Cr']" />
             <param name="Money" value="$RetFee" />
             <param name="Object" value="$Station" />
           </run_actions>
@@ -2179,6 +2415,7 @@
         <param name="Station" />
         <param name="Near" />
         <param name="NoDCs" default="false" />
+        <param name="DCs" default="[]" comment="card X4-18c: all DCs, for a legal fallback DC" />
       </params>
       <actions>
         <do_if value="not $Station.exists">
@@ -2195,6 +2432,8 @@
         </do_if>
         <set_value name="$DC" exact="$Near.{1}" />
         <set_value name="$Jumps" exact="$Near.{2}" />
+        <set_value name="$NearDC" exact="$DC" comment="card X4-18c" />
+        <set_value name="$NearJumps" exact="$Jumps" />
         <do_if value="$DC == $Station">
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="4" />
@@ -2256,6 +2495,44 @@
           </do_if>
           <set_value name="$Spare" exact="$Stock - $Target" comment="surplus above the allocation (not above the trigger line)" />
           <do_if value="not ($Spare gt 0)">
+            <continue />
+          </do_if>
+            <set_value name="$DC" exact="$NearDC" />
+          <set_value name="$Jumps" exact="$NearJumps" />
+          <set_value name="$IllegalHold" exact="false" />
+          <do_if value="$DC" comment="card X4-18c: never move a ware into a DC whose sector police make it illegal">
+            <run_actions ref="md.FDN_Supply.Ware_Blocked_At" result="$Blk">
+              <param name="DC" value="$DC" />
+              <param name="Ware" value="$Ware" />
+            </run_actions>
+            <do_if value="$Blk.{1} == 1">
+              <run_actions ref="md.FDN_Supply.Legal_DC_For_Ware" result="$Alt">
+                <param name="Station" value="$Station" />
+                <param name="Ware" value="$Ware" />
+                <param name="DCs" value="$DCs" />
+                <param name="Exclude" value="$DC" />
+              </run_actions>
+              <do_if value="$Alt.{1}">
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="3" />
+                  <param name="Text" value="'%1: %2 %3 is illegal at DC %4 (%5 police in %6), using DC %7 (%8 jumps) instead'.['overstock', $Station.knownname, $Ware.name, $DC.knownname, $Blk.{2}.knownname, $DC.sector.knownname, $Alt.{1}.knownname, $Alt.{2}]" />
+                </run_actions>
+                <set_value name="$DC" exact="$Alt.{1}" />
+                <set_value name="$Jumps" exact="$Alt.{2}" />
+              </do_if>
+              <do_else>
+                <set_value name="$IllegalHold" exact="true" />
+                <run_actions ref="md.FDN_Supply.Skip_Report">
+                  <param name="Station" value="$Station" />
+                  <param name="Ware" value="$Ware" />
+                  <param name="Need" value="$Spare" />
+                  <param name="Reason" value="'illegal in the sector of DC %1 (%2 police) and no other DC in range where it is legal and has room; not collected'.[$DC.knownname, $Blk.{2}.knownname]" />
+                  <param name="Kind" value="'illegal'" />
+                </run_actions>
+              </do_else>
+            </do_if>
+          </do_if>
+          <do_if value="$IllegalHold">
             <continue />
           </do_if>
           <set_value name="$Free" exact="$DC.cargo.{$Ware}.free" comment="per-ware free space at the DC (proven in Return_Products)" />

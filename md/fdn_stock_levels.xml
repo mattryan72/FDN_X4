@@ -60,6 +60,7 @@
             <set_value name="State.$Queue" exact="[]" />
             <set_value name="State.$Ops" exact="[]" />
             <set_value name="State.$LuaWarned" exact="0" />
+            <remove_value name="State.$DCs" comment="card X4-18c: refreshed by the next poll pass" />
             <set_value name="$Init" exact="md.FDN_Core.Init" />
             <do_if value="$Init.$StockLevels?">
               <run_actions ref="md.FDN_Core.Log">
@@ -76,10 +77,14 @@
     <library name="Request" purpose="run_actions">
       <params>
         <param name="Station" />
+        <param name="DCs" default="null" comment="card X4-18c: DC list of the current poll pass (menu path passes none)" />
       </params>
       <actions>
         <do_if value="not State.$Queue?">
           <return />
+        </do_if>
+        <do_if value="$DCs != null">
+          <set_value name="State.$DCs" exact="$DCs" />
         </do_if>
         <do_if value="$Station == null">
           <return />
@@ -210,9 +215,27 @@
               <append_to_list name="$Used" exact="$StationRes.{$q}" />
             </do_if>
           </do_all>
+          <do_if value="not State.$DCs?" comment="card X4-18c: menu toggle before the first poll pass of this session">
+            <run_actions ref="md.FDN_Supply.Find_DCs" result="$FoundDCs" />
+            <set_value name="State.$DCs" exact="$FoundDCs" />
+          </do_if>
           <do_for_each name="$W" in="$Made">
             <do_if value="not $Used.indexof.{$W}">
-              <set_value name="$Want.{$W}" exact="State.$ProductLevel" />
+              <run_actions ref="md.FDN_Supply.Legal_DC_For_Ware" result="$Legal" comment="card X4-18c: legality only, storage not required">
+                <param name="Station" value="$Station" />
+                <param name="Ware" value="$W" />
+                <param name="DCs" value="State.$DCs" />
+                <param name="RequireFree" value="false" />
+              </run_actions>
+              <do_if value="$Legal.{3} gt 0 and not $Legal.{1}">
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="4" />
+                  <param name="Text" value="'stock levels: %1 %2 is illegal at every DC in range, level not set to %3 (original kept)'.[$Station.knownname, $W.name, State.$ProductLevel]" />
+                </run_actions>
+              </do_if>
+              <do_else>
+                <set_value name="$Want.{$W}" exact="State.$ProductLevel" />
+              </do_else>
             </do_if>
           </do_for_each>
         </do_if>
