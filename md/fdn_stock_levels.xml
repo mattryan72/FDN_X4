@@ -2,20 +2,18 @@
 <mdscript name="FDN_Stock_Levels" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
   <!--
     Card X4-18b. FDN sets the station's REAL Logical Overview storage levels (no FDN thresholds of its own).
-    Matt's rules (t363/t364):
+    Matt's rules (t363/t364, updated X4-18g/X4-18h):
       Resources and intermediates (wares the station's operational production modules use), when ResourcesFdnManaged
         is on: level = the amount needed for CyclesToCover production cycles. Same per-ware sum as supply uses
         (md.FDN_Supply.Calc_Need with ReturnRequired, recipe x CyclesToCover). Capped at the station's storage
         capacity for the ware, at least 1.
-      Pure products (made, not used locally, same rule as Return_Products), when ProductsFdnManaged is on:
-        level = 1 (ProductLevel below). 1, not 0: the vanilla station overview hides the storage level controls
-        when the limit is 0 and its own slider never selects below 1 (helper.lua minSelect = 1, math.max(1, ...)).
       Card X4-18g (Matt t385/t386): a ware the station itself makes (operational production-module .products, same
-        source as Return_Products $Made) never gets an FDN level, even when it is also a local resource. If FDN
-        already set one, the ware is omitted from Want so the existing restore path puts back the saved original
-        (manual amount or automatic) and logs RESTORED. Plan logs 'is made on this station, level left to the game'.
-        Dual-use surplus still goes to the DC via Collect_Overstock using the FDN CyclesToCover required amount.
-      Switch off, ware no longer used/made, station sold/destroyed/now a DC: the ware goes back to its ORIGINAL
+        source as Return_Products $Made) never gets an FDN resource level, even when it is also a local resource.
+        Dual-use surplus goes to the DC via Collect_Overstock using the FDN CyclesToCover required amount.
+      Card X4-18h (Matt t389): FDN never sets levels for products (pure or otherwise). Any product level FDN
+        previously set is omitted from Want so the existing restore path puts back the saved original and logs
+        RESTORED. ProductsFdnManaged only gates Return_Products; illegal-ware reporting stays on the return path.
+      Switch off, ware no longer used, station sold/destroyed/now a DC: the ware goes back to its ORIGINAL
         state (automatic, or the player's own manual level), not just automatic.
     Only wares FDN changed are ever touched. The original state (had override 0/1 + amount) is read by Lua and
     saved in md.FDN_Core.Init.$StockLevels (station -> ware -> table[$Had, $Orig, $Set]) BEFORE any change.
@@ -39,7 +37,6 @@
         </check_any>
       </conditions>
       <actions>
-        <set_value name="$ProductLevel" exact="1" comment="level FDN sets for pure products (see header)" />
         <set_value name="$Busy" exact="0" />
         <set_value name="$Token" exact="0" />
         <set_value name="$Queue" exact="[]" />
@@ -53,7 +50,6 @@
             <event_game_loaded />
           </conditions>
           <actions>
-            <set_value name="State.$ProductLevel" exact="1" />
             <do_if value="State.$Busy == 1">
               <run_actions ref="md.FDN_Core.Log">
                 <param name="Level" value="2" />
@@ -158,8 +154,9 @@
     </library>
 
     <!--
-      Wanted levels for one station: table ware -> level (whole number ge 1). Empty when the station is gone, not
-      yours, not in the FDN registry, a DC, or both switches are off.
+      Wanted levels for one station: table ware -> level (whole number ge 1). Resources only (card X4-18h: products
+      are never wanted). Empty when the station is gone, not yours, not in the FDN registry, a DC, or Resources
+      unmanaged. Any previously FDN-set product level is restored because it is absent from Want.
     -->
     <library name="Plan" purpose="run_actions">
       <params>
@@ -180,42 +177,18 @@
           <param name="Station" value="$Station" />
           <param name="Key" value="'ResourcesFdnManaged'" />
         </run_actions>
-        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$ProdOn">
-          <param name="Station" value="$Station" />
-          <param name="Key" value="'ProductsFdnManaged'" />
-        </run_actions>
-        <!-- Card X4-18g: Made = operational production-module products (same source as Return_Products). -->
+        <!-- Card X4-18g/18h: Made = operational production-module products. Used only to skip dual-use resources; products never get a level. -->
         <set_value name="$Made" exact="[]" />
-        <set_value name="$Used" exact="[]" />
-        <do_if value="$ResOn == 1 or $ProdOn == 1">
+        <do_if value="$ResOn == 1">
           <find_object_component object="$Station" name="$Modules" class="class.production" checkoperational="true" multiple="true" />
           <do_all exact="$Modules.count" counter="$m">
             <set_value name="$Products" exact="$Modules.{$m}.products.list" />
             <do_all exact="$Products.count" counter="$p">
-              <set_value name="$Product" exact="$Products.{$p}" />
-              <do_if value="not $Made.indexof.{$Product}">
-                <append_to_list name="$Made" exact="$Product" />
-              </do_if>
-              <do_if value="$ProdOn == 1">
-                <set_value name="$Resources" exact="$Product.resources.list" />
-                <do_all exact="$Resources.count" counter="$q">
-                  <do_if value="not $Used.indexof.{$Resources.{$q}}">
-                    <append_to_list name="$Used" exact="$Resources.{$q}" />
-                  </do_if>
-                </do_all>
+              <do_if value="not $Made.indexof.{$Products.{$p}}">
+                <append_to_list name="$Made" exact="$Products.{$p}" />
               </do_if>
             </do_all>
           </do_all>
-          <do_if value="$ProdOn == 1">
-            <set_value name="$StationRes" exact="$Station.resources.list" comment="same exclusion as Return_Products" />
-            <do_all exact="$StationRes.count" counter="$q">
-              <do_if value="not $Used.indexof.{$StationRes.{$q}}">
-                <append_to_list name="$Used" exact="$StationRes.{$q}" />
-              </do_if>
-            </do_all>
-          </do_if>
-        </do_if>
-        <do_if value="$ResOn == 1">
           <run_actions ref="md.FDN_Supply.Calc_Need" result="$Req" comment="empty when CyclesToCover is 0: wares then go back to their original state">
             <param name="Station" value="$Station" />
             <param name="ReturnRequired" value="true" />
@@ -233,31 +206,6 @@
               <set_value name="$Want.{$W}" exact="[($Req.{$W})i, 1].max" />
             </do_else>
           </do_all>
-        </do_if>
-        <do_if value="$ProdOn == 1">
-          <do_if value="not State.$DCs?" comment="card X4-18c: menu toggle before the first poll pass of this session">
-            <run_actions ref="md.FDN_Supply.Find_DCs" result="$FoundDCs" />
-            <set_value name="State.$DCs" exact="$FoundDCs" />
-          </do_if>
-          <do_for_each name="$W" in="$Made">
-            <do_if value="not $Used.indexof.{$W}">
-              <run_actions ref="md.FDN_Supply.Legal_DC_For_Ware" result="$Legal" comment="card X4-18c: legality only, storage not required">
-                <param name="Station" value="$Station" />
-                <param name="Ware" value="$W" />
-                <param name="DCs" value="State.$DCs" />
-                <param name="RequireFree" value="false" />
-              </run_actions>
-              <do_if value="$Legal.{3} gt 0 and not $Legal.{1}">
-                <run_actions ref="md.FDN_Core.Log">
-                  <param name="Level" value="4" />
-                  <param name="Text" value="'stock levels: %1 %2 is illegal at every DC in range, level not set to %3 (original kept)'.[$Station.knownname, $W.name, State.$ProductLevel]" />
-                </run_actions>
-              </do_if>
-              <do_else>
-                <set_value name="$Want.{$W}" exact="State.$ProductLevel" />
-              </do_else>
-            </do_if>
-          </do_for_each>
         </do_if>
         <return value="$Want" />
       </actions>

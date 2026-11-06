@@ -2047,10 +2047,10 @@
       Product  = a ware made by one of the station's operational production modules (module .products, as Scan_Station).
       Excluded = any ware that is also a resource of one of its own modules (recipe ware.resources, as Calc_Need)
                  or is listed in station .resources (VERIFY: station.resources.list = all resource wares incl. habitation).
-      qty      = stock - keep, limited by the DC's free space for the ware. Card 9i (Matt: use the game settings):
-                 keep = the station's own game storage target for the ware (cargo.{ware}.target, 0 when unreadable),
-                 or ProductKeepWare.{ware} if that is larger (default empty, so the game target rules),
-                 sent only when qty ge ProductMinBatch. All or nothing.
+      qty      = stock - keep, limited by the DC's free space for the ware. Card X4-18h (Matt t389):
+                 keep = ProductKeepWare.{ware} only (per-ware amount; default empty table = keep 0 = return all
+                 above ProductMinBatch). cargo.target is not used (FDN no longer sets product levels).
+                 Sent only when qty ge ProductMinBatch. All or nothing. Dual-use still held (Collect_Overstock).
       Fee (card 9c-fee, Matt): a return costs the supply fee (same formula as Supply_Station) x ReturnFeeMult
       (default 0.5), folded into the same whole-number factor. The DC pays (Take_Fee, same steps as Start_Transfer).
       All or nothing: if the DC cannot pay, the return is skipped and reported; if the cargo move fails after the fee
@@ -2149,30 +2149,17 @@
             </run_actions>
           </do_if>
           <do_else>
-            <set_value name="$Keep" exact="0" />
-            <do_if value="$KeepTbl and $KeepTbl.{$Ware}?" comment="VERIFY: a table setting read through Cfg_Get keeps ware keys (same as DCKeepWare)">
+            <set_value name="$Keep" exact="0" comment="card X4-18h: ProductKeepWare only; default 0 = return all above ProductMinBatch" />
+            <do_if value="$KeepTbl and $KeepTbl.{$Ware}?" comment="per-ware keep amount (same table shape as DCKeepWare)">
               <set_value name="$Keep" exact="$KeepTbl.{$Ware}" />
             </do_if>
+            <do_if value="not ($Keep ge 0)">
+              <set_value name="$Keep" exact="0" />
+            </do_if>
             <set_value name="$Stock" exact="$Station.cargo.{$Ware}.count" />
-            <set_value name="$Target" exact="0" />
-            <do_if value="$Station.cargo.{$Ware}.target?" comment="card 9i: vanilla uses $Station.cargo.{$Ware}.target (drain_stations.xml, gm_barterwares.xml)">
-              <set_value name="$Target" exact="$Station.cargo.{$Ware}.target" />
-            </do_if>
-            <do_else>
-              <run_actions ref="md.FDN_Core.Log">
-                <param name="Level" value="2" />
-                <param name="Text" value="'return: %1, %2 game target could not be read, treated as 0'.[$Station.knownname, $Ware.name]" />
-              </run_actions>
-            </do_else>
-            <do_if value="not ($Target gt 0)">
-              <set_value name="$Target" exact="0" />
-            </do_if>
-            <do_if value="$Target gt $Keep" comment="card 9i: the station keeps its own game storage target">
-              <set_value name="$Keep" exact="$Target" />
-            </do_if>
             <set_value name="$Spare" exact="$Stock - $Keep" />
             <do_if value="$Stock gt 0">
-              <!-- card 9j: log RETURN CHECK / RETURN SKIP only when the target or skip state changed, or the stock changed and 600 s have passed since the last line for this station and ware. State in md.FDN_Core.Init.$ReturnLog: station -> ware -> [stock, target, skip, time] -->
+              <!-- card 9j / X4-18h: log RETURN CHECK / RETURN SKIP on keep or skip change, or stock change after 600 s. State: station -> ware -> [stock, keep, skip, time] -->
               <set_value name="$RLInit" exact="md.FDN_Core.Init" />
               <do_if value="not $RLInit.$ReturnLog?">
                 <set_value name="$RLInit.$ReturnLog" exact="table[]" />
@@ -2181,28 +2168,28 @@
                 <set_value name="$RLInit.$ReturnLog.{$Station}" exact="table[]" comment="proven in game: station object as table key, same as $Claims" />
               </do_if>
               <set_value name="$RLSkip" exact="0" />
-              <do_if value="$Stock le $Target">
+              <do_if value="$Stock le $Keep">
                 <set_value name="$RLSkip" exact="1" />
               </do_if>
               <set_value name="$RLDo" exact="1" />
               <do_if value="$RLInit.$ReturnLog.{$Station}.{$Ware}?">
                 <set_value name="$RLLast" exact="$RLInit.$ReturnLog.{$Station}.{$Ware}" />
-                <do_if value="$RLLast.{2} == $Target and $RLLast.{3} == $RLSkip">
+                <do_if value="$RLLast.{2} == $Keep and $RLLast.{3} == $RLSkip">
                   <do_if value="$RLLast.{1} == $Stock or player.age lt $RLLast.{4} + 600">
                     <set_value name="$RLDo" exact="0" />
                   </do_if>
                 </do_if>
               </do_if>
               <do_if value="$RLDo == 1">
-                <set_value name="$RLInit.$ReturnLog.{$Station}.{$Ware}" exact="[$Stock, $Target, $RLSkip, player.age]" />
+                <set_value name="$RLInit.$ReturnLog.{$Station}.{$Ware}" exact="[$Stock, $Keep, $RLSkip, player.age]" />
                 <run_actions ref="md.FDN_Core.Log">
                   <param name="Level" value="3" />
-                  <param name="Text" value="'RETURN CHECK: %1 %2 stock %3, game target %4, returnable %5'.[$Station.knownname, $Ware.name, $Stock, $Target, [$Spare, 0].max]" />
+                  <param name="Text" value="'RETURN CHECK: %1 %2 stock %3, keep %4, returnable %5'.[$Station.knownname, $Ware.name, $Stock, $Keep, [$Spare, 0].max]" />
                 </run_actions>
-                <do_if value="$Stock le $Target">
+                <do_if value="$Stock le $Keep">
                   <run_actions ref="md.FDN_Core.Log">
                     <param name="Level" value="3" />
-                    <param name="Text" value="'RETURN SKIP: %1 %2 stock %3 not above game target %4'.[$Station.knownname, $Ware.name, $Stock, $Target]" />
+                    <param name="Text" value="'RETURN SKIP: %1 %2 stock %3 not above keep %4'.[$Station.knownname, $Ware.name, $Stock, $Keep]" />
                   </run_actions>
                 </do_if>
               </do_if>
