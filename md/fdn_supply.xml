@@ -1056,7 +1056,8 @@
       then find_sell_offer per sector (space = sector, as vanilla gs_trade.xml:38 and order.trade.middleman.xml:476).
       Usable offer: available, isselloffer, seller exists, seller not player-owned, within range (09l: block reasons counted separately), cantradewith.{home DC},
       seller not hostile to the player, seller not trade-restricted for the ware, amount gt 0,
-      unitprice le the supplied station's own buyprice.{ware} (the cap, set by X4 and the player's price override).
+      unitprice le the cap. Card X4-18e: the cap is the home DC's buyprice.{ware} (set on the DC, Matt's choice); if the DC has
+      no buy price for the ware (null or 0) the supplied station's own buyprice.{ware} is used, as before. A DC supplying itself uses its own price.
       Ranked cheapest first, then fewest jumps. Throttle: one check per station and ware per 120 s of game time,
       kept in md.FDN_Core.Init.$NpcLog, a list of [station, ware, time] (nothing stored on the station).
       Card 09p: returns [Ranked, WhyKind, WhyText, Cap] for Npc_Buy (WhyKind '' when offers are usable, else 'npc-none'
@@ -1109,7 +1110,16 @@
           <param name="Station" value="$Station" />
           <param name="Key" value="'RangeMaxJumps'" />
         </run_actions>
-        <set_value name="$Cap" exact="@$Station.buyprice.{$Ware}" comment="VERIFY: buyprice.{ware} on a player station for a resource (scriptproperties.xml:716)" />
+        <set_value name="$Cap" exact="@$Station.buyprice.{$Ware}" comment="VERIFY: buyprice.{ware} on a player station for a resource (scriptproperties.xml:716). Card X4-18e: fallback cap" />
+        <set_value name="$CapFromDC" exact="false" comment="card X4-18e" />
+        <do_if value="$Home != null and $Home.exists and $Home != $Station" comment="card X4-18e: the home DC buy price is the cap when it has one">
+          <set_value name="$DCap" exact="@$Home.buyprice.{$Ware}" />
+          <do_if value="$DCap != null and $DCap gt 0Cr">
+            <set_value name="$Cap" exact="$DCap" />
+            <set_value name="$CapFromDC" exact="true" />
+          </do_if>
+        </do_if>
+        <set_value name="$CapText" exact="if $CapFromDC then 'the DC buy price is %1 (raise the buy price for %2 on %3 to allow NPC buying)'.[(if $Cap != null then $Cap.formatted.default + ' Cr' else '?'), $Ware.name, $Home.knownname] else 'the station buy price is %1 (DC %3 has no buy price for %2; set one on the DC, or raise the station buy price, to allow NPC buying)'.[(if $Cap != null then $Cap.formatted.default + ' Cr' else '?'), $Ware.name, (if $Home != null and $Home.exists then $Home.knownname else '?')]" comment="card X4-18e: skip text says which price was used" />
         <set_value name="$HomeName" exact="if $Home != null and $Home.exists then $Home.knownname else '?'" />
         <do_if value="$Limit">
           <find_sector_in_range name="$Sectors" object="$Station" maxdistance="$MaxJumps" multiple="true" />
@@ -1229,10 +1239,10 @@
           </do_elseif>
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="3" />
-            <param name="Text" value="'NPC CHECK: no usable offer for %1 at %2: %3 (blocked %4: player-owned %5, hostile %6, cannot-trade %8, restricted(info only) %7'.[$Ware.name, $Station.knownname, $Why, $NBlocked, $NPlayer, $NHostile, $NRestricted, $NCantrade] + '; out of range %1, empty %2, over cap %3, cap %4)'.[$NRange, $NEmpty, $NOver, (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')]" />
+            <param name="Text" value="'NPC CHECK: no usable offer for %1 at %2: %3 (blocked %4: player-owned %5, hostile %6, cannot-trade %8, restricted(info only) %7'.[$Ware.name, $Station.knownname, $Why, $NBlocked, $NPlayer, $NHostile, $NRestricted, $NCantrade] + '; out of range %1, empty %2, over cap %3, cap %4 from %5)'.[$NRange, $NEmpty, $NOver, (if $Cap != null then $Cap.formatted.default + ' Cr' else '?'), (if $CapFromDC then 'DC' else 'station')]" />
           </run_actions>
           <do_if value="$NOver gt 0 and $BestOver != null" comment="card 09p: at least one offer was rejected only by the cap">
-            <return value="[$Ranked, 'npc-price', 'NPC offers start at %1, the station buy price is %2 (raise the station buy price to allow NPC buying)'.[$BestOver.formatted.default + ' Cr', (if $Cap != null then $Cap.formatted.default + ' Cr' else '?')], $Cap]" />
+            <return value="[$Ranked, 'npc-price', 'NPC offers start at %1, '.[$BestOver.formatted.default + ' Cr'] + $CapText, $Cap]" />
           </do_if>
           <return value="[$Ranked, 'npc-none', 'no usable NPC offer: ' + $Why, $Cap]" />
         </do_if>
