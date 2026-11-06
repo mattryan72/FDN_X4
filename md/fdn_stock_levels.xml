@@ -389,7 +389,7 @@
         <do_all exact="State.$Ops.count" counter="$i">
           <set_value name="$Op" exact="State.$Ops.{$i}" />
           <set_value name="$W" exact="$Op.$Ware" />
-          <set_value name="$Has" exact="$Tbl.keys.list.indexof.{$W}" />
+          <set_value name="$Has" exact="$Tbl.{$W}?" />
           <do_if value="not $Op.$R? or $Op.$R.$ok != 1">
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="2" />
@@ -501,7 +501,7 @@
             </do_elseif>
           </do_if>
           <do_if value="$Ok == 1 and $Op.$Cmd == 'set'">
-            <do_if value="$Tbl != null and $Tbl.keys.list.indexof.{$W}">
+            <do_if value="$Tbl != null and $Tbl.{$W}?">
               <set_value name="$Tbl.{$W}.$Set" exact="$Op.$Amount" />
             </do_if>
             <run_actions ref="md.FDN_Core.Log">
@@ -510,7 +510,7 @@
             </run_actions>
           </do_if>
           <do_elseif value="$Ok == 1">
-            <do_if value="$Tbl != null and $Tbl.keys.list.indexof.{$W}">
+            <do_if value="$Tbl != null and $Tbl.{$W}?">
               <remove_value name="$Tbl.{$W}" />
             </do_if>
             <run_actions ref="md.FDN_Core.Log">

@@ -539,7 +539,7 @@
           <set_value name="$NowKeys" exact="$Now.keys.list" />
           <do_all exact="$NowKeys.count" counter="$w">
             <set_value name="$W" exact="$NowKeys.{$w}" />
-            <do_if value="not $Seen.keys.list.indexof.{$W} or $Seen.{$W} != $P">
+            <do_if value="not $Seen.{$W}? or $Seen.{$W} != $P">
               <set_value name="$Seen.{$W}" exact="$P" />
               <run_actions ref="md.FDN_Supply.Skip_Report">
                 <param name="Station" value="$DC" />
