@@ -1040,6 +1040,10 @@
         <do_if value="$Init.$Charters?">
           <do_if value="$Init.$Charters.{$Station}?">
             <remove_value name="$Init.$Charters.{$Station}" />
+            <run_actions ref="md.FDN_Stock_Levels.Request" comment="card X4-18k: restore any levels left on the former DC using the normal verified path">
+              <param name="Station" value="$Station" />
+              <param name="Restore" value="true" />
+            </run_actions>
             <do_if value="$Init.$DCStats?">
               <do_if value="$Init.$DCStats.{$Station}?">
                 <remove_value name="$Init.$DCStats.{$Station}" comment="card X4-15a: a new charter starts with fresh counters" />

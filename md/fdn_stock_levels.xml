@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <mdscript name="FDN_Stock_Levels" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
   <!--
+    Card X4-18k: no DC in range -> empty Want, using the existing verified restore path. Solo notice
+    is saved per station and emitted only after all saved originals are released; failed restores retry.
+    DC availability is checked live from charter keys and qualifying docks, not the cached poll DC list.
+    Charter_Clear can queue a forced restore; existing management switch requests use this same path.
     Card X4-18b. FDN sets the station's REAL Logical Overview storage levels (no FDN thresholds of its own).
     Matt's rules (t363/t364, updated X4-18g/X4-18h):
       Resources and intermediates (wares the station's operational production modules use), when ResourcesFdnManaged
@@ -78,6 +82,7 @@
     <library name="Request" purpose="run_actions">
       <params>
         <param name="Station" />
+        <param name="Restore" default="false" comment="card X4-18k: force existing originals back after charter ends" />
         <param name="DCs" default="null" comment="card X4-18c: DC list of the current poll pass (menu path passes none)" />
       </params>
       <actions>
@@ -90,7 +95,13 @@
         <do_if value="$Station == null">
           <return />
         </do_if>
-        <do_if value="not State.$Queue.indexof.{$Station} and not (State.$Busy == 1 and @State.$Station == $Station)">
+        <do_if value="$Restore">
+          <do_if value="not State.$Restore?">
+            <set_value name="State.$Restore" exact="table[]" />
+          </do_if>
+          <set_value name="State.$Restore.{$Station}" exact="true" />
+        </do_if>
+        <do_if value="not State.$Queue.indexof.{$Station} and ($Restore or not (State.$Busy == 1 and @State.$Station == $Station))">
           <append_to_list name="State.$Queue" exact="$Station" />
         </do_if>
         <signal_cue_instantly cue="Pump" />
@@ -101,6 +112,15 @@
     <library name="Sweep" purpose="run_actions">
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$StockSolo?">
+          <set_value name="$SoloKeys" exact="$Init.$StockSolo.keys.list" />
+          <do_all exact="$SoloKeys.count" counter="$k">
+            <set_value name="$S" exact="$SoloKeys.{$k}" />
+            <do_if value="$S == null or not $S.exists or not $S.isplayerowned">
+              <remove_value name="$Init.$StockSolo.{$S}" />
+            </do_if>
+          </do_all>
+        </do_if>
         <do_if value="not $Init.$StockLevels?">
           <return />
         </do_if>
@@ -125,13 +145,65 @@
             <run_actions ref="Is_DC" result="$IsDC">
               <param name="Station" value="$S" />
             </run_actions>
-            <do_if value="$IsDC or not md.FDN_Stations.Registry.$Stations.indexof.{$S}">
+            <run_actions ref="Service_Near" result="$HasDC">
+              <param name="Station" value="$S" />
+            </run_actions>
+            <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$ResOn">
+              <param name="Station" value="$S" />
+              <param name="Key" value="'ResourcesFdnManaged'" />
+            </run_actions>
+            <do_if value="$IsDC or not md.FDN_Stations.Registry.$Stations.indexof.{$S} or not $HasDC or $ResOn != 1" comment="card X4-18k: no DC / management off also hands back saved levels">
               <run_actions ref="Request">
                 <param name="Station" value="$S" />
               </run_actions>
             </do_if>
           </do_else>
         </do_all>
+      </actions>
+    </library>
+
+    <library name="Service_Near" purpose="run_actions">
+      <params><param name="Station" /></params>
+      <actions>
+        <set_value name="$Live" exact="[]" />
+        <do_if value="md.FDN_Core.Init.$Charters?">
+          <set_value name="$Keys" exact="md.FDN_Core.Init.$Charters.keys.list" />
+          <do_all exact="$Keys.count" counter="$i">
+            <set_value name="$DC" exact="$Keys.{$i}" />
+            <do_if value="$DC != null and $DC.exists and $DC.isplayerowned">
+              <run_actions ref="md.FDN_Core.Charter_Has_Dock" result="$Dock">
+                <param name="Station" value="$DC" />
+              </run_actions>
+              <do_if value="$Dock"><append_to_list name="$Live" exact="$DC" /></do_if>
+            </do_if>
+          </do_all>
+        </do_if>
+        <run_actions ref="md.FDN_Supply.Nearest_DC" result="$Near">
+          <param name="Station" value="$Station" />
+          <param name="DCs" value="$Live" />
+        </run_actions>
+        <return value="$Near.{2} ge 0" />
+      </actions>
+    </library>
+
+    <library name="Solo_Report" purpose="run_actions">
+      <params><param name="Station" /><param name="Count" /></params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$StockLevels.{$Station}?">
+          <do_if value="$Init.$StockLevels.{$Station}.keys.count gt 0"><return /></do_if>
+          <remove_value name="$Init.$StockLevels.{$Station}" />
+        </do_if>
+        <do_if value="not $Init.$StockSolo?">
+          <set_value name="$Init.$StockSolo" exact="table[]" />
+        </do_if>
+        <do_if value="not $Init.$StockSolo.{$Station}?">
+          <set_value name="$Init.$StockSolo.{$Station}" exact="true" />
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'SOLO: %1 has no DC in range, stock levels handed back to the game (%2 restored)'.[$Station.knownname, $Count]" />
+          </run_actions>
+        </do_if>
       </actions>
     </library>
 
@@ -173,6 +245,10 @@
         <do_if value="$IsDC">
           <return value="$Want" />
         </do_if>
+        <run_actions ref="Service_Near" result="$HasDC">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <do_if value="not $HasDC"><return value="$Want" /></do_if>
         <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$ResOn">
           <param name="Station" value="$Station" />
           <param name="Key" value="'ResourcesFdnManaged'" />
@@ -252,6 +328,30 @@
         <run_actions ref="Plan" result="$Want">
           <param name="Station" value="$Station" />
         </run_actions>
+        <set_value name="State.$SoloBatch" exact="false" />
+        <set_value name="State.$RestoreCount" exact="0" />
+        <run_actions ref="Service_Near" result="$HasDC">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <do_if value="$HasDC">
+          <do_if value="$Init.$StockSolo?">
+            <do_if value="$Init.$StockSolo.{$Station}?">
+              <remove_value name="$Init.$StockSolo.{$Station}" />
+            </do_if>
+          </do_if>
+        </do_if>
+        <do_elseif value="md.FDN_Stations.Registry.$Stations?">
+          <set_value name="State.$SoloBatch" exact="md.FDN_Stations.Registry.$Stations.indexof.{$Station} gt 0" />
+        </do_elseif>
+        <do_if value="State.$Restore?">
+          <do_if value="State.$Restore.{$Station}?">
+            <set_value name="$Want" exact="table[]" />
+            <!-- Keep forced restore pending until all originals are verified released. -->
+          </do_if>
+        </do_if>
+        <do_if value="$Init.$StockLevels.{$Station}?">
+          <set_value name="State.$RestoreCount" exact="$Init.$StockLevels.{$Station}.keys.count" />
+        </do_if>
         <set_value name="$Ops" exact="[]" />
         <set_value name="$WKeys" exact="$Want.keys.list" />
         <do_all exact="$WKeys.count" counter="$i">
@@ -266,6 +366,17 @@
           </do_all>
         </do_if>
         <do_if value="$Ops.count == 0">
+          <do_if value="State.$Restore?">
+            <do_if value="State.$Restore.{$Station}?">
+              <remove_value name="State.$Restore.{$Station}" />
+            </do_if>
+          </do_if>
+          <do_if value="State.$SoloBatch">
+            <run_actions ref="Solo_Report">
+              <param name="Station" value="$Station" />
+              <param name="Count" value="0" />
+            </run_actions>
+          </do_if>
           <return />
         </do_if>
         <set_value name="State.$Token" exact="State.$Token + 1" />
@@ -349,6 +460,16 @@
              $Go flag instead, and Finish is always the LAST action (it restarts the queue synchronously). -->
         <set_value name="$Go" exact="$Station.exists and $Station.owner == faction.player" />
         <set_value name="$Apply" exact="[]" />
+        <do_if value="$Go" comment="card X4-18k: settings/range may have changed while Lua read was in flight">
+          <run_actions ref="Plan" result="$NowWant">
+            <param name="Station" value="$Station" />
+          </run_actions>
+          <do_all exact="State.$Ops.count" counter="$n">
+            <do_if value="not $NowWant.{State.$Ops.{$n}.$Ware}?">
+              <set_value name="State.$Ops.{$n}.$Want" exact="-1" />
+            </do_if>
+          </do_all>
+        </do_if>
         <do_if value="$Go">
         <do_if value="not $Init.$StockLevels.{$Station}?">
           <set_value name="$Init.$StockLevels.{$Station}" exact="table[]" />
@@ -511,6 +632,23 @@
 
     <library name="Finish">
       <actions>
+        <do_if value="State.$Restore? and State.$Station?">
+          <do_if value="State.$Restore.{State.$Station}?">
+            <set_value name="$Remaining" exact="0" />
+            <do_if value="md.FDN_Core.Init.$StockLevels.{State.$Station}?">
+              <set_value name="$Remaining" exact="md.FDN_Core.Init.$StockLevels.{State.$Station}.keys.count" />
+            </do_if>
+            <do_if value="$Remaining == 0">
+              <remove_value name="State.$Restore.{State.$Station}" />
+            </do_if>
+          </do_if>
+        </do_if>
+        <do_if value="State.$SoloBatch? and State.$SoloBatch">
+          <run_actions ref="Solo_Report">
+            <param name="Station" value="State.$Station" />
+            <param name="Count" value="State.$RestoreCount" />
+          </run_actions>
+        </do_if>
         <set_value name="State.$Busy" exact="0" />
         <set_value name="State.$Phase" exact="''" />
         <set_value name="State.$Ops" exact="[]" />
