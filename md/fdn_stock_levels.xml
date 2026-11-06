@@ -376,15 +376,16 @@
       <actions>
         <set_value name="$Station" exact="State.$Station" />
         <set_value name="$Init" exact="md.FDN_Core.Init" />
-        <do_if value="not $Station.exists or $Station.owner != faction.player">
-          <include_actions ref="Finish" />
-          <return />
-        </do_if>
+        <!-- Card X4-18d: no early <return/> here. This library is included into On_Done, where <return/> did NOT stop
+             the actions (fdn.log: the next station's read was taken over by an empty apply). Plain if/else with a
+             $Go flag instead, and Finish is always the LAST action (it restarts the queue synchronously). -->
+        <set_value name="$Go" exact="$Station.exists and $Station.owner == faction.player" />
+        <set_value name="$Apply" exact="[]" />
+        <do_if value="$Go">
         <do_if value="not $Init.$StockLevels.{$Station}?">
           <set_value name="$Init.$StockLevels.{$Station}" exact="table[]" />
         </do_if>
         <set_value name="$Tbl" exact="$Init.$StockLevels.{$Station}" />
-        <set_value name="$Apply" exact="[]" />
         <do_all exact="State.$Ops.count" counter="$i">
           <set_value name="$Op" exact="State.$Ops.{$i}" />
           <set_value name="$W" exact="$Op.$Ware" />
@@ -455,10 +456,11 @@
             </do_else>
           </do_elseif>
         </do_all>
-        <do_if value="$Apply.count == 0">
-          <include_actions ref="Finish" />
-          <return />
         </do_if>
+        <do_if value="not $Go or $Apply.count == 0" comment="card X4-18d: nothing to apply: no token change, nothing sent, no timer">
+          <include_actions ref="Finish" />
+        </do_if>
+        <do_else>
         <set_value name="State.$Token" exact="State.$Token + 1" comment="new token: late read replies are stale" />
         <set_value name="State.$Phase" exact="'apply'" />
         <set_value name="State.$Ops" exact="$Apply" />
@@ -472,6 +474,7 @@
         <raise_lua_event name="'FDN_StockLevels.Command'" />
         <set_value name="State.$SentAt" exact="player.age" />
         <signal_cue_instantly cue="Watchdog" param="State.$Token" />
+        </do_else>
       </actions>
     </library>
 
