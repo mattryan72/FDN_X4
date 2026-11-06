@@ -20,8 +20,10 @@
       $Activity  : card X4-15e, saved list for the FDN Overview 'Recent activity' section, newest first, at most 50
                    entries [time, kind, ware, qty, from name, to name, fee] (see Activity_Add). Card X4-16b: cap 10 -> 50,
                    skip entries add [.., reason, skip kind] (9 items); older 7-item entries still read fine.
-      $FeeTrend  : card X4-16d, saved table for the FDN Overview fee trend, station -> table[$Start, $B]: $B is a list of
-                   24 hourly fee totals, newest first, $Start the game time the newest bucket began (see DC_Stat_Add).
+      $FeeTrend  : card X4-16d/18j, saved table for the FDN Overview fee trend, station -> table[$Start, $B, $Supply,
+                   $Return, $Collect]: $B total hourly fees; kind lists same shape. Missing kind lists read as 0 (old saves).
+      $LastSupply: card X4-18j, station -> ware -> time of last successful FDN supply (collect anti-ping-pong).
+      $SkipWarn  : card X4-18j, station -> ware -> table[$Kind, $Reason] last WARN fingerprint for Skip_Report.
       $NoDcWarned: card X4-14c, true once the 'no DC exists' warning was written this session (reset on load).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
@@ -59,6 +61,12 @@
         </do_if>
         <do_if value="not $FeeTrend?">
           <set_value name="$FeeTrend" exact="table[]" comment="card X4-16d: hourly fee buckets per DC for the FDN Overview page" />
+        </do_if>
+        <do_if value="not $LastSupply?">
+          <set_value name="$LastSupply" exact="table[]" comment="card X4-18j: station -> ware -> last FDN supply time (collect anti-ping-pong)" />
+        </do_if>
+        <do_if value="not $SkipWarn?">
+          <set_value name="$SkipWarn" exact="table[]" comment="card X4-18j: station -> ware -> table[$Kind, $Reason] last WARN fingerprint" />
         </do_if>
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
@@ -188,7 +196,10 @@
             <set_value name="$Defaults.{'$ProductsFdnManaged'}" exact="1" comment="1 = this station's products go to its nearest DC (card 9c)" />
             <set_value name="$Defaults.{'$ProductMinBatch'}" exact="100" comment="card 9c: smallest amount of a product sent to the DC in one go" />
             <set_value name="$Defaults.{'$ProductCyclesToKeep'}" exact="0" comment="card X4-18i: cycles of each product a station keeps before returning the rest. 0 = return all above ProductMinBatch. ProductKeepWare overrides per ware when set" />
-            <set_value name="$Defaults.{'$OverstockTriggerPct'}" exact="10" comment="card X4-17a/18i: only collect when stock is this percent above keep (0 = any surplus). Dual-use keep = CyclesToCover required; other resources = cargo.target. 0 to 100" />
+            <set_value name="$Defaults.{'$OverstockTriggerPct'}" exact="10" comment="card X4-17a/18i: pure resources only: collect when stock above keep by this percent. Dual-use uses DualUseCollectTriggerPct / DualUseKeepPct" />
+            <set_value name="$Defaults.{'$DualUseCollectTriggerPct'}" exact="200" comment="card X4-18j: dual-use collect only when stock gt required x this / 100 (200 = 2x required). Hidden" />
+            <set_value name="$Defaults.{'$DualUseKeepPct'}" exact="150" comment="card X4-18j: dual-use collect down to required x this / 100 (150 = 1.5x required). Hidden" />
+            <set_value name="$Defaults.{'$CollectAfterSupplyGap'}" exact="600" comment="card X4-18j: seconds after an FDN supply before that station+ware may be collected. Hidden" />
             <set_value name="$Defaults.{'$ProductKeepWare'}" exact="table[]" comment="card 9c/18i: per-ware keep amount override for returns, ware -> amount. When set for a ware it overrides ProductCyclesToKeep for that ware" />
 
             <!-- ===== FDN charter (card X4-14a: settings only, nothing charges or uses a charter yet) ===== -->
@@ -734,10 +745,9 @@
         NPC buy    (Npc_Buy)              home DC: +fee only (it pays). No supply or units, the stock came from an NPC
       Counters only start when this card is installed; earlier activity is not counted.
         DC_Stat_Add params DC[, Supplies, Returns, Units, Fee]  adds to the counters. Returns true, false if the DC is gone
-      Card X4-16d: a fee above 0 also goes into md.FDN_Core.Init.$FeeTrend.{DC} = table[$Start, $B] (24 hourly buckets,
-      newest first). When 1 hour or more has passed since $Start, one zero bucket per whole hour passed is put in front
-      (at most 24), the list is cut to 24 and $Start moves on by those whole hours; then the fee is added to bucket 1.
-      Stations that no longer exist are purged here; Charter_Clear removes the entry. Additions only, no money x float.
+      Card X4-16d/18j: a fee above 0 also goes into md.FDN_Core.Init.$FeeTrend.{DC} = table[$Start, $B, $Supply,
+      $Return, $Collect] (24 hourly buckets each, newest first). FeeKind selects the kind list; $B always gets the fee.
+      Aging matches 16d for all lists. Old saves without kind lists get zeros on first write. Additions only, no money x float.
     -->
     <library name="DC_Stat_Add" purpose="run_actions">
       <params>
@@ -746,6 +756,7 @@
         <param name="Returns" default="0" />
         <param name="Units" default="0" />
         <param name="Fee" default="0Cr" />
+        <param name="FeeKind" default="'supply'" comment="card X4-18j: 'supply' | 'return' | 'collect' for FeeTrend kind buckets" />
       </params>
       <actions>
         <do_if value="$DC == null or not $DC.exists">
@@ -774,24 +785,55 @@
             </do_if>
           </do_all>
           <do_if value="not $Init.$FeeTrend.{$DC}?">
-            <set_value name="$Init.$FeeTrend.{$DC}" exact="table[$Start = player.age, $B = [0Cr]]" comment="station object as table key, same as $DCStats" />
+            <set_value name="$Init.$FeeTrend.{$DC}" exact="table[$Start = player.age, $B = [0Cr], $Supply = [0Cr], $Return = [0Cr], $Collect = [0Cr]]" comment="card X4-18j: totals + per-kind hourly buckets" />
           </do_if>
           <set_value name="$Tr" exact="$Init.$FeeTrend.{$DC}" />
+          <do_if value="not $Tr.$Supply?" comment="card X4-18j: old saves have only $B; kind lists start at 0">
+            <set_value name="$Tr.$Supply" exact="[]" />
+            <set_value name="$Tr.$Return" exact="[]" />
+            <set_value name="$Tr.$Collect" exact="[]" />
+            <do_all exact="$Tr.$B.count" counter="$h">
+              <append_to_list name="$Tr.$Supply" exact="0Cr" />
+              <append_to_list name="$Tr.$Return" exact="0Cr" />
+              <append_to_list name="$Tr.$Collect" exact="0Cr" />
+            </do_all>
+          </do_if>
           <set_value name="$Hrs" exact="((player.age - $Tr.$Start) / 3600s)i" />
           <do_if value="$Hrs ge 1">
             <set_value name="$NewB" exact="[]" />
+            <set_value name="$NewS" exact="[]" />
+            <set_value name="$NewR" exact="[]" />
+            <set_value name="$NewC" exact="[]" />
             <do_all exact="[$Hrs, 24].min" counter="$h">
               <append_to_list name="$NewB" exact="0Cr" />
+              <append_to_list name="$NewS" exact="0Cr" />
+              <append_to_list name="$NewR" exact="0Cr" />
+              <append_to_list name="$NewC" exact="0Cr" />
             </do_all>
             <do_all exact="$Tr.$B.count" counter="$h">
               <do_if value="$NewB.count lt 24">
                 <append_to_list name="$NewB" exact="$Tr.$B.{$h}" />
+                <append_to_list name="$NewS" exact="$Tr.$Supply.{$h}" />
+                <append_to_list name="$NewR" exact="$Tr.$Return.{$h}" />
+                <append_to_list name="$NewC" exact="$Tr.$Collect.{$h}" />
               </do_if>
             </do_all>
             <set_value name="$Tr.$B" exact="$NewB" />
+            <set_value name="$Tr.$Supply" exact="$NewS" />
+            <set_value name="$Tr.$Return" exact="$NewR" />
+            <set_value name="$Tr.$Collect" exact="$NewC" />
             <set_value name="$Tr.$Start" exact="$Tr.$Start + $Hrs * 3600s" />
           </do_if>
           <set_value name="$Tr.$B.{1}" exact="$Tr.$B.{1} + $Fee" />
+          <do_if value="$FeeKind == 'collect'">
+            <set_value name="$Tr.$Collect.{1}" exact="$Tr.$Collect.{1} + $Fee" />
+          </do_if>
+          <do_elseif value="$FeeKind == 'return'">
+            <set_value name="$Tr.$Return.{1}" exact="$Tr.$Return.{1} + $Fee" />
+          </do_elseif>
+          <do_else>
+            <set_value name="$Tr.$Supply.{1}" exact="$Tr.$Supply.{1} + $Fee" comment="supply, pull home fee, NPC fee" />
+          </do_else>
         </do_if>
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="4" />
@@ -876,6 +918,13 @@
           <do_if value="$Init.$Attention.{$Station}?">
             <do_if value="$Init.$Attention.{$Station}.$Ware == $Ware">
               <remove_value name="$Init.$Attention.{$Station}" />
+            </do_if>
+          </do_if>
+        </do_if>
+        <do_if value="$Station != null and $Init.$SkipWarn?" comment="card X4-18j: successful move clears WARN fingerprint so a later skip WARNs again">
+          <do_if value="$Init.$SkipWarn.{$Station}?">
+            <do_if value="$Init.$SkipWarn.{$Station}.{$Ware}?">
+              <remove_value name="$Init.$SkipWarn.{$Station}.{$Ware}" />
             </do_if>
           </do_if>
         </do_if>
@@ -999,6 +1048,16 @@
             <do_if value="$Init.$FeeTrend?">
               <do_if value="$Init.$FeeTrend.{$Station}?">
                 <remove_value name="$Init.$FeeTrend.{$Station}" comment="card X4-16d: fee trend starts fresh with a new charter" />
+              </do_if>
+            </do_if>
+            <do_if value="$Init.$LastSupply?" comment="card X4-18j">
+              <do_if value="$Init.$LastSupply.{$Station}?">
+                <remove_value name="$Init.$LastSupply.{$Station}" />
+              </do_if>
+            </do_if>
+            <do_if value="$Init.$SkipWarn?" comment="card X4-18j">
+              <do_if value="$Init.$SkipWarn.{$Station}?">
+                <remove_value name="$Init.$SkipWarn.{$Station}" />
               </do_if>
             </do_if>
             <run_actions ref="md.FDN_Core.Log">

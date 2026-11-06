@@ -56,9 +56,11 @@
       'Last 1h' = the current, partly filled hour bucket; 'last 6h' = the current hour plus the 5 before it; 'last 24h' =
       the current hour plus the 23 before it. Buckets are aged at display time without writing anything. One
       'Network fees' row under the summary row and one 'Fees (last 1h / 6h / 24h)' row per DC after its totals row.
-      The DC tables now stop at $Max - 23 (127); worst case about 156 rows.
+      The DC tables now stop at $Max - 25 (125); worst case about 158 rows with fee breakdown rows.
     - Card X4-17a (display only here): activity kind 'collect' (overstock resources moved to a DC) shows in All
       and under Returns. Skip kind 'overstock' still appears in Problems. No new rows added to the DC tables.
+    - Card X4-18j (display only here): Network fees and per-DC Fees keep the totals line; one breakdown row under
+      each (supply | return | collect for 1h/6h/24h). Old saves without kind buckets show 0 Cr per kind.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -125,35 +127,70 @@
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'DCs online: %1'.[$DCs.count]]" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 3, $text = 'Totals: %1 sent, %2 returned, %3 units, %4 fees'.[$Sum.$Supplies, $Sum.$Returns, $Sum.$Units, $Sum.$Fees.formatted.default + ' Cr']]" />
         <set_value name="$Rows" exact="$Rows + 1" />
-        <set_value name="$Trend" exact="table[]" comment="card X4-16d: DC -> [fees last 1h, 6h, 24h], aged at display time, nothing written" />
+        <set_value name="$Trend" exact="table[]" comment="card X4-16d/18j: DC -> table[$T,$S,$R,$C] each [1h,6h,24h], aged at display, nothing written" />
         <set_value name="$Net" exact="[0Cr, 0Cr, 0Cr]" />
+        <set_value name="$NetS" exact="[0Cr, 0Cr, 0Cr]" />
+        <set_value name="$NetR" exact="[0Cr, 0Cr, 0Cr]" />
+        <set_value name="$NetC" exact="[0Cr, 0Cr, 0Cr]" />
         <do_all exact="$DCs.count" counter="$d">
           <set_value name="$T3" exact="[0Cr, 0Cr, 0Cr]" />
+          <set_value name="$S3" exact="[0Cr, 0Cr, 0Cr]" />
+          <set_value name="$R3" exact="[0Cr, 0Cr, 0Cr]" />
+          <set_value name="$C3" exact="[0Cr, 0Cr, 0Cr]" />
           <do_if value="$Init.$FeeTrend?">
             <do_if value="$Init.$FeeTrend.{$DCs.{$d}}?">
               <set_value name="$Tr" exact="$Init.$FeeTrend.{$DCs.{$d}}" />
               <set_value name="$Hrs" exact="((player.age - $Tr.$Start) / 3600s)i" comment="whole hours since the newest bucket began" />
               <do_all exact="$Tr.$B.count" counter="$b">
                 <set_value name="$Age" exact="$b - 1 + $Hrs" comment="hours back from the current hour" />
+                <set_value name="$Sv" exact="0Cr" />
+                <set_value name="$Rv" exact="0Cr" />
+                <set_value name="$Cv" exact="0Cr" />
+                <do_if value="$Tr.$Supply?" comment="card X4-18j: old saves without kind lists read as 0">
+                  <set_value name="$Sv" exact="$Tr.$Supply.{$b}" />
+                  <set_value name="$Rv" exact="$Tr.$Return.{$b}" />
+                  <set_value name="$Cv" exact="$Tr.$Collect.{$b}" />
+                </do_if>
                 <do_if value="$Age lt 1">
                   <set_value name="$T3.{1}" exact="$T3.{1} + $Tr.$B.{$b}" />
+                  <set_value name="$S3.{1}" exact="$S3.{1} + $Sv" />
+                  <set_value name="$R3.{1}" exact="$R3.{1} + $Rv" />
+                  <set_value name="$C3.{1}" exact="$C3.{1} + $Cv" />
                 </do_if>
                 <do_if value="$Age lt 6">
                   <set_value name="$T3.{2}" exact="$T3.{2} + $Tr.$B.{$b}" />
+                  <set_value name="$S3.{2}" exact="$S3.{2} + $Sv" />
+                  <set_value name="$R3.{2}" exact="$R3.{2} + $Rv" />
+                  <set_value name="$C3.{2}" exact="$C3.{2} + $Cv" />
                 </do_if>
                 <do_if value="$Age lt 24">
                   <set_value name="$T3.{3}" exact="$T3.{3} + $Tr.$B.{$b}" />
+                  <set_value name="$S3.{3}" exact="$S3.{3} + $Sv" />
+                  <set_value name="$R3.{3}" exact="$R3.{3} + $Rv" />
+                  <set_value name="$C3.{3}" exact="$C3.{3} + $Cv" />
                 </do_if>
               </do_all>
             </do_if>
           </do_if>
-          <set_value name="$Trend.{$DCs.{$d}}" exact="$T3" />
+          <set_value name="$Trend.{$DCs.{$d}}" exact="table[$T = $T3, $S = $S3, $R = $R3, $C = $C3]" />
           <set_value name="$Net.{1}" exact="$Net.{1} + $T3.{1}" />
           <set_value name="$Net.{2}" exact="$Net.{2} + $T3.{2}" />
           <set_value name="$Net.{3}" exact="$Net.{3} + $T3.{3}" />
+          <set_value name="$NetS.{1}" exact="$NetS.{1} + $S3.{1}" />
+          <set_value name="$NetS.{2}" exact="$NetS.{2} + $S3.{2}" />
+          <set_value name="$NetS.{3}" exact="$NetS.{3} + $S3.{3}" />
+          <set_value name="$NetR.{1}" exact="$NetR.{1} + $R3.{1}" />
+          <set_value name="$NetR.{2}" exact="$NetR.{2} + $R3.{2}" />
+          <set_value name="$NetR.{3}" exact="$NetR.{3} + $R3.{3}" />
+          <set_value name="$NetC.{1}" exact="$NetC.{1} + $C3.{1}" />
+          <set_value name="$NetC.{2}" exact="$NetC.{2} + $C3.{2}" />
+          <set_value name="$NetC.{3}" exact="$NetC.{3} + $C3.{3}" />
         </do_all>
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Network fees (last 1h / 6h / 24h): %1 / %2 / %3'.[$Net.{1}.formatted.default + ' Cr', $Net.{2}.formatted.default + ' Cr', $Net.{3}.formatted.default + ' Cr']]" comment="card X4-16d" />
+        <set_value name="$Rows" exact="$Rows + 1" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '  supply %1 / %2 / %3 | return %4 / %5 / %6 | collect %7 / %8 / %9'.[$NetS.{1}.formatted.default + ' Cr', $NetS.{2}.formatted.default + ' Cr', $NetS.{3}.formatted.default + ' Cr', $NetR.{1}.formatted.default + ' Cr', $NetR.{2}.formatted.default + ' Cr', $NetR.{3}.formatted.default + ' Cr', $NetC.{1}.formatted.default + ' Cr', $NetC.{2}.formatted.default + ' Cr', $NetC.{3}.formatted.default + ' Cr']]" comment="card X4-18j" />
         <set_value name="$Rows" exact="$Rows + 1" />
 
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" comment="card X4-15e: Needs attention" />
@@ -215,7 +252,7 @@
         </do_if>
 
         <do_all exact="$DCs.count" counter="$d">
-          <do_if value="$Rows ge $Max - 23" comment="card X4-15f/16a/16c/16d: room for Recent activity (heading, control row, 2 rows per entry), the Network row and the fee trend row">
+          <do_if value="$Rows ge $Max - 25" comment="card X4-15f/16a/16c/16d/18j: room for Recent activity (heading, control row, 2 rows per entry), the Network row and the fee trend row">
             <set_value name="$Cut" exact="true" />
             <break />
           </do_if>
@@ -285,7 +322,7 @@
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
           <do_all exact="$Wares.count" counter="$w">
-            <do_if value="$Rows ge $Max - 23" comment="card X4-15f/16a/16c/16d: room for Recent activity (heading, control row, 2 rows per entry), the Network row and the fee trend row">
+            <do_if value="$Rows ge $Max - 25" comment="card X4-15f/16a/16c/16d/18j: room for Recent activity (heading, control row, 2 rows per entry), the Network row and the fee trend row">
               <set_value name="$Cut" exact="true" />
               <break />
             </do_if>
@@ -324,9 +361,13 @@
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Totals: %1 supplies sent, %2 returns received, %3 units moved, fees paid %4'.[$St.$Supplies, $St.$Returns, $St.$Units, $St.$Fees.formatted.default + ' Cr']]" />
           <set_value name="$Rows" exact="$Rows + 1" />
-          <set_value name="$T3" exact="$Trend.{$S}" comment="card X4-16d" />
+          <set_value name="$Td" exact="$Trend.{$S}" comment="card X4-16d/18j" />
+          <set_value name="$T3" exact="$Td.$T" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Fees (last 1h / 6h / 24h): %1 / %2 / %3'.[$T3.{1}.formatted.default + ' Cr', $T3.{2}.formatted.default + ' Cr', $T3.{3}.formatted.default + ' Cr']]" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '  supply %1 / %2 / %3 | return %4 / %5 / %6 | collect %7 / %8 / %9'.[$Td.$S.{1}.formatted.default + ' Cr', $Td.$S.{2}.formatted.default + ' Cr', $Td.$S.{3}.formatted.default + ' Cr', $Td.$R.{1}.formatted.default + ' Cr', $Td.$R.{2}.formatted.default + ' Cr', $Td.$R.{3}.formatted.default + ' Cr', $Td.$C.{1}.formatted.default + ' Cr', $Td.$C.{2}.formatted.default + ' Cr', $Td.$C.{3}.formatted.default + ' Cr']]" comment="card X4-18j" />
           <set_value name="$Rows" exact="$Rows + 1" />
           <do_if value="$Cut">
             <break />

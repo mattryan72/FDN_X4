@@ -70,6 +70,8 @@
                   <param name="Level" value="4" />
                   <param name="Text" value="'poll pass: %1 of %2 stations, starting at %3'.[$Visit, $Count, $Index]" />
                 </run_actions>
+                <set_value name="$InitPass" exact="md.FDN_Core.Init" />
+                <set_value name="$InitPass.$PassNeed" exact="table[]" comment="card X4-18j: DC -> ware -> need sum this pass" />
                 <do_all exact="$Visit" counter="$n">
                   <set_value name="$Station" exact="$Reg.$Stations.{$Index}" />
                   <run_actions ref="md.FDN_Core.Log">
@@ -131,6 +133,7 @@
                     <set_value name="$Index" exact="1" />
                   </do_if>
                 </do_all>
+                <run_actions ref="md.FDN_Supply.Lowstock_Flush" comment="card X4-18j: WARN when a DC usable stock is below this pass stations need" />
               </do_if>
             </do_if>
           </actions>
@@ -896,6 +899,21 @@
           </do_if>
           <do_if value="$Needs.{$Ware}? and not $IllegalIn">
             <set_value name="$Left" exact="$Needs.{$Ware}.{1}" />
+            <set_value name="$InitPN" exact="md.FDN_Core.Init" comment="card X4-18j: sum station need this pass for lowstock" />
+            <do_if value="not $InitPN.$PassNeed?">
+              <set_value name="$InitPN.$PassNeed" exact="table[]" />
+            </do_if>
+            <do_if value="$Home != null">
+              <do_if value="not $InitPN.$PassNeed.{$Home}?">
+                <set_value name="$InitPN.$PassNeed.{$Home}" exact="table[]" />
+              </do_if>
+              <do_if value="$InitPN.$PassNeed.{$Home}.{$Ware}?">
+                <set_value name="$InitPN.$PassNeed.{$Home}.{$Ware}" exact="$InitPN.$PassNeed.{$Home}.{$Ware} + $Left" />
+              </do_if>
+              <do_else>
+                <set_value name="$InitPN.$PassNeed.{$Home}.{$Ware}" exact="$Left" />
+              </do_else>
+            </do_if>
             <set_value name="$Moved" exact="0" />
             <set_value name="$Reason" exact="'no DC in range has spare stock'" />
             <set_value name="$Kind" exact="'supply'" />
@@ -1508,9 +1526,10 @@
                         <param name="DC" value="$Home" />
                         <param name="Entry" value="[player.age, $Station, $Ware, $Qty, $Fee, $Jumps, 'npc-buy', $Paid]" comment="card 09p: 8th field = ware cost" />
                       </run_actions>
-                      <run_actions ref="md.FDN_Core.DC_Stat_Add" comment="card X4-15a: DC counters, fee only (the home DC paid it, the stock came from an NPC)">
+                      <run_actions ref="md.FDN_Core.DC_Stat_Add" comment="card X4-15a/18j: NPC buy fee counted as supply">
                         <param name="DC" value="$Home" />
                         <param name="Fee" value="$Fee" />
+                        <param name="FeeKind" value="'supply'" />
                       </run_actions>
                       <run_actions ref="md.FDN_Core.Activity_Add" comment="card X4-15e: FDN Overview 'Recent activity', and clears this station's attention entry for the ware">
                         <param name="Kind" value="'NPC buy'" />
@@ -1777,6 +1796,7 @@
           <run_actions ref="md.FDN_Core.DC_Stat_Add">
             <param name="DC" value="$Home" />
             <param name="Fee" value="$Fee" />
+            <param name="FeeKind" value="'supply'" comment="card X4-18j: DC-to-DC pull fee counted as supply" />
           </run_actions>
         </do_if>
         <do_else comment="card X4-15a: DC counters. A DC supply: the DC sent it and paid the fee">
@@ -1785,6 +1805,7 @@
             <param name="Supplies" value="1" />
             <param name="Units" value="$Qty" />
             <param name="Fee" value="$Fee" />
+            <param name="FeeKind" value="'supply'" />
           </run_actions>
         </do_else>
         <run_actions ref="md.FDN_Core.Activity_Add" comment="card X4-15e: FDN Overview 'Recent activity', and clears this station's attention entry for the ware">
@@ -1796,6 +1817,14 @@
           <param name="Fee" value="$Fee" />
           <param name="Served" value="$Station" />
         </run_actions>
+        <set_value name="$InitLS" exact="md.FDN_Core.Init" comment="card X4-18j: last FDN supply time for collect anti-ping-pong" />
+        <do_if value="not $InitLS.$LastSupply?">
+          <set_value name="$InitLS.$LastSupply" exact="table[]" />
+        </do_if>
+        <do_if value="not $InitLS.$LastSupply.{$Station}?">
+          <set_value name="$InitLS.$LastSupply.{$Station}" exact="table[]" />
+        </do_if>
+        <set_value name="$InitLS.$LastSupply.{$Station}.{$Ware}" exact="player.age" />
         <return value="true" />
       </actions>
     </library>
@@ -1941,25 +1970,59 @@
         <param name="Ware" />
         <param name="Need" />
         <param name="Reason" />
-        <param name="Kind" default="'supply'" comment="card 9c: 'supply' or 'return', only changes the logbook title" />
+        <param name="Kind" default="'supply'" comment="card 9c: 'supply' or 'return', only changes the logbook title; card X4-18j also 'lowstock'" />
         <param name="NoMoney" default="false" comment="card 09o: true = skipped because a DC cannot pay, also shows the ticker (NotifyMoneySkip)" />
         <param name="LogOnly" default="false" comment="card 09q: true = fdn.log only, no in-game logbook entry" />
+        <param name="NeedTotal" default="0" comment="card X4-18j: lowstock only, stations need M (Need = usable N)" />
       </params>
       <actions>
-        <run_actions ref="md.FDN_Core.Log">
-          <param name="Level" value="2" />
-          <param name="Text" value="'SKIP: %1, %2 (need %3): %4'.[$Station.knownname, $Ware.name, $Need, $Reason]" />
-        </run_actions>
+        <set_value name="$QtyWord" exact="'need'" comment="card X4-18j: return/collect/illegal say stock; supply says need" />
+        <do_if value="$Kind == 'return' or $Kind == 'overstock' or $Kind == 'illegal'">
+          <set_value name="$QtyWord" exact="'stock'" />
+        </do_if>
+        <do_if value="$Kind == 'lowstock'" comment="card X4-18j">
+          <set_value name="$LogText" exact="'DC %1 is running low on %2: usable %3, stations need %4'.[$Station.knownname, $Ware.name, $Need, $NeedTotal]" />
+        </do_if>
+        <do_else>
+          <set_value name="$LogText" exact="'SKIP: %1, %2 (%3 %4): %5'.[$Station.knownname, $Ware.name, $QtyWord, $Need, $Reason]" />
+        </do_else>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$SkipWarn?">
+          <set_value name="$Init.$SkipWarn" exact="table[]" />
+        </do_if>
+        <set_value name="$Dup" exact="false" comment="card X4-18j: same station+ware+kind+reason already WARNed" />
+        <do_if value="$Station != null and $Station.exists">
+          <do_if value="$Init.$SkipWarn.{$Station}?">
+            <do_if value="$Init.$SkipWarn.{$Station}.{$Ware}?">
+              <set_value name="$Fp" exact="$Init.$SkipWarn.{$Station}.{$Ware}" />
+              <do_if value="$Fp.$Kind == $Kind and $Fp.$Reason == $Reason">
+                <set_value name="$Dup" exact="true" />
+              </do_if>
+            </do_if>
+          </do_if>
+        </do_if>
+        <do_if value="$Dup">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="$LogText" />
+          </run_actions>
+        </do_if>
+        <do_else>
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="$LogText" />
+          </run_actions>
+        </do_else>
         <do_if value="$LogOnly">
           <return />
         </do_if>
         <do_if value="not $Station.exists">
           <return />
         </do_if>
-        <run_actions ref="md.FDN_Core.Attention_Set" comment="card X4-15e: latest skip per station for the FDN Overview 'Needs attention' section (not for LogOnly skips)">
+        <run_actions ref="md.FDN_Core.Attention_Set" comment="card X4-15e: always update Problems / Needs attention even when WARN is suppressed">
           <param name="Station" value="$Station" />
           <param name="Ware" value="$Ware" />
-          <param name="Reason" value="$Reason" />
+          <param name="Reason" value="if $Kind == 'lowstock' then $LogText else $Reason" />
           <param name="Kind" value="$Kind" />
         </run_actions>
         <run_actions ref="md.FDN_Core.Activity_Add" comment="card X4-16b: skip into the Recent activity history, de-duplicated there (no Served, nothing cleared)">
@@ -1969,13 +2032,19 @@
           <param name="From" value="null" />
           <param name="To" value="$Station" />
           <param name="Fee" value="0Cr" />
-          <param name="Reason" value="$Reason" />
+          <param name="Reason" value="if $Kind == 'lowstock' then $LogText else $Reason" />
           <param name="SkipKind" value="$Kind" />
         </run_actions>
+        <do_if value="not $Init.$SkipWarn.{$Station}?">
+          <set_value name="$Init.$SkipWarn.{$Station}" exact="table[]" />
+        </do_if>
+        <set_value name="$Init.$SkipWarn.{$Station}.{$Ware}" exact="table[$Kind = $Kind, $Reason = $Reason]" comment="card X4-18j: fingerprint; cleared by Attention_Clear on a successful move" />
+        <do_if value="$Dup" comment="card X4-18j: no second logbook entry while the fingerprint matches">
+          <return />
+        </do_if>
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Gap">
           <param name="Key" value="'LogbookSkipInterval'" />
         </run_actions>
-        <set_value name="$Init" exact="md.FDN_Core.Init" />
         <do_if value="not $Init.$SkipLog?">
           <set_value name="$Init.$SkipLog" exact="[]" />
         </do_if>
@@ -2015,6 +2084,9 @@
         <do_if value="$Kind == 'illegal'" comment="card X4-18c">
           <set_value name="$LbTitle" exact="'illegal ware blocked at %1'.[$Station.knownname]" />
         </do_if>
+        <do_elseif value="$Kind == 'lowstock'" comment="card X4-18j">
+          <set_value name="$LbTitle" exact="'DC %1 running low on stock'.[$Station.knownname]" />
+        </do_elseif>
         <do_elseif value="$Kind == 'pull-fallback'">
           <set_value name="$LbTitle" exact="'fee fallback at %1'.[$Station.knownname]" />
         </do_elseif>
@@ -2030,10 +2102,16 @@
         <do_elseif value="$Kind == 'npc-none'">
           <set_value name="$LbTitle" exact="'NPC stock short at %1'.[$Station.knownname]" />
         </do_elseif>
+        <do_if value="$Kind == 'lowstock'">
+          <set_value name="$LbText" exact="$LogText" />
+        </do_if>
+        <do_else>
+          <set_value name="$LbText" exact="'%1 (%2 %3): %4'.[$Ware.name, $QtyWord, $Need, $Reason]" />
+        </do_else>
         <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09o: upkeep + alerts, highlighted, title prefix and source FDN">
           <param name="Tier" value="'problem'" />
           <param name="Title" value="$LbTitle" />
-          <param name="Text" value="'%1 (need %2): %3'.[$Ware.name, $Need, $Reason]" />
+          <param name="Text" value="$LbText" />
           <param name="Object" value="$Station" />
           <param name="Notify" value="$NoMoney" />
           <param name="NotifyText" value="'%1 skipped at %2, DC cannot pay'.[$Ware.name, $Station.knownname]" />
@@ -2373,11 +2451,12 @@
                             <param name="Level" value="3" />
                             <param name="Text" value="'RETURN: %1 %2 from %3 to DC %4, %5 jumps, fee %6'.[$Qty, $Ware.name, $Station.knownname, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr']" />
                           </run_actions>
-                          <run_actions ref="md.FDN_Core.DC_Stat_Add" comment="card X4-15a: DC counters, the DC received it and paid the fee">
+                          <run_actions ref="md.FDN_Core.DC_Stat_Add" comment="card X4-15a/18j: return fee">
                             <param name="DC" value="$DC" />
                             <param name="Returns" value="1" />
                             <param name="Units" value="$Qty" />
                             <param name="Fee" value="$Fee" />
+                            <param name="FeeKind" value="'return'" />
                           </run_actions>
                           <run_actions ref="md.FDN_Core.Activity_Add" comment="card X4-15e: FDN Overview 'Recent activity', and clears this station's attention entry for the ware">
                             <param name="Kind" value="'return'" />
@@ -2446,6 +2525,78 @@
       collects per polled station visit. Fee: same base formula as Supply_Station. Legal-DC checks (18c).
       Card X4-18i: global OverstockCollect option removed; gated by ProductsFdnManaged instead.
     -->
+    <!--
+      Card X4-18j. After a poll pass: for each home DC + ware whose stations needed stock this pass,
+      if DC usable (after DCKeepPercent / DCKeepWare reserve) is below that need sum, Skip_Report
+      kind 'lowstock' once (deduped). Does not change NPC buying. PassNeed is session-only.
+    -->
+    <library name="Lowstock_Flush" purpose="run_actions">
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$PassNeed?">
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$KeepPct">
+          <param name="Key" value="'DCKeepPercent'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$KeepTbl">
+          <param name="Key" value="'DCKeepWare'" />
+        </run_actions>
+        <set_value name="$DCs" exact="$Init.$PassNeed.keys.list" />
+        <do_all exact="$DCs.count" counter="$d">
+          <set_value name="$DC" exact="$DCs.{$d}" />
+          <do_if value="$DC == null or not $DC.exists">
+            <continue />
+          </do_if>
+          <set_value name="$Wares" exact="$Init.$PassNeed.{$DC}.keys.list" />
+          <do_all exact="$Wares.count" counter="$w">
+            <set_value name="$Ware" exact="$Wares.{$w}" />
+            <set_value name="$NeedSum" exact="$Init.$PassNeed.{$DC}.{$Ware}" />
+            <do_if value="not ($NeedSum gt 0)">
+              <continue />
+            </do_if>
+            <set_value name="$Keep" exact="$KeepPct" />
+            <do_if value="$KeepTbl and $KeepTbl.{$Ware}?">
+              <set_value name="$Keep" exact="$KeepTbl.{$Ware}" />
+            </do_if>
+            <set_value name="$Stock" exact="$DC.cargo.{$Ware}.count" />
+            <set_value name="$Reserve" exact="($Stock * $Keep + 99) / 100" />
+            <set_value name="$Avail" exact="$Stock - $Reserve" />
+            <do_if value="$Avail lt 0">
+              <set_value name="$Avail" exact="0" />
+            </do_if>
+            <do_if value="$Avail lt $NeedSum">
+              <run_actions ref="md.FDN_Supply.Skip_Report">
+                <param name="Station" value="$DC" />
+                <param name="Ware" value="$Ware" />
+                <param name="Need" value="$Avail" />
+                <param name="NeedTotal" value="$NeedSum" />
+                <param name="Reason" value="'usable %1, stations need %2'.[$Avail, $NeedSum]" />
+                <param name="Kind" value="'lowstock'" />
+              </run_actions>
+            </do_if>
+            <do_else comment="card X4-18j: clear fingerprint when usable catches up so a later dip WARNs again">
+              <do_if value="$Init.$SkipWarn?">
+                <do_if value="$Init.$SkipWarn.{$DC}?">
+                  <do_if value="$Init.$SkipWarn.{$DC}.{$Ware}?">
+                    <do_if value="$Init.$SkipWarn.{$DC}.{$Ware}.$Kind == 'lowstock'">
+                      <remove_value name="$Init.$SkipWarn.{$DC}.{$Ware}" />
+                      <run_actions ref="md.FDN_Core.Attention_Clear">
+                        <param name="Station" value="$DC" />
+                        <param name="Ware" value="$Ware" />
+                      </run_actions>
+                    </do_if>
+                  </do_if>
+                </do_if>
+              </do_if>
+            </do_else>
+          </do_all>
+        </do_all>
+        <set_value name="$Init.$PassNeed" exact="table[]" />
+        <return />
+      </actions>
+    </library>
+
     <library name="Collect_Overstock" purpose="run_actions">
       <params>
         <param name="Station" />
@@ -2496,6 +2647,28 @@
         <do_if value="$TrigPct gt 100">
           <set_value name="$TrigPct" exact="100" />
         </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$DuTrigPct" comment="card X4-18j: dual-use collect trigger percent of required (200 = 2x)">
+          <param name="Key" value="'DualUseCollectTriggerPct'" />
+        </run_actions>
+        <do_if value="not ($DuTrigPct gt 0)">
+          <set_value name="$DuTrigPct" exact="200" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$DuKeepPct" comment="card X4-18j: dual-use keep percent of required (150 = 1.5x)">
+          <param name="Key" value="'DualUseKeepPct'" />
+        </run_actions>
+        <do_if value="not ($DuKeepPct gt 0)">
+          <set_value name="$DuKeepPct" exact="150" />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$SupplyGap" comment="card X4-18j: seconds after FDN supply before collect of that ware">
+          <param name="Key" value="'CollectAfterSupplyGap'" />
+        </run_actions>
+        <do_if value="not ($SupplyGap ge 0)">
+          <set_value name="$SupplyGap" exact="600" />
+        </do_if>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$LastSupply?">
+          <set_value name="$Init.$LastSupply" exact="table[]" />
+        </do_if>
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Pct">
           <param name="Key" value="'TransferFeePercent'" />
         </run_actions>
@@ -2532,10 +2705,13 @@
             <break />
           </do_if>
           <set_value name="$Ware" exact="$ResList.{$w}" />
-          <set_value name="$Target" exact="0" comment="keep amount: FDN required for dual-use, else cargo.target" />
-          <do_if value="$Made.indexof.{$Ware}" comment="card X4-18g: made here too, keep = FDN required, never cargo.target">
+          <set_value name="$Target" exact="0" comment="keep amount: dual-use = required x DualUseKeepPct/100; pure = cargo.target" />
+          <set_value name="$Dual" exact="false" />
+          <do_if value="$Made.indexof.{$Ware}" comment="card X4-18g/18j: made here too">
             <do_if value="$Req.{$Ware}? and $Req.{$Ware} gt 0">
-              <set_value name="$Target" exact="$Req.{$Ware}" />
+              <set_value name="$Required" exact="$Req.{$Ware}" />
+              <set_value name="$Target" exact="($Required * $DuKeepPct) / 100" comment="card X4-18j: keep = 1.5x required (integer)" />
+              <set_value name="$Dual" exact="true" />
             </do_if>
             <do_else>
               <continue />
@@ -2550,11 +2726,37 @@
             </do_if>
           </do_else>
           <set_value name="$Stock" exact="$Station.cargo.{$Ware}.count" />
-          <set_value name="$Threshold" exact="($Target * (100 + $TrigPct)) / 100" comment="whole-number maths; act only when stock is above keep by the trigger percent" />
-          <do_if value="not ($Stock gt $Threshold)">
-            <continue />
+          <do_if value="$Dual" comment="card X4-18j: trigger only when stock gt 2x required; after-supply gap">
+            <do_if value="$Init.$LastSupply.{$Station}?">
+              <do_if value="$Init.$LastSupply.{$Station}.{$Ware}?">
+                <set_value name="$Ago" exact="((player.age - $Init.$LastSupply.{$Station}.{$Ware}) / 1s)i" />
+                <do_if value="$Ago lt $SupplyGap">
+                  <run_actions ref="md.FDN_Core.Log">
+                    <param name="Level" value="4" />
+                    <param name="Text" value="'collect held: supplied %1 s ago (%2 %3 at %4)'.[$Ago, $Ware.name, $Station.knownname, $Stock]" />
+                  </run_actions>
+                  <continue />
+                </do_if>
+              </do_if>
+            </do_if>
+            <set_value name="$Threshold" exact="($Required * $DuTrigPct) / 100" comment="2x required" />
+            <do_if value="not ($Stock gt $Threshold)">
+              <do_if value="$Stock gt $Required" comment="would have been surplus under old 1x keep; log why held">
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="4" />
+                  <param name="Text" value="'below 2x required (%1 %2 at %3, required %4, trigger %5)'.[$Ware.name, $Station.knownname, $Stock, $Required, $Threshold]" />
+                </run_actions>
+              </do_if>
+              <continue />
+            </do_if>
           </do_if>
-          <set_value name="$Spare" exact="$Stock - $Target" comment="surplus above keep (required or allocation); never below keep" />
+          <do_else>
+            <set_value name="$Threshold" exact="($Target * (100 + $TrigPct)) / 100" comment="pure resources: unchanged OverstockTriggerPct above cargo.target" />
+            <do_if value="not ($Stock gt $Threshold)">
+              <continue />
+            </do_if>
+          </do_else>
+          <set_value name="$Spare" exact="$Stock - $Target" comment="surplus above keep; never below keep" />
           <do_if value="not ($Spare gt 0)">
             <continue />
           </do_if>
@@ -2682,11 +2884,12 @@
             <param name="Level" value="3" />
             <param name="Text" value="'COLLECT: %1 %2 from %3 to DC %4, %5 jumps, fee %6 (stock was %7, keep %8)'.[$Qty, $Ware.name, $Station.knownname, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr', $Stock, $Target]" />
           </run_actions>
-          <run_actions ref="md.FDN_Core.DC_Stat_Add" comment="card X4-17a: ware into the DC, same counters as a return; Fee goes into FeeTrend">
+          <run_actions ref="md.FDN_Core.DC_Stat_Add" comment="card X4-17a/18j: ware into the DC; FeeKind collect for FeeTrend">
             <param name="DC" value="$DC" />
             <param name="Returns" value="1" />
             <param name="Units" value="$Qty" />
             <param name="Fee" value="$Fee" />
+            <param name="FeeKind" value="'collect'" />
           </run_actions>
           <run_actions ref="md.FDN_Core.Activity_Add">
             <param name="Kind" value="'collect'" />
