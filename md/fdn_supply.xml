@@ -72,6 +72,18 @@
                     <param name="Level" value="4" />
                     <param name="Text" value="'poll visit: %1 (%2)'.[$Station.knownname, $Station]" />
                   </run_actions>
+                  <!-- Card X4-18a: hold supply/return/collect for the station under stock-limit proof -->
+                  <do_if value="md.FDN_Stock_Proof.State.$Busy? and md.FDN_Stock_Proof.State.$Busy == 1 and md.FDN_Stock_Proof.State.$Station == $Station">
+                    <run_actions ref="md.FDN_Core.Log">
+                      <param name="Level" value="3" />
+                      <param name="Text" value="'poll hold: %1 under stock-limit proof (phase %2)'.[$Station.knownname, md.FDN_Stock_Proof.State.$Phase]" />
+                    </run_actions>
+                    <set_value name="$Index" operation="add" />
+                    <do_if value="$Index gt $Count">
+                      <set_value name="$Index" exact="1" />
+                    </do_if>
+                    <continue />
+                  </do_if>
                   <run_actions ref="md.FDN_Supply.Nearest_DC" result="$Near">
                     <param name="Station" value="$Station" />
                     <param name="DCs" value="$DCs" />
@@ -628,6 +640,13 @@
       </params>
       <actions>
         <do_if value="not $Station.exists">
+          <return />
+        </do_if>
+        <do_if value="md.FDN_Stock_Proof.State.$Busy? and md.FDN_Stock_Proof.State.$Busy == 1 and md.FDN_Stock_Proof.State.$Station == $Station">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'stock-proof hold: skip %1 for %2 (phase %3)'.['Supply_Station', $Station.knownname, md.FDN_Stock_Proof.State.$Phase]" />
+          </run_actions>
           <return />
         </do_if>
         <run_actions ref="md.FDN_Supply.Candidate_DCs" result="$Cands">
@@ -1487,6 +1506,14 @@
           <set_value name="$Payer" exact="$Home" />
         </do_if>
         <set_value name="$Added" exact="0" />
+        <!-- Card X4-18a: refuse deliver into station under proof (Process_Pending should have deferred) -->
+        <do_if value="md.FDN_Stock_Proof.State.$Busy? and md.FDN_Stock_Proof.State.$Busy == 1 and md.FDN_Stock_Proof.State.$Station == $Station">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof hold: Deliver aborted for %1 (phase %2); caller should defer'.[$Station.knownname, md.FDN_Stock_Proof.State.$Phase]" />
+          </run_actions>
+          <return value="false" />
+        </do_if>
         <do_if value="$Station.exists and $Station.owner == faction.player">
           <add_cargo object="$Station" ware="$Ware" exact="$Qty" result="$Added" comment="proven in game: result is the amount added" />
         </do_if>
@@ -1667,17 +1694,27 @@
         <do_all exact="$All.count" counter="$i">
           <set_value name="$E" exact="$All.{$i}" />
           <do_if value="player.age ge $E.{1}">
-            <run_actions ref="md.FDN_Supply.Deliver">
-              <param name="DC" value="$E.{2}" />
-              <param name="Station" value="$E.{3}" />
-              <param name="Ware" value="$E.{4}" />
-              <param name="Qty" value="$E.{5}" />
-              <param name="Fee" value="$E.{6}" />
-              <param name="Jumps" value="$E.{7}" />
-              <param name="Home" value="if $E.count ge 8 then $E.{8} else null" comment="card 9f: entries queued before 9f have 7 fields" />
-              <param name="PayerBefore" value="if $E.count ge 10 then $E.{9} else null" comment="card 9h: entries queued before 9h have no balances" />
-              <param name="SrcBefore" value="if $E.count ge 10 then $E.{10} else null" />
-            </run_actions>
+            <!-- Card X4-18a: defer (do not drop) deliveries to the station under stock-limit proof -->
+            <do_if value="md.FDN_Stock_Proof.State.$Busy? and md.FDN_Stock_Proof.State.$Busy == 1 and md.FDN_Stock_Proof.State.$Station == $E.{3}">
+              <append_to_list name="$Keep" exact="$E" />
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="3" />
+                <param name="Text" value="'stock-proof hold: defer pending deliver to %1 (phase %2)'.[$E.{3}.knownname, md.FDN_Stock_Proof.State.$Phase]" />
+              </run_actions>
+            </do_if>
+            <do_else>
+              <run_actions ref="md.FDN_Supply.Deliver">
+                <param name="DC" value="$E.{2}" />
+                <param name="Station" value="$E.{3}" />
+                <param name="Ware" value="$E.{4}" />
+                <param name="Qty" value="$E.{5}" />
+                <param name="Fee" value="$E.{6}" />
+                <param name="Jumps" value="$E.{7}" />
+                <param name="Home" value="if $E.count ge 8 then $E.{8} else null" comment="card 9f: entries queued before 9f have 7 fields" />
+                <param name="PayerBefore" value="if $E.count ge 10 then $E.{9} else null" comment="card 9h: entries queued before 9h have no balances" />
+                <param name="SrcBefore" value="if $E.count ge 10 then $E.{10} else null" />
+              </run_actions>
+            </do_else>
           </do_if>
           <do_else>
             <append_to_list name="$Keep" exact="$E" />
@@ -1855,6 +1892,13 @@
       </params>
       <actions>
         <do_if value="not $Station.exists">
+          <return />
+        </do_if>
+        <do_if value="md.FDN_Stock_Proof.State.$Busy? and md.FDN_Stock_Proof.State.$Busy == 1 and md.FDN_Stock_Proof.State.$Station == $Station">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'stock-proof hold: skip %1 for %2 (phase %3)'.['Return_Products', $Station.knownname, md.FDN_Stock_Proof.State.$Phase]" />
+          </run_actions>
           <return />
         </do_if>
         <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Managed">
@@ -2175,6 +2219,13 @@
         <do_if value="not $Station.exists">
           <return />
         </do_if>
+        <do_if value="md.FDN_Stock_Proof.State.$Busy? and md.FDN_Stock_Proof.State.$Busy == 1 and md.FDN_Stock_Proof.State.$Station == $Station">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'stock-proof hold: skip %1 for %2 (phase %3)'.['Collect_Overstock', $Station.knownname, md.FDN_Stock_Proof.State.$Phase]" />
+          </run_actions>
+          <return />
+        </do_if>
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$Enabled">
           <param name="Key" value="'OverstockCollect'" />
         </run_actions>
@@ -2480,6 +2531,15 @@
               </do_if>
             </do_if>
             <do_if value="$Ready">
+              <!-- Card X4-18a: defer trigger (keep in queue) while station under stock-limit proof -->
+              <do_if value="md.FDN_Stock_Proof.State.$Busy? and md.FDN_Stock_Proof.State.$Busy == 1 and md.FDN_Stock_Proof.State.$Station == $Station">
+                <append_to_list name="$Keep" exact="$E" />
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="3" />
+                  <param name="Text" value="'stock-proof hold: defer trigger for %1 module %2 (phase %3)'.[$Station.knownname, $Module.knownname, md.FDN_Stock_Proof.State.$Phase]" />
+                </run_actions>
+              </do_if>
+              <do_else>
               <do_if value="$LastIdx gt 0">
                 <set_value name="$Init.$TriggerLast.{$LastIdx}" exact="[$Station, player.age, $LastLog]" />
               </do_if>
@@ -2513,6 +2573,7 @@
                   <param name="Module" value="$Module" />
                 </run_actions>
               </do_if>
+              </do_else>
             </do_if>
           </do_if>
           <do_else>

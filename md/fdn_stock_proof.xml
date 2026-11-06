@@ -1,0 +1,591 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mdscript name="FDN_Stock_Proof" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="md.xsd">
+  <!--
+    Card X4-18a. One-shot station stock-limit proof (revised blockers).
+    Player triggers from Interact Menu on one owned non-DC FDN-managed station.
+    Two-phase Lua: prepare (snapshot only, persisted on MD) then apply (+1 mutate).
+    MD reads cargo.{ware}.target while changed (delayed reread if first read unchanged),
+    then restores original automatic/manual amount. Unchanged MD target = NEGATIVE /
+    inconclusive, not success. Busy stays set until restore verified OR prepare failed
+    before any mutation. Unresolved (restore fail/timeout after possible mutation) keeps
+    Busy, refuses new proofs, surfaces snapshot; reload retries restore. No buy/sell/
+    price/trade edits. No cargo drain. Supply/Deliver/return/collect held while Busy.
+  -->
+  <cues>
+
+    <cue name="State" version="1">
+      <conditions>
+        <check_any>
+          <event_cue_signalled cue="md.Setup.Start" />
+          <event_game_loaded />
+        </check_any>
+      </conditions>
+      <actions>
+        <do_if value="not $Busy?"><set_value name="$Busy" exact="0" /></do_if>
+        <do_if value="not $Token?"><set_value name="$Token" exact="0" /></do_if>
+        <do_if value="not $Phase?"><set_value name="$Phase" exact="''" /></do_if>
+        <do_if value="not $RestoreVerified?"><set_value name="$RestoreVerified" exact="0" /></do_if>
+        <do_if value="not $HasSnapshot?"><set_value name="$HasSnapshot" exact="0" /></do_if>
+        <!-- preparing = prepare in flight, no mutation yet: safe to clear on reload -->
+        <do_if value="$Busy == 1 and $Phase == 'preparing'">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: reload during prepare (token %1); no mutation yet, clearing busy'.[$Token]" />
+          </run_actions>
+          <include_actions ref="Clear_Busy" />
+        </do_if>
+        <!-- Any phase with a persisted snapshot: retry restore (idempotent if apply never ran). -->
+        <do_elseif value="$Busy == 1 and $HasSnapshot == 1 and $Station? and $Station.exists and $Ware? and $HadOverride? and $AmountBefore?">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: reload recovery restore phase=%1 %2 / %3 token %4 had=%5 amount=%6'.[$Phase, @$Station.knownname, @$Ware.id, $Token, $HadOverride, $AmountBefore]" />
+          </run_actions>
+          <set_value name="$Phase" exact="'restoring'" />
+          <set_value name="$RestoreWatchTok" exact="$Token" />
+          <include_actions ref="Send_Restore" />
+          <signal_cue_instantly cue="Watchdog_Restore" />
+        </do_elseif>
+        <do_elseif value="$Busy == 1">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="1" />
+            <param name="Text" value="'stock-proof: reload Busy with no usable snapshot phase=%1 token=%2 - KEEP busy, refuse new proofs, CHECK LSO manually'.[$Phase, $Token]" />
+          </run_actions>
+          <set_value name="$Phase" exact="'unresolved'" />
+          <run_actions ref="md.FDN_Core.Logbook_Event">
+            <param name="Tier" value="'problem'" />
+            <param name="Title" value="'FDN stock-limit proof unresolved'" />
+            <param name="Text" value="'Proof Busy with no restore snapshot after reload. Do not save over this. Check Logical Station Overview; new proofs refused until cleared by a verified restore.'" />
+          </run_actions>
+        </do_elseif>
+      </actions>
+    </cue>
+
+    <cue name="On_Menu" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <do_if value="not md.FDN_Core.Init.$Defaults?">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: FDN not ready, abort'" />
+          </run_actions>
+        </do_if>
+        <do_elseif value="State.$Busy == 1">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: refused, busy phase=%1 token=%2 hasSnapshot=%3 had=%4 amount=%5 station=%6 ware=%7'.[State.$Phase, State.$Token, @State.$HasSnapshot, @State.$HadOverride, @State.$AmountBefore, @State.$Station.knownname, @State.$WareId]" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.Logbook_Event">
+            <param name="Tier" value="'problem'" />
+            <param name="Title" value="'FDN stock-limit proof busy'" />
+            <param name="Text" value="'Proof locked (phase %1). Snapshot had_override=%2 amount=%3 ware=%4 at %5. Wait for verified restore, or fix LSO manually and keep this save disposable. New proofs refused.'.[State.$Phase, @State.$HadOverride, @State.$AmountBefore, @State.$WareId, @State.$Station.knownname]" />
+            <param name="Object" value="State.$Station" />
+          </run_actions>
+        </do_elseif>
+        <do_elseif value="not event.param.$object?">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: menu callback missing station'" />
+          </run_actions>
+        </do_elseif>
+        <do_else>
+          <run_actions ref="Start_Proof">
+            <param name="Station" value="event.param.$object" />
+          </run_actions>
+        </do_else>
+      </actions>
+    </cue>
+
+    <library name="Start_Proof" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <do_if value="$Station == null or not $Station.exists or not $Station.isclass.station or not $Station.isplayerowned">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: skip, station gone or not owned'" />
+          </run_actions>
+          <return />
+        </do_if>
+        <set_value name="$IsDC" exact="false" />
+        <run_actions ref="md.FDN_Core.Charter_Get" result="$ChDC">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <do_if value="$ChDC != null">
+          <run_actions ref="md.FDN_Core.Charter_Has_Dock" result="$IsDC">
+            <param name="Station" value="$Station" />
+          </run_actions>
+        </do_if>
+        <do_if value="$IsDC">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: skip DC %1'.[$Station.knownname]" />
+          </run_actions>
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$ProdOn">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'ProductsFdnManaged'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$ResOn">
+          <param name="Station" value="$Station" />
+          <param name="Key" value="'ResourcesFdnManaged'" />
+        </run_actions>
+        <do_if value="not $ProdOn and not $ResOn">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: skip %1, not FDN-managed'.[$Station.knownname]" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.Logbook_Event">
+            <param name="Tier" value="'problem'" />
+            <param name="Title" value="'FDN stock-limit proof skipped'" />
+            <param name="Text" value="'%1 is not FDN-managed (resource supply and send products are both off).'.[$Station.knownname]" />
+            <param name="Object" value="$Station" />
+          </run_actions>
+          <return />
+        </do_if>
+        <set_value name="$Made" exact="[]" />
+        <set_value name="$Used" exact="[]" />
+        <find_object_component object="$Station" name="$Modules" class="class.production" checkoperational="true" multiple="true" />
+        <do_all exact="$Modules.count" counter="$m">
+          <set_value name="$Products" exact="$Modules.{$m}.products.list" />
+          <do_all exact="$Products.count" counter="$p">
+            <set_value name="$Product" exact="$Products.{$p}" />
+            <do_if value="not $Made.indexof.{$Product}">
+              <append_to_list name="$Made" exact="$Product" />
+            </do_if>
+            <set_value name="$Resources" exact="$Product.resources.list" />
+            <do_all exact="$Resources.count" counter="$r">
+              <do_if value="not $Used.indexof.{$Resources.{$r}}">
+                <append_to_list name="$Used" exact="$Resources.{$r}" />
+              </do_if>
+            </do_all>
+          </do_all>
+        </do_all>
+        <set_value name="$Ware" exact="null" />
+        <do_for_each name="$W" in="$Made">
+          <do_if value="$Ware == null and not $Used.indexof.{$W}">
+            <set_value name="$Ware" exact="$W" />
+          </do_if>
+        </do_for_each>
+        <do_if value="$Ware == null and $Made.count gt 0">
+          <set_value name="$Ware" exact="$Made.{1}" />
+        </do_if>
+        <do_if value="$Ware == null">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: skip %1, no production ware'.[$Station.knownname]" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.Logbook_Event">
+            <param name="Tier" value="'problem'" />
+            <param name="Title" value="'FDN stock-limit proof skipped'" />
+            <param name="Text" value="'%1 has no operational production ware to probe.'.[$Station.knownname]" />
+            <param name="Object" value="$Station" />
+          </run_actions>
+          <return />
+        </do_if>
+        <do_if value="State.$Busy == 1">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: race, already busy'" />
+          </run_actions>
+          <return />
+        </do_if>
+        <set_value name="$MdBefore" exact="0" />
+        <do_if value="$Station.cargo.{$Ware}.target?">
+          <set_value name="$MdBefore" exact="$Station.cargo.{$Ware}.target" />
+        </do_if>
+        <set_value name="State.$Token" operation="add" />
+        <set_value name="State.$Busy" exact="1" />
+        <set_value name="State.$Phase" exact="'preparing'" />
+        <set_value name="State.$HasSnapshot" exact="0" />
+        <set_value name="State.$Station" exact="$Station" />
+        <set_value name="State.$Ware" exact="$Ware" />
+        <set_value name="State.$WareId" exact="$Ware.id" />
+        <set_value name="State.$MdTargetBefore" exact="$MdBefore" />
+        <set_value name="State.$MdTargetDuring" exact="-1" />
+        <set_value name="State.$MdTargetAfter" exact="-1" />
+        <set_value name="State.$RestoreVerified" exact="0" />
+        <set_value name="State.$StartedAge" exact="player.age" />
+        <remove_value name="State.$HadOverride" />
+        <remove_value name="State.$AmountBefore" />
+        <remove_value name="State.$AmountSet" />
+        <remove_value name="State.$AmountAfterApply" />
+        <remove_value name="State.$Capacity" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'stock-proof: START prepare %1 / %2 token %3 md.target.before=%4'.[$Station.knownname, $Ware.id, State.$Token, $MdBefore]" />
+        </run_actions>
+        <set_value name="State.$WatchTok" exact="State.$Token" />
+        <include_actions ref="Send_Prepare" />
+        <signal_cue_instantly cue="Watchdog_Prepare" />
+      </actions>
+    </library>
+
+    <library name="Send_Prepare">
+      <actions>
+        <do_if value="not player.entity.$fdn_stock_proof_args?">
+          <set_value name="player.entity.$fdn_stock_proof_args" exact="[]" />
+        </do_if>
+        <append_to_list name="player.entity.$fdn_stock_proof_args" exact="table[
+          $cmd = 'prepare',
+          $station = State.$Station,
+          $wareid = State.$WareId,
+          $token = State.$Token]" />
+        <raise_lua_event name="'FDN_StockProof.Command'" />
+      </actions>
+    </library>
+
+    <library name="Send_Apply">
+      <actions>
+        <do_if value="not player.entity.$fdn_stock_proof_args?">
+          <set_value name="player.entity.$fdn_stock_proof_args" exact="[]" />
+        </do_if>
+        <append_to_list name="player.entity.$fdn_stock_proof_args" exact="table[
+          $cmd = 'apply',
+          $station = State.$Station,
+          $wareid = State.$WareId,
+          $token = State.$Token,
+          $had_override = State.$HadOverride,
+          $amount_before = State.$AmountBefore,
+          $capacity = State.$Capacity]" />
+        <raise_lua_event name="'FDN_StockProof.Command'" />
+      </actions>
+    </library>
+
+    <library name="Send_Restore">
+      <actions>
+        <do_if value="not player.entity.$fdn_stock_proof_args?">
+          <set_value name="player.entity.$fdn_stock_proof_args" exact="[]" />
+        </do_if>
+        <append_to_list name="player.entity.$fdn_stock_proof_args" exact="table[
+          $cmd = 'restore',
+          $station = State.$Station,
+          $wareid = State.$WareId,
+          $token = State.$Token,
+          $had_override = State.$HadOverride,
+          $amount_before = State.$AmountBefore]" />
+        <raise_lua_event name="'FDN_StockProof.Command'" />
+      </actions>
+    </library>
+
+    <library name="Clear_Busy">
+      <actions>
+        <set_value name="State.$Busy" exact="0" />
+        <set_value name="State.$Phase" exact="''" />
+        <set_value name="State.$HasSnapshot" exact="0" />
+      </actions>
+    </library>
+
+    <library name="Mark_Unresolved">
+      <actions>
+        <set_value name="State.$Phase" exact="'unresolved'" />
+        <set_value name="State.$Busy" exact="1" />
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="1" />
+          <param name="Text" value="'stock-proof: UNRESOLVED keep Busy. Snapshot had_override=%1 amount=%2 ware=%3 station=%4 token=%5. Fix LSO manually if needed; do not save over uncertain state. New proofs refused.'.[@State.$HadOverride, @State.$AmountBefore, @State.$WareId, @State.$Station.knownname, State.$Token]" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Logbook_Event">
+          <param name="Tier" value="'problem'" />
+          <param name="Title" value="'FDN stock-limit proof unresolved'" />
+          <param name="Text" value="'Restore not verified for %1 / %2. Snapshot: had_override=%3 amount=%4. Station held; new proofs refused. Check Logical Station Overview. Prefer a disposable save; do not overwrite until resolved.'.[@State.$Station.knownname, @State.$WareId, @State.$HadOverride, @State.$AmountBefore]" />
+          <param name="Object" value="State.$Station" />
+        </run_actions>
+      </actions>
+    </library>
+
+    <cue name="On_Lua_Result" instantiate="true">
+      <conditions>
+        <event_ui_triggered screen="'FDN_StockProof'" control="'result'" />
+      </conditions>
+      <actions>
+        <set_value name="$R" exact="event.param3" />
+        <do_if value="not $R?">
+          <set_value name="$R" exact="event.param" />
+        </do_if>
+        <do_if value="not $R?">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="1" />
+            <param name="Text" value="'stock-proof: empty Lua result'" />
+          </run_actions>
+        </do_if>
+        <do_else>
+          <set_value name="$Op" exact="@$R.$op" />
+          <set_value name="$Tok" exact="@$R.$token" />
+          <do_if value="State.$Busy != 1 or $Tok != State.$Token">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'stock-proof: ignore stale Lua result op=%1 token=%2 (busy=%3 current=%4 phase=%5)'.[$Op, $Tok, State.$Busy, State.$Token, State.$Phase]" />
+            </run_actions>
+          </do_if>
+          <do_elseif value="$Op == 'prepared'">
+            <include_actions ref="Handle_Prepared" />
+          </do_elseif>
+          <do_elseif value="$Op == 'applied'">
+            <include_actions ref="Handle_Applied" />
+          </do_elseif>
+          <do_elseif value="$Op == 'restored'">
+            <include_actions ref="Handle_Restored" />
+          </do_elseif>
+          <do_elseif value="$Op == 'ping'">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="3" />
+              <param name="Text" value="'stock-proof: ping ok=%1 err=%2'.[@$R.$ok, @$R.$error]" />
+            </run_actions>
+          </do_elseif>
+          <do_else>
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'stock-proof: unhandled Lua op=%1 ok=%2 err=%3'.[$Op, @$R.$ok, @$R.$error]" />
+            </run_actions>
+          </do_else>
+        </do_else>
+      </actions>
+    </cue>
+
+    <library name="Handle_Prepared">
+      <actions>
+        <do_if value="State.$Phase != 'preparing'">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: ignore prepared in phase %1'.[State.$Phase]" />
+          </run_actions>
+        </do_if>
+        <do_elseif value="@$R.$ok != 1">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: PREPARE FAILED err=%1 (no mutation)'.[@$R.$error]" />
+          </run_actions>
+          <run_actions ref="md.FDN_Core.Logbook_Event">
+            <param name="Tier" value="'problem'" />
+            <param name="Title" value="'FDN stock-limit proof failed'" />
+            <param name="Text" value="'Prepare failed (%1) at %2 / %3. No mutation. '.[@$R.$error, @State.$Station.knownname, @State.$WareId]" />
+            <param name="Object" value="State.$Station" />
+          </run_actions>
+          <include_actions ref="Clear_Busy" />
+        </do_elseif>
+        <do_else>
+          <set_value name="State.$HadOverride" exact="$R.$had_override" />
+          <set_value name="State.$AmountBefore" exact="$R.$amount_before" />
+          <set_value name="State.$AmountSet" exact="$R.$amount_set" />
+          <set_value name="State.$Capacity" exact="@$R.$capacity" />
+          <set_value name="State.$HasSnapshot" exact="1" />
+          <set_value name="State.$Phase" exact="'prepared'" />
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'stock-proof: PREPARED snapshot had=%1 amount=%2 set=%3 cap=%4; sending apply'.[State.$HadOverride, State.$AmountBefore, State.$AmountSet, State.$Capacity]" />
+          </run_actions>
+          <set_value name="State.$Phase" exact="'applying'" />
+          <set_value name="State.$WatchTok" exact="State.$Token" />
+          <include_actions ref="Send_Apply" />
+          <signal_cue_instantly cue="Watchdog_Apply" />
+        </do_else>
+      </actions>
+    </library>
+
+    <library name="Handle_Applied">
+      <actions>
+        <do_if value="State.$Phase != 'applying' and State.$Phase != 'prepared'">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: ignore applied in phase %1'.[State.$Phase]" />
+          </run_actions>
+        </do_if>
+        <do_elseif value="@$R.$ok != 1">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="1" />
+            <param name="Text" value="'stock-proof: APPLY FAILED err=%1 with snapshot present - restoring to be safe'.[@$R.$error]" />
+          </run_actions>
+          <set_value name="State.$Phase" exact="'restoring'" />
+          <set_value name="State.$RestoreWatchTok" exact="State.$Token" />
+          <include_actions ref="Send_Restore" />
+          <signal_cue_instantly cue="Watchdog_Restore" />
+        </do_elseif>
+        <do_else>
+          <set_value name="State.$AmountAfterApply" exact="$R.$amount_after" />
+          <set_value name="State.$Phase" exact="'applied'" />
+          <set_value name="$MdDuring" exact="0" />
+          <do_if value="State.$Station.exists and State.$Station.cargo.{State.$Ware}.target?">
+            <set_value name="$MdDuring" exact="State.$Station.cargo.{State.$Ware}.target" />
+          </do_if>
+          <set_value name="State.$MdTargetDuring" exact="$MdDuring" />
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'stock-proof: APPLIED UI before=%1 set=%2 after=%3 had=%4->%5 | MD during(first)=%6 before=%7'.[State.$AmountBefore, State.$AmountSet, State.$AmountAfterApply, State.$HadOverride, @$R.$had_after, $MdDuring, State.$MdTargetBefore]" />
+          </run_actions>
+          <do_if value="$MdDuring == State.$MdTargetBefore">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="3" />
+              <param name="Text" value="'stock-proof: MD target unchanged on first read; delaying 1s reread before NEGATIVE/restore (may still be inconclusive)'" />
+            </run_actions>
+            <signal_cue_instantly cue="Delayed_Md_Observe" />
+          </do_if>
+          <do_else>
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="3" />
+              <param name="Text" value="'stock-proof: MD cargo.target DID change %1 -> %2 while UI override active'.[State.$MdTargetBefore, $MdDuring]" />
+            </run_actions>
+            <include_actions ref="Begin_Restore" />
+          </do_else>
+        </do_else>
+      </actions>
+    </library>
+
+    <library name="Begin_Restore">
+      <actions>
+        <set_value name="State.$Phase" exact="'restoring'" />
+        <set_value name="State.$RestoreWatchTok" exact="State.$Token" />
+        <include_actions ref="Send_Restore" />
+        <signal_cue_instantly cue="Watchdog_Restore" />
+      </actions>
+    </library>
+
+    <cue name="Delayed_Md_Observe" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <cues>
+        <cue name="Delayed_Md_Observe_Wait" instantiate="true">
+          <delay exact="1s" comment="nonblocking: second MD read while hold remains" />
+          <actions>
+            <do_if value="State.$Busy == 1 and State.$Phase == 'applied' and State.$Token == State.$WatchTok">
+              <set_value name="$MdDuring2" exact="0" />
+              <do_if value="State.$Station.exists and State.$Station.cargo.{State.$Ware}.target?">
+                <set_value name="$MdDuring2" exact="State.$Station.cargo.{State.$Ware}.target" />
+              </do_if>
+              <set_value name="State.$MdTargetDuring" exact="$MdDuring2" />
+              <do_if value="$MdDuring2 == State.$MdTargetBefore">
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="2" />
+                  <param name="Text" value="'stock-proof: NEGATIVE/inconclusive MD coupling - cargo.target still %1 after 1s delay while UI set %2 -> %3 (timing may still mask a late update)'.[$MdDuring2, State.$AmountBefore, State.$AmountAfterApply]" />
+                </run_actions>
+              </do_if>
+              <do_else>
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="3" />
+                  <param name="Text" value="'stock-proof: MD cargo.target changed on delayed read %1 -> %2'.[State.$MdTargetBefore, $MdDuring2]" />
+                </run_actions>
+              </do_else>
+              <include_actions ref="Begin_Restore" />
+            </do_if>
+          </actions>
+        </cue>
+      </cues>
+    </cue>
+
+    <library name="Handle_Restored">
+      <actions>
+        <do_if value="State.$Phase != 'restoring' and State.$Phase != 'unresolved'">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="2" />
+            <param name="Text" value="'stock-proof: ignore restored in phase %1'.[State.$Phase]" />
+          </run_actions>
+        </do_if>
+        <do_else>
+          <set_value name="$MdAfter" exact="0" />
+          <do_if value="State.$Station? and State.$Station.exists and State.$Ware? and State.$Station.cargo.{State.$Ware}.target?">
+            <set_value name="$MdAfter" exact="State.$Station.cargo.{State.$Ware}.target" />
+          </do_if>
+          <set_value name="State.$MdTargetAfter" exact="$MdAfter" />
+          <set_value name="State.$RestoreVerified" exact="@$R.$restored_ok" />
+          <do_if value="not State.$RestoreVerified?"><set_value name="State.$RestoreVerified" exact="@$R.$ok" /></do_if>
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'stock-proof: RESTORED ok=%1 UI after=%2 had_after=%3 | MD after=%4 | full UI %5->%6->%7 | full MD %8->%9->%10'.[@State.$RestoreVerified, @$R.$amount_after, @$R.$had_after, $MdAfter, @State.$AmountBefore, @State.$AmountSet, @$R.$amount_after, State.$MdTargetBefore, State.$MdTargetDuring, $MdAfter]" />
+          </run_actions>
+          <do_if value="State.$RestoreVerified == 1">
+            <run_actions ref="md.FDN_Core.Logbook_Event">
+              <param name="Tier" value="'info'" />
+              <param name="Title" value="'FDN stock-limit proof done'" />
+              <param name="Text" value="'%1 / %2: UI %3 -> %4 -> %5 (restored verified). MD cargo.target %6 -> %7 -> %8. See fdn.log for MD coupling notes.'.[@State.$Station.knownname, State.$WareId, @State.$AmountBefore, @State.$AmountSet, @$R.$amount_after, State.$MdTargetBefore, State.$MdTargetDuring, $MdAfter]" />
+              <param name="Object" value="State.$Station" />
+            </run_actions>
+            <include_actions ref="Clear_Busy" />
+          </do_if>
+          <do_else>
+            <include_actions ref="Mark_Unresolved" />
+          </do_else>
+        </do_else>
+      </actions>
+    </library>
+
+    <!-- Prepare timeout: no mutation yet if no snapshot. -->
+    <cue name="Watchdog_Prepare" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <cues>
+        <cue name="Watchdog_Prepare_Wait" instantiate="true">
+          <delay exact="8s" comment="cue-child delay as fdn_supply Loop/Reset" />
+          <actions>
+            <do_if value="State.$Busy == 1 and State.$WatchTok? and State.$Token == State.$WatchTok and State.$Phase == 'preparing'">
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="1" />
+                <param name="Text" value="'stock-proof: PREPARE TIMEOUT token %1 - no snapshot, no mutation assumed, clearing busy. Check sn_mod_support_apis / debuglog FDN_StockProof init.'.[State.$WatchTok]" />
+              </run_actions>
+              <run_actions ref="md.FDN_Core.Logbook_Event">
+                <param name="Tier" value="'problem'" />
+                <param name="Title" value="'FDN stock-limit proof timeout'" />
+                <param name="Text" value="'No Lua prepare reply in 8s. No mutation expected. Ensure SirNuke Mod Support APIs is enabled.'" />
+              </run_actions>
+              <include_actions ref="Clear_Busy" />
+            </do_if>
+          </actions>
+        </cue>
+      </cues>
+    </cue>
+
+    <!-- Apply timeout: snapshot exists - MUST restore, never assume unchanged. -->
+    <cue name="Watchdog_Apply" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <cues>
+        <cue name="Watchdog_Apply_Wait" instantiate="true">
+          <delay exact="8s" />
+          <actions>
+            <do_if value="State.$Busy == 1 and State.$WatchTok? and State.$Token == State.$WatchTok and (State.$Phase == 'applying' or State.$Phase == 'prepared')">
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="1" />
+                <param name="Text" value="'stock-proof: APPLY TIMEOUT token %1 phase=%2 - snapshot present, restoring (lost reply must NOT mean unchanged)'.[State.$WatchTok, State.$Phase]" />
+              </run_actions>
+              <do_if value="State.$HasSnapshot == 1 and State.$HadOverride? and State.$AmountBefore?">
+                <include_actions ref="Begin_Restore" />
+              </do_if>
+              <do_else>
+                <run_actions ref="md.FDN_Core.Log">
+                  <param name="Level" value="1" />
+                  <param name="Text" value="'stock-proof: APPLY TIMEOUT without snapshot - Mark_Unresolved'" />
+                </run_actions>
+                <include_actions ref="Mark_Unresolved" />
+              </do_else>
+            </do_if>
+          </actions>
+        </cue>
+      </cues>
+    </cue>
+
+    <cue name="Watchdog_Restore" instantiate="true">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <cues>
+        <cue name="Watchdog_Restore_Wait" instantiate="true">
+          <delay exact="8s" />
+          <actions>
+            <do_if value="State.$Busy == 1 and State.$RestoreWatchTok? and State.$Token == State.$RestoreWatchTok and (State.$Phase == 'restoring' or State.$Phase == 'applied')">
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="1" />
+                <param name="Text" value="'stock-proof: restore TIMEOUT token %1 - keep Busy unresolved. Snapshot had=%2 amount=%3'.[State.$RestoreWatchTok, @State.$HadOverride, @State.$AmountBefore]" />
+              </run_actions>
+              <include_actions ref="Mark_Unresolved" />
+            </do_if>
+          </actions>
+        </cue>
+      </cues>
+    </cue>
+
+  </cues>
+</mdscript>
