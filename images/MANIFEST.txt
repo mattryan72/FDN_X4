@@ -1,0 +1,27 @@
+filename	bytes	KB	used_in
+btn_x4_github.png	9508	9.3	forum [img], workshop [img]
+btn_x4_steam_workshop.png	12873	12.6	forum [img]
+divider_x4_hex.png	1747	1.7	forum [img]
+divider_x4_route.png	1827	1.8	forum [img]
+fdn_x4_banner_forum.jpg	47458	46.3	forum [img]
+fdn_x4_logo_forum.jpg	49381	48.2	available for forum replies
+fdn_x4_workshop_banner.png	81455	79.5	workshop [img]
+fdn_x4_workshop_preview.jpg	143153	139.8	WorkshopTool -preview
+ss_charter_menu_desc.jpg	101155	98.8	workshop [img]
+ss_charter_menu_forum.jpg	55647	54.3	forum [img]
+ss_charter_menu_workshop.jpg	266035	259.8	Steam gallery upload
+ss_logbook_desc.jpg	124622	121.7	workshop [img]
+ss_logbook_forum.jpg	48282	47.2	forum [img]
+ss_logbook_workshop.jpg	241342	235.7	Steam gallery upload
+ss_overview_desc.jpg	100688	98.3	workshop [img]
+ss_overview_forum.jpg	57916	56.6	forum [img]
+ss_overview_workshop.jpg	225894	220.6	Steam gallery upload
+ss_settings_desc.jpg	94756	92.5	workshop [img]
+ss_settings_forum.jpg	43694	42.7	forum [img]
+ss_settings_workshop.jpg	193883	189.3	Steam gallery upload
+ss_station_menu_desc.jpg	105488	103.0	workshop [img]
+ss_station_menu_forum.jpg	58365	57.0	forum [img]
+ss_station_menu_workshop.jpg	286390	279.7	Steam gallery upload
+
+Raw URL pattern: https://raw.githubusercontent.com/mattryan72/FDN-X4/main/images/<filename>
+Commit this folder into FDN-X4/images/ with identical filenames.
