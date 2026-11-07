@@ -32,5 +32,5 @@ All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations
 - Extension id: `fdn_x4`. content.xml `version` = `100`.
 - This mod is new for X4; it is not a port of the X3 FDN script.
 - Licence: MIT — Copyright (c) 2026 Matthew Ryan (Logain Abler).
-- Hosting: Steam Workshop and GitHub https://github.com/mattryan72/FDN-X4
+- Hosting: Steam Workshop and GitHub https://github.com/mattryan72/FDN_X4
 - Package: README.md and LICENSE in the extension root; PDF user guide linked from GitHub when available (not shipped in the package for now).

@@ -1,5 +1,5 @@
 filename	bytes	KB	used_in
-btn_x4_github.png	9508	9.3	forum [img], workshop [img]
+btn_x4_github.png	9432	9.2	forum [img], workshop [img]
 btn_x4_steam_workshop.png	12873	12.6	forum [img]
 divider_x4_hex.png	1747	1.7	forum [img]
 divider_x4_route.png	1827	1.8	forum [img]
@@ -23,5 +23,5 @@ ss_station_menu_desc.jpg	105488	103.0	workshop [img]
 ss_station_menu_forum.jpg	58365	57.0	forum [img]
 ss_station_menu_workshop.jpg	286390	279.7	Steam gallery upload
 
-Raw URL pattern: https://raw.githubusercontent.com/mattryan72/FDN-X4/main/images/<filename>
-Commit this folder into FDN-X4/images/ with identical filenames.
+Raw URL pattern: https://raw.githubusercontent.com/mattryan72/FDN_X4/main/images/<filename>
+Commit this folder into FDN_X4/images/ with identical filenames.

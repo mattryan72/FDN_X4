@@ -84,7 +84,7 @@ Workshop link: [Workshop URL pending publication]
 
 ### Manual zip (GitHub / GOG)
 
-1. Download the release zip from https://github.com/mattryan72/FDN-X4/releases/latest
+1. Download the release zip from https://github.com/mattryan72/FDN_X4/releases/latest
 2. Extract into `X4 Foundations\extensions\fdn_x4`
 3. Install SirNukes Mod Support APIs into `X4 Foundations\extensions\sn_mod_support_apis`
 4. Enable both in the Extension Manager
@@ -127,8 +127,8 @@ MIT License — Copyright (c) 2026 Matthew Ryan (Logain Abler). See [LICENSE](LI
 
 - Egosoft forum (X4 Scripts and Modding): [forum thread URL pending publication]
 - Steam Workshop: [Workshop URL pending publication]
-- GitHub: https://github.com/mattryan72/FDN-X4
-- Releases: https://github.com/mattryan72/FDN-X4/releases/latest
+- GitHub: https://github.com/mattryan72/FDN_X4
+- Releases: https://github.com/mattryan72/FDN_X4/releases/latest
 - SirNukes Mod Support APIs: https://steamcommunity.com/sharedfiles/filedetails/?id=2042901274
 
 Unofficial fan content. Requires a legally owned copy of X4: Foundations. Distributed free of charge under the MIT License (which permits commercial use). No Egosoft assets are redistributed.
