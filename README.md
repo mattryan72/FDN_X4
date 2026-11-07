@@ -84,14 +84,14 @@ Workshop link: [Workshop URL pending publication]
 
 ### Manual zip (GitHub / GOG)
 
-1. Download the release zip from https://github.com/mattryan72/FDN_X4/releases/latest
-2. Extract into `X4 Foundations\extensions\fdn_x4`
+1. Download the release zip from https://github.com/mattryan72/FDN_X4/releases
+2. Extract the zip into `X4 Foundations\extensions\` (the zip contains the `fdn_x4` folder, so you end up with `X4 Foundations\extensions\fdn_x4\content.xml`)
 3. Install SirNukes Mod Support APIs into `X4 Foundations\extensions\sn_mod_support_apis`
 4. Enable both in the Extension Manager
 
 > **Install location:** Manual installs must go in the game's own `X4 Foundations\extensions\` folder, not under `Documents\Egosoft\X4\<id>\extensions\`. The required Mod Support APIs dependency is not found when FDN is installed only in the Documents extensions folder (tested).
 
-`README.md` and `LICENSE` ship in the extension root. The PDF user guide will be linked from GitHub when available (not shipped in the package for now).
+`README.md` and `LICENSE` ship in the extension root. The PDF user guide is on GitHub at https://github.com/mattryan72/FDN_X4/blob/main/docs/FDN_X4_User_Guide_v1.00_BETA.pdf and is also attached to each release (it is not shipped inside the mod package).
 
 ## Save safety / Uninstall
 
@@ -128,7 +128,8 @@ MIT License — Copyright (c) 2026 Matthew Ryan (Logain Abler). See [LICENSE](LI
 - Egosoft forum (X4 Scripts and Modding): [forum thread URL pending publication]
 - Steam Workshop: [Workshop URL pending publication]
 - GitHub: https://github.com/mattryan72/FDN_X4
-- Releases: https://github.com/mattryan72/FDN_X4/releases/latest
+- Releases: https://github.com/mattryan72/FDN_X4/releases
+- User guide (PDF): https://github.com/mattryan72/FDN_X4/blob/main/docs/FDN_X4_User_Guide_v1.00_BETA.pdf
 - SirNukes Mod Support APIs: https://steamcommunity.com/sharedfiles/filedetails/?id=2042901274
 
 Unofficial fan content. Requires a legally owned copy of X4: Foundations. Distributed free of charge under the MIT License (which permits commercial use). No Egosoft assets are redistributed.
