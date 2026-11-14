@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<content id="fdn_x4" name="LI Freight Distribution Network (FDN)" author="Logain Abler" version="100" date="2026-11-06" save="1" description="BETA logistics mod for X4: Foundations 9.00. Designate player stations as Distribution Centres, supply production from DC stock, return surplus and collect overstock, with fees and a read-only Overview.&#10;Requires SirNukes Mod Support APIs (Workshop 2042901274).&#10;Similar in idea to Logain Industries FDN for X3 - a new mod, not a port.">
+<content id="fdn_x4" name="LI Freight Distribution Network (FDN)" author="Logain Abler" version="101" date="2026-11-14" save="1" description="BETA logistics mod for X4: Foundations 9.00. Designate player stations as Distribution Centres, supply production from DC stock, return surplus and collect overstock, with fees and a read-only Overview.&#10;Requires SirNukes Mod Support APIs (Workshop 2042901274).&#10;Similar in idea to Logain Industries FDN for X3 - a new mod, not a port.">
   <dependency id="ws_2042901274" version="100" />
 </content>

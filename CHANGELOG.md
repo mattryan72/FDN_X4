@@ -2,7 +2,7 @@
 
 All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations will be listed here.
 
-## [1.01] - Unreleased
+## [1.01] – BETA – 2026-11-14
 
 ### Added
 
@@ -16,6 +16,15 @@ All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations
 ### Changed
 
 - With **Manager skill sets range and fees** OFF, ranges and fees are flat and DCs without a manager still work, exactly as in 1.00.
+- With Manager skill on, the manager's supply range (3–5 jumps) still applies even when Range limit is off; turn Manager skill off for unlimited range.
+- content.xml `version` = `101` (the game shows 1.01).
+
+### Notes
+
+- v1.00 saves update in place; no steps needed. Settings and DC state live in the save. Manual installs: close the game, delete the old `extensions\fdn_x4` folder, then extract the new zip into `extensions\`.
+- Workshop installs use extension id `ws_3835284205` and GitHub/manual installs use `fdn_x4`, so saves don't carry over between them. Pick one and don't install both.
+- Dependency (SirNukes Mod Support APIs, `ws_2042901274`) and install path are unchanged.
+- User guide: `docs/FDN_X4_User_Guide_v1.01_BETA.pdf` (also attached to the release).
 
 ## [1.00] – BETA – 2026-11-07
 

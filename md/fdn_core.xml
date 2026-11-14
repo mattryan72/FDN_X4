@@ -73,7 +73,7 @@
         <include_actions ref="Cfg_LoadDefaults" />
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'core loaded, version 1.00, %1 default settings'.[$Defaults.keys.count]" />
+          <param name="Text" value="'core loaded, version 1.01, %1 default settings'.[$Defaults.keys.count]" />
         </run_actions>
       </actions>
       <patch sinceversion="2">

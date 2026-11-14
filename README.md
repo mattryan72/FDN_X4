@@ -1,6 +1,6 @@
 # LI Freight Distribution Network (FDN) for X4: Foundations
 
-**Version:** 1.00 **BETA**
+**Version:** 1.01 **BETA**
 **Author:** Logain Abler (Logain Industries)
 **Game:** X4: Foundations **9.00**
 **Extension id / folder:** `fdn_x4`
@@ -23,14 +23,14 @@ Protected UI Mode does **not** need to be turned off. FDN is Mission Director sc
 
 - **FDN Charter** — buy a one-off charter on a player station (right-click menu) to make it a Distribution Centre. Fee: 75% of the average price of the **most expensive qualifying dock** on the station (operational dock area or pier from FDN's whitelist: selected Argon/Boron/Terran dock areas and Argon/Paranid/Teladi/Split/Boron/Terran piers; the exact macro whitelist is CharterMacros in md/fdn_core.xml; **not** ship-build bays, equipment docks, Xenon or landmark parts), clamped to 1.5M–4M Cr, then the standing discount. Needs standing 10+ with the sector owner; in player-owned, ownerless, Xenon or Kha'ak sectors it uses your best standing with an eligible economy faction. Discounts 10% / 25% / 40% at standing 10 / 20 / 30. Revoking ends DC status with **no refund**.
 - **Automatic membership** — FDN registers every player-owned station, including new ones as they are built. Two per-station right-click toggles, both ON by default: **FDN: resource supply ON/OFF** and **FDN: send products to DC ON/OFF** (the products toggle is hidden on DCs). Global equivalents in settings: **Supply station resources** and **Send products to DC**. Per-station setting overrides global, which overrides the default. A station with no DC in range gets no new FDN supply and runs as normal (its stock levels are handed back; previously queued deliveries may still finish).
-- **Home DC and network** — the nearest eligible DC by gate jumps is the station's **home DC** and is tried first. Other DCs must be within the station's range (default 5 jumps) and in the home DC's network, tried in order of distance from the home DC. A network is a chain of DCs each linked within 10 jumps, so it can span further overall. Supply from another DC goes directly to the station; the home DC normally pays 0.1× the ordinary supply fee. If it cannot pay, the source DC may pay the full supply fee. A station that is itself a DC is its own home DC. There is no configurable primary DC; no network-size or DC-count cap is implemented in these paths.
-- **Manager skill (1.01)** — each DC's station manager sets that DC's reach and fees: supply range 3 / 4 / 5 jumps at 0–1 / 2–3 / 4–5 stars (never above Maximum supply range), DC-to-DC links 6 / 8 / 10 jumps (never above DC network range; a link uses the smaller of the two DCs), and 10% off the fees that DC pays per manager star (5 stars = 50% off; not the charter fee). A DC with no manager is offline for FDN until one is assigned. Turn **Manager skill sets range and fees** off for flat ranges and fees as in 1.00.
+- **Home DC and network** — the nearest eligible DC by gate jumps is the station's **home DC** and is tried first. Other DCs must be within range (Maximum supply range, default 5 jumps, or the DC manager's supply range when **Manager skill sets range and fees** is on) and in the home DC's network, tried in order of distance from the home DC. A network is a chain of DCs each linked within **DC network range** (default 10 jumps; 6–10 jumps by manager stars when Manager skill is on), so it can span further overall. Supply from another DC goes directly to the station; the home DC normally pays 0.1× the ordinary supply fee. If it cannot pay, the source DC may pay the full supply fee. A station that is itself a DC is its own home DC. There is no configurable primary DC; no network-size or DC-count cap is implemented in these paths.
+- **Manager skill (new in 1.01)** — each DC's station manager sets that DC's reach and fees: supply range 3 / 4 / 5 jumps at 0–1 / 2–3 / 4–5 stars (never above Maximum supply range), DC-to-DC links 6 / 8 / 10 jumps (never above DC network range; a link uses the smaller of the two DCs), and 10% off the fees that DC pays per manager star (5 stars = 50% off; not the charter fee). A DC with no manager is offline for FDN until one is assigned. Turn **Manager skill sets range and fees** off for flat ranges and fees as in 1.00. With Manager skill on, the manager's supply range (3–5 jumps) still applies even when Range limit is off; turn Manager skill off for unlimited range.
 - **Supply** — DCs supply stations with resources for N production cycles from DC stock. If the DC is short, FDN can fall back to an NPC buy (on by default), price capped at the home DC's buy price (the receiving station's buy price is the fallback if the DC has no usable buy price).
 - **Product returns** — surplus product above a cycle-based keep goes to the DC (per-ware override available).
 - **Overstock collection** — surplus resources follow "send products to DC". Dual-use / self-made wares a station also uses are only collected above 2× need, leaving 1.5×, and not within 10 minutes of an FDN delivery (stops ping-pong).
 - **Stock levels** — FDN sets station stock levels for supplied resources, saves originals, restores them when a ware is no longer needed; never sets product levels; leaves self-made wares to the game.
 - **Transfers** — instant by default, with value- and distance-based fees with adjustable flat volume/type factors paid by the DC, and an optional distance delay. For returns and collection, an illegal ware may use another legal DC in range; otherwise it stays at the station.
-- **FDN Overview** (read-only) — DCs online, totals, network fees 1h/6h/24h with supply/return/collect split, Needs attention list, per-DC stock vs target, paged recent activity.
+- **FDN Overview** (read-only) — DCs online, totals, network fees 1h/6h/24h with supply/return/collect split, Needs attention list, a Manager row per DC (stars, skill, supply range, DC link range, fee discount, or "Manager: none"), per-DC stock vs target, paged recent activity.
 - **Warnings and logging** — deduped skip warnings (station + ware + kind + reason; a changed fingerprint or successful move can allow another warning), low DC stock warning, logbook notices, `fdn.log` (log level 1–4).
 - **Settings** — in the SirNukes Mod Support APIs options menu.
 - **Selling DC surplus** — use normal in-game sell offers on the DC. FDN never sells directly to NPC stations.
@@ -42,9 +42,9 @@ Defaults may change during beta.
 | Setting | Default |
 |--------|---------|
 | Range limit | On |
-| Max jumps to a DC | 5 (turn Range limit Off for no distance limit) |
-| DC network link | DCs each linked within 10 jumps form a network chain |
-| Manager skill sets range and fees (1.01) | On: supply range 3–5 jumps and DC links 6–10 jumps by manager stars (capped by the two rows above), 10% fee discount per star, DC with no manager offline |
+| Max jumps to a DC | 5. With Manager skill on, the manager's supply range (3–5 jumps) still applies even when Range limit is off; turn Manager skill off for unlimited range. |
+| DC network range | 10 jumps: DCs each linked within range form a network chain |
+| Manager skill sets range and fees (new in 1.01) | On: supply range 3–5 jumps and DC links 6–10 jumps by manager stars (capped by the two rows above), 10% fee discount per star, DC with no manager offline |
 | Cycles to cover | 2 |
 | Product cycles to keep | 0 (no product keep; returns start at the minimum batch of 100, not a retained 100) |
 | Overstock trigger | Pure resources: 10% above cargo.target; dual-use uses its separate cushion |
@@ -71,9 +71,10 @@ Defaults may change during beta.
 1. Install FDN and SirNukes Mod Support APIs; enable both in the Extension Manager.
 2. FDN registers all player-owned stations automatically. On a station, right-click and **buy an FDN Charter** to make it a Distribution Centre.
 3. Use the per-station toggles (or the global settings) for **resource supply** and **send products to DC**.
-4. Use the **FDN Overview** for status, fees and Needs attention.
-5. Adjust **settings** in the SirNukes Mod Support APIs options menu.
-6. **Revoke** a charter to stop using a station as a DC (no refund).
+4. Give every DC a station manager (better managers reach further and pay lower fees).
+5. Use the **FDN Overview** for status, manager rows, fees and Needs attention.
+6. Adjust **settings** in the SirNukes Mod Support APIs options menu.
+7. **Revoke** a charter to stop using a station as a DC (no refund).
 
 ## Install
 
@@ -82,7 +83,7 @@ Defaults may change during beta.
 1. Subscribe to this mod and to [SirNukes Mod Support APIs](https://steamcommunity.com/sharedfiles/filedetails/?id=2042901274).
 2. Enable both in the Extension Manager.
 
-Workshop link: [Workshop URL pending publication]
+Workshop link: https://steamcommunity.com/sharedfiles/filedetails/?id=3835284205
 
 ### Manual zip (GitHub / GOG)
 
@@ -93,7 +94,17 @@ Workshop link: [Workshop URL pending publication]
 
 > **Install location:** Manual installs must go in the game's own `X4 Foundations\extensions\` folder, not under `Documents\Egosoft\X4\<id>\extensions\`. The required Mod Support APIs dependency is not found when FDN is installed only in the Documents extensions folder (tested).
 
-`README.md` and `LICENSE` ship in the extension root. The PDF user guide is on GitHub at https://github.com/mattryan72/FDN_X4/blob/main/docs/FDN_X4_User_Guide_v1.00_BETA.pdf and is also attached to each release (it is not shipped inside the mod package).
+> **Workshop or GitHub — pick one.** Workshop installs use extension id `ws_3835284205` and GitHub/manual installs use `fdn_x4`, so saves don't carry over between them. Pick one and don't install both.
+
+### Updating from 1.00
+
+v1.00 saves update in place; no steps needed.
+
+- **Steam Workshop:** Steam updates the mod for you.
+- **Manual zip:** close the game, delete the old `X4 Foundations\extensions\fdn_x4` folder, then extract the new zip into `X4 Foundations\extensions\`. Settings and DC state live in the save, so nothing is lost.
+- **Manager skill sets range and fees** starts **on**. Any DC without a station manager goes offline for FDN, and DCs with 0–3 star managers reach 3–4 jumps instead of 5. Check the FDN Overview after the first supply check, or turn the setting off for 1.00 behaviour.
+
+`README.md` and `LICENSE` ship in the extension root. The PDF user guide is on GitHub at https://github.com/mattryan72/FDN_X4/blob/main/docs/FDN_X4_User_Guide_v1.01_BETA.pdf and is also attached to each release (it is not shipped inside the mod package).
 
 ## Save safety / Uninstall
 
@@ -110,11 +121,25 @@ Reason: FDN sets real station storage levels, which stay in the save if the mod 
 
 ## Bug reports
 
-Please report on the Egosoft forum thread ([forum thread URL pending publication]) and include:
+Please report on the Egosoft forum thread (https://forum.egosoft.com/viewtopic.php?t=477605) and include:
 
-- X4 version, DLC, and FDN v1.00
+- X4 version, DLC, FDN v1.01, and whether you use the Workshop or GitHub install
 - What you did and what went wrong
 - `fdn.log` from `Documents\Egosoft\X4\<id>\fdn.log`, with **log level 4**, then reproduce the issue
+
+## Screenshots
+
+![FDN Overview with a 5-star DC manager](images/ss_overview_manager_forum.jpg)
+
+*FDN Overview: a 5-star manager gives 5 jumps supply range, 10-jump DC links and a 50% fee discount.*
+
+![DC with no manager](images/ss_overview_no_manager_forum.jpg)
+
+*A DC with no manager is offline for FDN until one is assigned.*
+
+![Manager skill setting](images/ss_settings_manager_forum.jpg)
+
+*The Manager skill setting. The 8-jump Maximum supply range shown is a tuned value; the default is 5.*
 
 ## Credits
 
@@ -127,11 +152,11 @@ MIT License — Copyright (c) 2026 Matthew Ryan (Logain Abler). See [LICENSE](LI
 
 ## Links
 
-- Egosoft forum (X4 Scripts and Modding): [forum thread URL pending publication]
-- Steam Workshop: [Workshop URL pending publication]
+- Egosoft forum (X4 Scripts and Modding): https://forum.egosoft.com/viewtopic.php?t=477605
+- Steam Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=3835284205
 - GitHub: https://github.com/mattryan72/FDN_X4
 - Releases: https://github.com/mattryan72/FDN_X4/releases
-- User guide (PDF): https://github.com/mattryan72/FDN_X4/blob/main/docs/FDN_X4_User_Guide_v1.00_BETA.pdf
+- User guide (PDF): https://github.com/mattryan72/FDN_X4/blob/main/docs/FDN_X4_User_Guide_v1.01_BETA.pdf
 - SirNukes Mod Support APIs: https://steamcommunity.com/sharedfiles/filedetails/?id=2042901274
 
 Unofficial fan content. Requires a legally owned copy of X4: Foundations. Distributed free of charge under the MIT License (which permits commercial use). No Egosoft assets are redistributed.

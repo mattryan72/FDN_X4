@@ -10,14 +10,18 @@ fdn_x4_workshop_preview.jpg	143153	139.8	WorkshopTool -preview
 ss_charter_menu_desc.jpg	101155	98.8	workshop [img]
 ss_charter_menu_forum.jpg	55647	54.3	forum [img]
 ss_charter_menu_workshop.jpg	266035	259.8	Steam gallery upload
+ss_dc_station_forum.jpg	92218	90.1	forum [img]
 ss_logbook_desc.jpg	124622	121.7	workshop [img]
 ss_logbook_forum.jpg	48282	47.2	forum [img]
 ss_logbook_workshop.jpg	241342	235.7	Steam gallery upload
 ss_overview_desc.jpg	100688	98.3	workshop [img]
 ss_overview_forum.jpg	57916	56.6	forum [img]
+ss_overview_manager_forum.jpg	128591	125.6	forum [img], README [img], release notes [img]
+ss_overview_no_manager_forum.jpg	125908	123.0	forum [img], README [img]
 ss_overview_workshop.jpg	225894	220.6	Steam gallery upload
 ss_settings_desc.jpg	94756	92.5	workshop [img]
 ss_settings_forum.jpg	43694	42.7	forum [img]
+ss_settings_manager_forum.jpg	29151	28.5	forum [img], README [img]
 ss_settings_workshop.jpg	193883	189.3	Steam gallery upload
 ss_station_menu_desc.jpg	105488	103.0	workshop [img]
 ss_station_menu_forum.jpg	58365	57.0	forum [img]

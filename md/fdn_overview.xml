@@ -67,6 +67,9 @@
       the two DCs' link ranges and leaves out DCs with no manager, as Build_Networks. Values are read live
       (md.FDN_Core.DC_Manager); supply uses them from the next supply pass. The row is added before the ware rows, so
       the existing row checks still keep the page under 160 rows. Needs attention shows '-' for entries with no ware.
+    - Card X4-21b (display only): Needs attention follows the same live manager values as the Manager row. A DC with
+      no manager (ManagerSkill on) is listed at once, before the next supply pass writes its saved entry, and a saved
+      no-manager entry is left out once the DC has a manager again or the rule is off. Nothing is written to Init.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -216,16 +219,41 @@
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Needs attention']" />
         <set_value name="$Rows" exact="$Rows + 1" />
         <set_value name="$Att" exact="[]" />
+        <set_value name="$AttE" exact="table[]" comment="card X4-21b: station -> entry shown here, display only, nothing written to Init" />
         <do_if value="$DCs.count gt 0 and $Init.$Attention?">
           <set_value name="$Keys" exact="$Init.$Attention.keys.list" />
           <do_all exact="$Keys.count" counter="$k">
             <set_value name="$S" exact="$Keys.{$k}" />
             <do_if value="$S != null and $S.exists and $S.isplayerowned">
-              <append_to_list name="$Att" exact="$S" />
+              <set_value name="$Live" exact="true" />
+              <do_if value="$Init.$Attention.{$S}.$Kind == 'manager' and $Mgr.{$S}?" comment="card X4-21b: a saved no-manager entry is left out once the live Manager row shows a manager or the rule is off">
+                <do_if value="$Mgr.{$S}.$On != 1 or $Mgr.{$S}.$Online">
+                  <set_value name="$Live" exact="false" />
+                </do_if>
+              </do_if>
+              <do_if value="$Live">
+                <append_to_list name="$Att" exact="$S" />
+                <set_value name="$AttE.{$S}" exact="$Init.$Attention.{$S}" />
+              </do_if>
             </do_if>
           </do_all>
-          <sort_list list="$Att" sortbyvalue="$Init.$Attention.{loop.element}.$Time" comment="oldest first, read back to front below" />
         </do_if>
+        <do_all exact="$DCs.count" counter="$d" comment="card X4-21b: a DC with no manager is listed at once, from the same live values as its Manager row, not only after the next supply pass (DC_Mgr_Review)">
+          <set_value name="$S" exact="$DCs.{$d}" />
+          <do_if value="$Mgr.{$S}.$On == 1 and not $Mgr.{$S}.$Online">
+            <set_value name="$Has" exact="false" />
+            <do_if value="$AttE.{$S}?">
+              <set_value name="$Has" exact="$AttE.{$S}.$Kind == 'manager'" />
+            </do_if>
+            <do_if value="not $Has">
+              <do_if value="not $Att.indexof.{$S}">
+                <append_to_list name="$Att" exact="$S" />
+              </do_if>
+              <set_value name="$AttE.{$S}" exact="table[$Ware = null, $Reason = 'no manager: FDN does not use this DC until a manager is assigned', $Kind = 'manager', $Time = player.age]" comment="same text as DC_Mgr_Review" />
+            </do_if>
+          </do_if>
+        </do_all>
+        <sort_list list="$Att" sortbyvalue="$AttE.{loop.element}.$Time" comment="oldest first, read back to front below" />
         <do_if value="$DCs.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No DC exists, so the FDN supplies nothing and stations trade as normal']" />
@@ -248,7 +276,7 @@
               <break />
             </do_if>
             <set_value name="$S" exact="$Att.{$a}" />
-            <set_value name="$E" exact="$Init.$Attention.{$S}" />
+            <set_value name="$E" exact="$AttE.{$S}" comment="card X4-21b: saved entry, or the live no-manager entry" />
             <set_value name="$Mins" exact="((player.age - $E.$Time) / 60s)i" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = $S.knownname, $color = 'Color.text_warning']" />
