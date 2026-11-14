@@ -28,6 +28,7 @@
     - Card X4-10e: TransferFeePercent uses $Scale 0 too (0.0 to 10.0 percent, step 0.5, 1 decimal, ' %'),
       new id fdn_TransferFeePercent_f so the old whole-percent id fdn_TransferFeePercent is never reused.
       The fee maths in fdn_supply.xml already takes fractional percents (percent x 1000 as one whole number).
+    - Card X4-21a: on/off button 'Manager skill sets range and fees' (ManagerSkill, default 1), after Maximum supply range.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -211,6 +212,7 @@
         <append_to_list name="$List" exact="table[$Key = 'LedgerMax', $type = 'slidercell', $name = 'DC ledger size', $mouseover = 'Maximum ledger entries kept per DC', $IdSuffix = '', $Scale = 1, $args = table[$min = 50, $max = 1000, $step = 50, $suffix = '']]" />
         <append_to_list name="$List" exact="table[$Key = 'RangeLimit', $type = 'button', $name = 'Limit supply range', $mouseover = 'Only supply stations within the maximum range below', $IdSuffix = '', $Scale = 1]" />
         <append_to_list name="$List" exact="table[$Key = 'RangeMaxJumps', $type = 'slidercell', $name = 'Maximum supply range', $mouseover = 'Maximum gate jumps between a DC and the station it supplies', $IdSuffix = '', $Scale = 1, $args = table[$min = 1, $max = 30, $step = 1, $suffix = ' jumps']]" />
+        <append_to_list name="$List" exact="table[$Key = 'ManagerSkill', $type = 'button', $name = 'Manager skill sets range and fees', $mouseover = 'Each DC manager sets that DC range (3 to 5 jumps), DC link range (6 to 10 jumps) and fee discount (10% per star). A DC with no manager is offline. Off = flat ranges and fees', $IdSuffix = '', $Scale = 1]" comment="card X4-21a: default 1, registers through Cfg_Lookup like the other on/off settings" />
         <append_to_list name="$List" exact="table[$Key = 'TransferDelay', $type = 'button', $name = 'Delay transfers by distance', $mouseover = 'Transfers take time per gate jump instead of arriving instantly', $IdSuffix = '', $Scale = 1]" />
         <append_to_list name="$List" exact="table[$Key = 'TransferDelayMult', $type = 'slidercell', $name = 'Delay per jump', $mouseover = 'Seconds of delay per gate jump when transfers are delayed', $IdSuffix = '', $Scale = 1, $args = table[$min = 0, $max = 60, $step = 1, $suffix = ' s']]" />
         <append_to_list name="$List" exact="table[$Key = 'TransferFeePercent', $type = 'slidercell', $name = 'Transfer fee', $mouseover = 'Fee as a percentage of the value of the wares moved (0.0 to 10.0 in steps of 0.5)', $IdSuffix = '_f', $Scale = 0, $args = table[$min = 0.0, $max = 10.0, $step = 0.5, $accuracyOverride = 1, $suffix = ' %']]" />

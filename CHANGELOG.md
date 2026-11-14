@@ -2,6 +2,21 @@
 
 All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations will be listed here.
 
+## [1.01] - Unreleased
+
+### Added
+
+- **DC manager skill sets range and fees** (new setting **Manager skill sets range and fees**, ON by default). Each DC's station manager gives 0–5 stars (combined skill / 20, as the game counts stars).
+  - Supply range: 3 jumps at 0–1 stars, 4 at 2–3 stars, 5 at 4–5 stars, never above **Maximum supply range** when the range limit is on.
+  - DC-to-DC links: 6 / 8 / 10 jumps by the same steps, never above **DC network range**. A link between two DCs uses the smaller of their two ranges.
+  - Fees a DC pays (supply, return, collection, DC-to-DC pull and NPC buy fees) are 10% lower per star of that DC's manager (5 stars = 50% off), after the normal fee formula. The charter fee is not changed.
+- **A DC with no manager is offline** for FDN (not a home DC, source or target, and not supplied) until a manager is assigned. One warning in the logbook and `fdn.log`, an entry in the Overview's Needs attention list, and the DC comes back by itself at the next supply check after a manager is assigned.
+- **FDN Overview:** a Manager row under each DC (stars, supply range, DC link range, fee discount, or "no manager"). The Network row follows the manager link ranges.
+
+### Changed
+
+- With **Manager skill sets range and fees** OFF, ranges and fees are flat and DCs without a manager still work, exactly as in 1.00.
+
 ## [1.00] – BETA – 2026-11-07
 
 ### Added

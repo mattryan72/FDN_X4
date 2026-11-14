@@ -24,6 +24,8 @@
                    $Return, $Collect]: $B total hourly fees; kind lists same shape. Missing kind lists read as 0 (old saves).
       $LastSupply: card X4-18j, station -> ware -> time of last successful FDN supply (collect anti-ping-pong).
       $SkipWarn  : card X4-18j, station -> ware -> table[$Kind, $Reason] last WARN fingerprint for Skip_Report.
+      $MgrCache  : card X4-21a, DC -> DC_Manager result of the last supply pass (stars, ranges, fee discount). Rebuilt each pass.
+      $MgrOffline: card X4-21a, DC -> time it went offline because it has no manager (only while ManagerSkill = 1).
       $NoDcWarned: card X4-14c, true once the 'no DC exists' warning was written this session (reset on load).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
@@ -171,6 +173,7 @@
             <set_value name="$Defaults.{'$TransferDelayMult'}" exact="8" comment="seconds of delay per gate jump (Matt: start at 8)" />
             <set_value name="$Defaults.{'$RangeLimit'}" exact="1" comment="1 = only use stations within RangeMaxJumps gate jumps. 0 = no distance limit" />
             <set_value name="$Defaults.{'$RangeMaxJumps'}" exact="5" comment="max gate jumps when RangeLimit is on. Minimum 1, no upper maximum" />
+            <set_value name="$Defaults.{'$ManagerSkill'}" exact="1" comment="card X4-21a: 1 = each DC's manager sets its supply range (3 + stars/2, capped by RangeMaxJumps), DC link range (6 + 2 x (stars/2), capped by DCNetworkRange) and fee discount (10 pct per star), and a DC with no manager is offline for FDN. 0 = flat ranges and fees as in 1.00. Default 1 (non-zero, registers like the other on/off settings)" />
 
             <!-- ===== NPC fallback (step 10) ===== -->
             <set_value name="$Defaults.{'$NpcFallback'}" exact="1" comment="1 = buy shortfalls from NPC offers when no own station can cover (card 09r: on by default, proven in game; 0 turns it off). NPCs only qualify when the station buy price is raised above the ware minimum" />
@@ -1353,6 +1356,205 @@
           <param name="Text" value="'CHARTER FEE: %1, dock %2 avg %3, base %4 (%5 pct, floor %6, cap %7)'.[$Station.knownname, $Dock.$Macro, $Dock.$Price.formatted.default + ' Cr', $Base.formatted.default + ' Cr', $Pct, $FloorCr.formatted.default, $CapCr.formatted.default] + ', standing %1 with %2, discount %3 pct, fee %4, allowed %5 %6'.[$Rep.$Standing, (if $Rep.$Faction then $Rep.$Faction.knownname else '?'), $Disc, $Fee.formatted.default + ' Cr', $Allowed, $Reason]" />
         </run_actions>
         <return value="table[$Allowed = $Allowed, $Fee = $Fee, $Base = $Base, $Price = $Dock.$Price, $Macro = $Dock.$Macro, $Faction = $Rep.$Faction, $Standing = $Rep.$Standing, $Discount = $Disc, $Reason = $Reason]" />
+      </actions>
+    </library>
+
+    <!--
+      DC MANAGER (card X4-21a, Matt approved t436-t439). Each Distribution Centre's manager (station.tradenpc, a
+      controllable property, scriptproperties.xml:301/307) sets that DC's ranges and fee discount while ManagerSkill = 1.
+      Skill = entity.combinedskill (0 to 100, scriptproperties.xml:1358/1397). Stars = skill / 20, whole number, 0 to 5:
+      vanilla treats 20 combined skill as one star (aiscripts/interrupt.attacked.xml:53 "at least 1 star on average";
+      fight.attack.object.capital.xml:2302-2313 lists 100/80/60/40/20/0 combined skill as 5/4/3/2/1/0 stars).
+        supply range  = 3 + stars/2  (0-1 stars 3, 2-3 stars 4, 4-5 stars 5); the RangeLimit / RangeMaxJumps cap still applies
+        DC link range = 6 + 2 x (stars/2)  (6 / 8 / 10); DCNetworkRange still caps it; a link uses the smaller of the two DCs
+        fee discount  = 10 pct per star of the DC that pays (5 stars = 50 pct), after the normal fee formula. Not the charter fee
+      No manager (tradenpc null; vanilla checks @$x.tradenpc.exists, lib.ammo.drones.xml:20, move.collect.drone.xml:23)
+      = the DC is offline: left out of the DC list (md.FDN_Supply.Find_DCs), and as a station it is not supplied, returned
+      from or collected from. It comes back by itself on the first supply pass after a manager is assigned.
+      ManagerSkill = 0: Range/Link -1 (no manager limit), discount 0, every DC online, exactly the 1.00 behaviour.
+        DC_Manager     params DC       live values: table[$On, $Has, $Skill, $Stars, $Range, $Link, $Disc, $Online]
+        DC_Mgr_Get     params DC       values of the last supply pass ($MgrCache); flat defaults when off or unknown
+        DC_Is_Offline  params Station  true when the station is a DC kept offline for having no manager
+        DC_Mgr_Review  params DCs      called by Find_DCs each pass: refreshes $MgrCache, warns once when a DC goes
+                                       offline, reports when it comes back, returns the online DCs
+    -->
+    <library name="DC_Manager" purpose="run_actions">
+      <params>
+        <param name="DC" />
+      </params>
+      <actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$On">
+          <param name="Key" value="'ManagerSkill'" />
+        </run_actions>
+        <set_value name="$Has" exact="false" />
+        <set_value name="$Skill" exact="0" />
+        <do_if value="$DC != null and $DC.exists">
+          <do_if value="@$DC.tradenpc.exists" comment="tradenpc is null when the station has no manager; @ avoids an error on null">
+            <set_value name="$Has" exact="true" />
+            <set_value name="$Skill" exact="$DC.tradenpc.combinedskill" />
+          </do_if>
+        </do_if>
+        <set_value name="$Stars" exact="[[($Skill / 20)i, 0].max, 5].min" comment="20 combined skill = 1 star, see header" />
+        <set_value name="$Half" exact="($Stars / 2)i" comment="whole stars / 2, rounded down" />
+        <do_if value="$On == 1">
+          <return value="table[$On = 1, $Has = $Has, $Skill = $Skill, $Stars = $Stars, $Range = 3 + $Half, $Link = 6 + 2 * $Half, $Disc = 10 * $Stars, $Online = $Has]" />
+        </do_if>
+        <return value="table[$On = 0, $Has = $Has, $Skill = $Skill, $Stars = $Stars, $Range = -1, $Link = -1, $Disc = 0, $Online = true]" />
+      </actions>
+    </library>
+
+    <library name="DC_Mgr_Get" purpose="run_actions">
+      <params>
+        <param name="DC" />
+      </params>
+      <actions>
+        <set_value name="$Flat" exact="table[$On = 0, $Has = false, $Skill = 0, $Stars = 0, $Range = -1, $Link = -1, $Disc = 0, $Online = true]" />
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$On">
+          <param name="Key" value="'ManagerSkill'" />
+        </run_actions>
+        <do_if value="$On != 1 or $DC == null" comment="setting off: 1.00 behaviour at once, without waiting for the next pass">
+          <return value="$Flat" />
+        </do_if>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$MgrCache?">
+          <do_if value="$Init.$MgrCache.{$DC}?">
+            <return value="$Init.$MgrCache.{$DC}" />
+          </do_if>
+        </do_if>
+        <return value="$Flat" />
+      </actions>
+    </library>
+
+    <library name="DC_Is_Offline" purpose="run_actions">
+      <params>
+        <param name="Station" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Station != null and $Init.$MgrOffline?">
+          <do_if value="$Init.$MgrOffline.{$Station}?">
+            <run_actions ref="md.FDN_Core.Cfg_Get" result="$On">
+              <param name="Key" value="'ManagerSkill'" />
+            </run_actions>
+            <return value="$On == 1" />
+          </do_if>
+        </do_if>
+        <return value="false" />
+      </actions>
+    </library>
+
+    <library name="DC_Mgr_Review" purpose="run_actions">
+      <params>
+        <param name="DCs" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$MgrOffline?">
+          <set_value name="$Init.$MgrOffline" exact="table[]" />
+        </do_if>
+        <set_value name="$Old" exact="table[]" />
+        <do_if value="$Init.$MgrCache?">
+          <set_value name="$Old" exact="$Init.$MgrCache" />
+        </do_if>
+        <set_value name="$Cache" exact="table[]" />
+        <set_value name="$Out" exact="[]" />
+        <do_for_each name="$S" in="$DCs">
+          <run_actions ref="md.FDN_Core.DC_Manager" result="$M">
+            <param name="DC" value="$S" />
+          </run_actions>
+          <set_value name="$M.$Logged" exact="-1000" />
+          <set_value name="$Show" exact="true" comment="debug line only when the values change, or every 600 s" />
+          <do_if value="$Old.{$S}?">
+            <set_value name="$P" exact="$Old.{$S}" />
+            <do_if value="$P.$Logged?">
+              <set_value name="$M.$Logged" exact="$P.$Logged" />
+              <do_if value="$P.$On == $M.$On and $P.$Has == $M.$Has and $P.$Stars == $M.$Stars and player.age lt $P.$Logged + 600">
+                <set_value name="$Show" exact="false" />
+              </do_if>
+            </do_if>
+          </do_if>
+          <do_if value="$Show">
+            <set_value name="$M.$Logged" exact="player.age" />
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="4" />
+              <param name="Text" value="'DC manager: %1, rule %2, manager %3, skill %4, %5 stars, supply range %6, DC link range %7, fee discount %8 pct'.[$S.knownname, (if $M.$On == 1 then 'on' else 'off'), (if $M.$Has then 'yes' else 'none'), $M.$Skill, $M.$Stars, $M.$Range, $M.$Link, $M.$Disc]" />
+            </run_actions>
+          </do_if>
+          <set_value name="$Cache.{$S}" exact="$M" comment="station object as table key, same as $Charters" />
+          <do_if value="$M.$Online">
+            <append_to_list name="$Out" exact="$S" />
+            <do_if value="$Init.$MgrOffline.{$S}?">
+              <remove_value name="$Init.$MgrOffline.{$S}" />
+              <set_value name="$Why" exact="if $M.$On == 1 then 'a manager was assigned (%1 stars)'.[$M.$Stars] else 'the manager rule was turned off'" />
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="3" />
+                <param name="Text" value="'DC %1 is back online for FDN: %2'.[$S.knownname, $Why]" />
+              </run_actions>
+              <run_actions ref="md.FDN_Core.Logbook_Event">
+                <param name="Tier" value="'info'" />
+                <param name="Category" value="'general'" />
+                <param name="Title" value="'DC %1 back online'.[$S.knownname]" />
+                <param name="Text" value="'Distribution Centre %1 is used by FDN again: %2.'.[$S.knownname, $Why]" />
+                <param name="Object" value="$S" />
+              </run_actions>
+              <do_if value="$Init.$Attention?">
+                <do_if value="$Init.$Attention.{$S}?">
+                  <do_if value="$Init.$Attention.{$S}.$Kind == 'manager'">
+                    <remove_value name="$Init.$Attention.{$S}" />
+                  </do_if>
+                </do_if>
+              </do_if>
+            </do_if>
+          </do_if>
+          <do_else>
+            <set_value name="$Reason" exact="'no manager: FDN does not use this DC until a manager is assigned'" />
+            <do_if value="not $Init.$MgrOffline.{$S}?" comment="warn once when it goes offline (saved, so not again after a load)">
+              <set_value name="$Init.$MgrOffline.{$S}" exact="player.age" />
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="2" />
+                <param name="Text" value="'DC %1 has no manager: offline for FDN (not a home DC, source or target, not supplied) until a manager is assigned'.[$S.knownname]" />
+              </run_actions>
+              <run_actions ref="md.FDN_Core.Logbook_Event">
+                <param name="Tier" value="'problem'" />
+                <param name="Title" value="'DC %1 has no manager'.[$S.knownname]" />
+                <param name="Text" value="'Distribution Centre %1 has no station manager, so FDN does not use it: no supplies, returns, collection or DC links. Assign a manager and it comes back by itself at the next supply check.'.[$S.knownname]" />
+                <param name="Object" value="$S" />
+              </run_actions>
+            </do_if>
+            <set_value name="$NeedAtt" exact="true" comment="keep the Needs attention entry; only written when missing so its age stays right" />
+            <do_if value="$Init.$Attention?">
+              <do_if value="$Init.$Attention.{$S}?">
+                <do_if value="$Init.$Attention.{$S}.$Kind == 'manager'">
+                  <set_value name="$NeedAtt" exact="false" />
+                </do_if>
+              </do_if>
+            </do_if>
+            <do_if value="$NeedAtt">
+              <run_actions ref="md.FDN_Core.Attention_Set">
+                <param name="Station" value="$S" />
+                <param name="Ware" value="null" />
+                <param name="Reason" value="$Reason" />
+                <param name="Kind" value="'manager'" />
+              </run_actions>
+            </do_if>
+          </do_else>
+        </do_for_each>
+        <set_value name="$Keys" exact="$Init.$MgrOffline.keys.list" comment="charter ended or station gone: drop quietly" />
+        <do_all exact="$Keys.count" counter="$k">
+          <set_value name="$K" exact="$Keys.{$k}" />
+          <do_if value="$K == null or not $K.exists or not $DCs.indexof.{$K}">
+            <remove_value name="$Init.$MgrOffline.{$K}" />
+            <do_if value="$K != null and $Init.$Attention?">
+              <do_if value="$Init.$Attention.{$K}?">
+                <do_if value="$Init.$Attention.{$K}.$Kind == 'manager'">
+                  <remove_value name="$Init.$Attention.{$K}" />
+                </do_if>
+              </do_if>
+            </do_if>
+          </do_if>
+        </do_all>
+        <set_value name="$Init.$MgrCache" exact="$Cache" />
+        <return value="$Out" />
       </actions>
     </library>
 

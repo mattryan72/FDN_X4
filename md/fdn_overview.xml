@@ -61,6 +61,12 @@
       and under Returns. Skip kind 'overstock' still appears in Problems. No new rows added to the DC tables.
     - Card X4-18j (display only here): Network fees and per-DC Fees keep the totals line; one breakdown row under
       each (supply | return | collect for 1h/6h/24h). Old saves without kind buckets show 0 Cr per kind.
+    - Card X4-21a (display only): with ManagerSkill on, one 'Manager:' row under each DC's Network row (stars, skill,
+      supply range capped by the global Maximum supply range when the limit is on, DC link range capped by DC network
+      range, fee discount), or a warning-coloured 'no manager, offline' row. The Network row then uses the smaller of
+      the two DCs' link ranges and leaves out DCs with no manager, as Build_Networks. Values are read live
+      (md.FDN_Core.DC_Manager); supply uses them from the next supply pass. The row is added before the ware rows, so
+      the existing row checks still keep the page under 160 rows. Needs attention shows '-' for entries with no ware.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -109,6 +115,19 @@
         <sort_list list="$DCs" sortbyvalue="loop.element.knownname" comment="card X4-15c: DCs by name" />
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$NetRange" comment="card X4-16a: same setting as Build_Networks">
           <param name="Key" value="'DCNetworkRange'" />
+        </run_actions>
+        <set_value name="$Mgr" exact="table[]" comment="card X4-21a: DC -> DC_Manager values, read only" />
+        <do_all exact="$DCs.count" counter="$d">
+          <run_actions ref="md.FDN_Core.DC_Manager" result="$MI">
+            <param name="DC" value="$DCs.{$d}" />
+          </run_actions>
+          <set_value name="$Mgr.{$DCs.{$d}}" exact="$MI" />
+        </do_all>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$RLimit" comment="card X4-21a: global supply range cap for the Manager row">
+          <param name="Key" value="'RangeLimit'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$RMax">
+          <param name="Key" value="'RangeMaxJumps'" />
         </run_actions>
 
         <set_value name="$Sum" exact="table[$Supplies = 0, $Returns = 0, $Units = 0, $Fees = 0Cr]" comment="card X4-15c: totals over all DCs" />
@@ -233,7 +252,7 @@
             <set_value name="$Mins" exact="((player.age - $E.$Time) / 60s)i" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = $S.knownname, $color = 'Color.text_warning']" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = $E.$Ware.name]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = (if $E.$Ware then $E.$Ware.name else '-')]" comment="card X4-21a: manager entries have no ware" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = '%1, %2 min ago'.[$E.$Reason, $Mins]]" />
             <set_value name="$Rows" exact="$Rows + 1" />
             <set_value name="$AttShown" exact="$AttShown + 1" />
@@ -275,7 +294,14 @@
             <set_value name="$O" exact="$DCs.{$o}" />
             <do_if value="$O != $S">
               <set_value name="$J" exact="$S.gatedistance.{$O}" />
-              <do_if value="$J ge 0 and $J le $NetRange">
+              <set_value name="$Lim" exact="$NetRange" />
+              <do_if value="$Mgr.{$S}.$On == 1" comment="card X4-21a: same link rule as Build_Networks">
+                <set_value name="$Lim" exact="[$NetRange, $Mgr.{$S}.$Link, $Mgr.{$O}.$Link].min" />
+                <do_if value="not $Mgr.{$S}.$Online or not $Mgr.{$O}.$Online">
+                  <set_value name="$Lim" exact="-1" />
+                </do_if>
+              </do_if>
+              <do_if value="$J ge 0 and $J le $Lim">
                 <set_value name="$Near.{$O}" exact="$J" />
               </do_if>
             </do_if>
@@ -297,6 +323,25 @@
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = $NetText]" />
           <set_value name="$Rows" exact="$Rows + 1" />
+          <set_value name="$MI" exact="$Mgr.{$S}" />
+          <do_if value="$MI.$On == 1" comment="card X4-21a: Manager row">
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+            <do_if value="$MI.$Online">
+              <set_value name="$ERange" exact="$MI.$Range" />
+              <do_if value="$RLimit and $RMax != null">
+                <set_value name="$ERange" exact="[$MI.$Range, $RMax].min" />
+              </do_if>
+              <set_value name="$ELink" exact="$MI.$Link" />
+              <do_if value="$NetRange != null">
+                <set_value name="$ELink" exact="[$MI.$Link, $NetRange].min" />
+              </do_if>
+              <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Manager: %1 stars (skill %2). Supply range %3 jumps, DC links %4 jumps, fee discount %5'.[$MI.$Stars, $MI.$Skill, $ERange, $ELink, $MI.$Disc] + ' %']" comment="the percent sign is added after formatting" />
+            </do_if>
+            <do_else>
+              <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Manager: none. FDN does not use this DC until a manager is assigned', $color = 'Color.text_warning']" />
+            </do_else>
+            <set_value name="$Rows" exact="$Rows + 1" />
+          </do_if>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Ware']" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Stock', $halign = 'right']" />

@@ -235,10 +235,15 @@
       (destroyed, no longer player owned, no working qualifying dock).
       Returns the list of DC stations. With no DC at all it returns [] and writes one WARN (fdn.log + logbook 'problem')
       per session; the callers already skip DC supply when the list is empty.
+      Card X4-21a: DCs with no manager are left out while ManagerSkill = 1 (md.FDN_Core.DC_Mgr_Review, own warning).
     -->
     <library name="Find_DCs" purpose="run_actions">
       <actions>
         <run_actions ref="md.FDN_Core.Charter_Review" result="$DCs" />
+        <set_value name="$Chartered" exact="$DCs.count" comment="card X4-21a: DCs before the manager check" />
+        <run_actions ref="md.FDN_Core.DC_Mgr_Review" result="$DCs" comment="card X4-21a: drops DCs with no manager (ManagerSkill on), refreshes manager stars, ranges and discounts">
+          <param name="DCs" value="$DCs" />
+        </run_actions>
         <do_for_each name="$S" in="$DCs">
           <run_actions ref="md.FDN_Core.Log">
             <param name="Level" value="3" />
@@ -254,7 +259,7 @@
         <do_if value="$Init.$NoDcWarned?">
           <set_value name="$Warned" exact="$Init.$NoDcWarned" />
         </do_if>
-        <do_if value="$DCs.count == 0">
+        <do_if value="$DCs.count == 0 and $Chartered == 0" comment="card X4-21a: DCs that are only offline for lack of a manager have their own warning">
           <do_if value="not $Warned">
             <set_value name="$Init.$NoDcWarned" exact="true" />
             <run_actions ref="md.FDN_Core.Log">
@@ -277,6 +282,7 @@
 
     <!--
       Step 9a, read-only. Groups DCs into networks. Two DCs are linked when 0 le gatedistance le Range;
+      card X4-21a: with ManagerSkill on, Range is lowered to the smaller of the two DCs' manager link ranges.
       a network is every DC reachable through links (flood fill). A DC with no link is a network of one.
       Returns a list of networks, each a list of DC stations. gatedistance is -1 when there is no route.
       VERIFY: append_to_list with a list value adds it as one element (list of lists).
@@ -301,7 +307,17 @@
                 <set_value name="$Other" exact="$DCs.{$j}" />
                 <do_if value="not $Done.indexof.{$Other}">
                   <set_value name="$Jumps" exact="$Cur.gatedistance.{$Other}" />
-                  <do_if value="$Jumps ge 0 and $Jumps le $Range">
+                  <set_value name="$Lim" exact="$Range" />
+                  <run_actions ref="md.FDN_Core.DC_Mgr_Get" result="$MA" comment="card X4-21a: manager link range of both DCs">
+                    <param name="DC" value="$Cur" />
+                  </run_actions>
+                  <run_actions ref="md.FDN_Core.DC_Mgr_Get" result="$MB">
+                    <param name="DC" value="$Other" />
+                  </run_actions>
+                  <do_if value="$MA.$Link ge 0 and $MB.$Link ge 0">
+                    <set_value name="$Lim" exact="[$Range, $MA.$Link, $MB.$Link].min" comment="card X4-21a: the smaller of the two DCs' link ranges, never above DCNetworkRange" />
+                  </do_if>
+                  <do_if value="$Jumps ge 0 and $Jumps le $Lim">
                     <append_to_list name="$Net" exact="$Other" />
                     <append_to_list name="$Done" exact="$Other" />
                   </do_if>
@@ -467,7 +483,10 @@
             <continue />
           </do_if>
           <set_value name="$Jumps" exact="$Station.gatedistance.{$DC}" />
-          <do_if value="$Jumps lt 0 or ($Limit and $Jumps gt $MaxJumps)">
+          <run_actions ref="md.FDN_Core.DC_Mgr_Get" result="$M" comment="card X4-21a: DC manager supply range">
+            <param name="DC" value="$DC" />
+          </run_actions>
+          <do_if value="$Jumps lt 0 or ($Limit and $Jumps gt $MaxJumps) or ($M.$Range ge 0 and $Jumps gt $M.$Range)">
             <continue />
           </do_if>
           <set_value name="$InRange" exact="$InRange + 1" />
@@ -488,7 +507,10 @@
         </do_all>
         <do_if value="$Exclude and $Exclude.exists and md.FDN_Core.Init.$Charters.{$Exclude}? and $Exclude != $Station">
           <set_value name="$XJ" exact="$Station.gatedistance.{$Exclude}" />
-          <do_if value="$XJ ge 0 and (not $Limit or $XJ le $MaxJumps)">
+          <run_actions ref="md.FDN_Core.DC_Mgr_Get" result="$XM" comment="card X4-21a">
+            <param name="DC" value="$Exclude" />
+          </run_actions>
+          <do_if value="$XJ ge 0 and (not $Limit or $XJ le $MaxJumps) and ($XM.$Range lt 0 or $XJ le $XM.$Range)">
             <set_value name="$InRange" exact="$InRange + 1" comment="the excluded (blocked) DC is in range too" />
           </do_if>
         </do_if>
@@ -600,7 +622,10 @@
           <do_else>
             <set_value name="$Jumps" exact="$Station.gatedistance.{$DC}" />
           </do_else>
-          <do_if value="$Jumps ge 0 and (not $Limit or $Jumps le $MaxJumps) and ($BestJumps lt 0 or $Jumps lt $BestJumps)">
+          <run_actions ref="md.FDN_Core.DC_Mgr_Get" result="$M" comment="card X4-21a: DC manager supply range">
+            <param name="DC" value="$DC" />
+          </run_actions>
+          <do_if value="$Jumps ge 0 and (not $Limit or $Jumps le $MaxJumps) and ($M.$Range lt 0 or $Jumps le $M.$Range) and ($BestJumps lt 0 or $Jumps lt $BestJumps)">
             <set_value name="$Best" exact="$DC" />
             <set_value name="$BestJumps" exact="$Jumps" />
           </do_if>
@@ -741,6 +766,8 @@
       Order (Matt's design): the nearest DC in range, then the other DCs of that DC's network that are also in range.
       A DC never supplies itself, and own non-DC stations are never sources.
       Range per station: RangeLimit / RangeMaxJumps (Station_Cfg_Get), same rule as Nearest_DC.
+      Card X4-21a: a DC also only serves stations within its manager supply range (DC_Mgr_Get, -1 = no limit), in
+      Nearest_DC, Legal_DC_For_Ware and here. RangeMaxJumps stays the cap when RangeLimit is on.
       Returns a list of [DC, jumps].
       VERIFY: two stations in the same sector give gatedistance 0.
     -->
@@ -765,7 +792,10 @@
           <set_value name="$DC" exact="$DCs.{$i}" />
           <do_if value="$DC.exists and $DC != $Station and md.FDN_Core.Init.$Charters.{$DC}?" comment="card X4-14c: charter still active">
             <set_value name="$Jumps" exact="$Station.gatedistance.{$DC}" />
-            <do_if value="$Jumps ge 0 and (not $Limit or $Jumps le $MaxJumps)">
+            <run_actions ref="md.FDN_Core.DC_Mgr_Get" result="$M" comment="card X4-21a: DC manager supply range">
+              <param name="DC" value="$DC" />
+            </run_actions>
+            <do_if value="$Jumps ge 0 and (not $Limit or $Jumps le $MaxJumps) and ($M.$Range lt 0 or $Jumps le $M.$Range)">
               <set_value name="$InRange.{$DC}" exact="$Jumps" />
             </do_if>
           </do_if>
@@ -800,6 +830,7 @@
                     capacity is shared per transport type and has no clean per-ware value.)
         qty       = min(need still open, available, free space for the ware at the station)
         fee       = averageprice x qty x factor / 100000, factor = whole number of (TransferFeePercent x (1 + jumps x FeeRangeMult) x FeeVolumeMult x FeeTypeMult x 1000)
+                    card X4-21a: then x (100 - manager discount of the paying DC) / 100 (source DC, or home DC for a pull fee)
       The DC pays. Skips are logged (WARN) and written to the logbook (throttled by LogbookSkipInterval).
     -->
     <library name="Supply_Station" purpose="run_actions">
@@ -812,6 +843,16 @@
       </params>
       <actions>
         <do_if value="not $Station.exists">
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.DC_Is_Offline" result="$MgrOff" comment="card X4-21a: a DC with no manager is offline, FDN leaves it alone">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <do_if value="$MgrOff">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'%1: %2 is a DC with no manager, offline for FDN'.['supply', $Station.knownname]" />
+          </run_actions>
           <return />
         </do_if>
         <run_actions ref="md.FDN_Supply.Candidate_DCs" result="$Cands">
@@ -941,6 +982,11 @@
                   <do_if value="$Fee lt 0Cr">
                     <set_value name="$Fee" exact="0Cr" />
                   </do_if>
+                  <set_value name="$BaseFee" exact="$Fee" comment="card X4-21a: fee before any manager discount" />
+                  <run_actions ref="md.FDN_Core.DC_Mgr_Get" result="$SrcM" comment="card X4-21a: the source DC pays a direct supply (and a pull fallback), so its manager discount applies">
+                    <param name="DC" value="$DC" />
+                  </run_actions>
+                  <set_value name="$Fee" exact="($BaseFee * (100 - $SrcM.$Disc)) / 100" comment="money x whole number, as Charter_Fee" />
                   <set_value name="$Payer" exact="$DC" />
                   <set_value name="$PullHome" exact="null" />
                   <set_value name="$Fallback" exact="false" />
@@ -948,7 +994,11 @@
                   <set_value name="$PullFee" exact="0Cr" />
                   <do_if value="$SelfHome or $c gt 1" comment="card 9g: for a self-home DC every candidate is a pull. card 9f: a pull, the home DC pays the supply fee x DCToDCFeeMult">
                     <set_value name="$Kind" exact="'pull'" />
-                    <set_value name="$PullFee" exact="($Fee * $PullFactor) / 1000" />
+                    <set_value name="$PullFee" exact="($BaseFee * $PullFactor) / 1000" />
+                    <run_actions ref="md.FDN_Core.DC_Mgr_Get" result="$HomeM" comment="card X4-21a: the home DC pays the DC-to-DC fee, its manager discount applies">
+                      <param name="DC" value="$Home" />
+                    </run_actions>
+                    <set_value name="$PullFee" exact="($PullFee * (100 - $HomeM.$Disc)) / 100" />
                     <do_if value="$Home.money ge $PullFee">
                       <set_value name="$Payer" exact="$Home" />
                       <set_value name="$PullHome" exact="$Home" />
@@ -1342,6 +1392,9 @@
         <run_actions ref="md.FDN_Core.Cfg_Get" result="$KeepPct">
           <param name="Key" value="'DCKeepPercent'" />
         </run_actions>
+        <run_actions ref="md.FDN_Core.DC_Mgr_Get" result="$HomeM" comment="card X4-21a: the home DC pays the NPC buy fee, its manager discount applies">
+          <param name="DC" value="$Home" />
+        </run_actions>
         <set_value name="$StartMoney" exact="$Home.money" />
         <set_value name="$Floor" exact="($StartMoney * $KeepPct) / 100" comment="soft reserve, worked out once per call (plan step 5)" />
         <set_value name="$ReserveWarn" exact="false" />
@@ -1378,6 +1431,7 @@
             </do_if>
             <do_if value="$Qty gt 0">
               <set_value name="$FeeFactor" exact="($Pct * (1.0 + $Jumps * $RangeMult) * $VolMult * $TypeMult * 1000)i" comment="same factor as Supply_Station, jumps = seller to station" />
+              <set_value name="$FeeFactor" exact="($FeeFactor * (100 - $HomeM.$Disc)) / 100" comment="card X4-21a: manager discount folded into the whole-number factor, so the fee, the per-unit check and the cut-down loop all use it" />
               <set_value name="$Fee" exact="($Ware.averageprice * $Qty * $FeeFactor) / 100000" />
               <do_if value="$Fee lt 0Cr">
                 <set_value name="$Fee" exact="0Cr" />
@@ -2156,6 +2210,16 @@
         <do_if value="not $Managed">
           <return />
         </do_if>
+        <run_actions ref="md.FDN_Core.DC_Is_Offline" result="$MgrOff" comment="card X4-21a: a DC with no manager is offline, FDN leaves it alone">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <do_if value="$MgrOff">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'%1: %2 is a DC with no manager, offline for FDN'.['return', $Station.knownname]" />
+          </run_actions>
+          <return />
+        </do_if>
         <set_value name="$DC" exact="$Near.{1}" />
         <set_value name="$Jumps" exact="$Near.{2}" />
         <set_value name="$NearDC" exact="$DC" comment="card X4-18c: per ware $DC may become a legal fallback DC" />
@@ -2383,6 +2447,10 @@
                   <do_if value="$Fee lt 0Cr">
                     <set_value name="$Fee" exact="0Cr" />
                   </do_if>
+                  <run_actions ref="md.FDN_Core.DC_Mgr_Get" result="$RcvM" comment="card X4-21a: the receiving DC pays the return fee, its manager discount applies">
+                    <param name="DC" value="$DC" />
+                  </run_actions>
+                  <set_value name="$Fee" exact="($Fee * (100 - $RcvM.$Disc)) / 100" />
                   <do_if value="$DC.money lt $Fee">
                     <run_actions ref="md.FDN_Supply.Skip_Report">
                       <param name="Station" value="$Station" />
@@ -2618,6 +2686,16 @@
         <do_if value="not $Station.isplayerowned">
           <return />
         </do_if>
+        <run_actions ref="md.FDN_Core.DC_Is_Offline" result="$MgrOff" comment="card X4-21a: a DC with no manager is offline, FDN leaves it alone">
+          <param name="Station" value="$Station" />
+        </run_actions>
+        <do_if value="$MgrOff">
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'%1: %2 is a DC with no manager, offline for FDN'.['overstock', $Station.knownname]" />
+          </run_actions>
+          <return />
+        </do_if>
         <set_value name="$DC" exact="$Near.{1}" />
         <set_value name="$Jumps" exact="$Near.{2}" />
         <set_value name="$NearDC" exact="$DC" comment="card X4-18c" />
@@ -2815,6 +2893,10 @@
           <do_if value="$Fee lt 0Cr">
             <set_value name="$Fee" exact="0Cr" />
           </do_if>
+          <run_actions ref="md.FDN_Core.DC_Mgr_Get" result="$RcvM" comment="card X4-21a: the receiving DC pays the collect fee, its manager discount applies">
+            <param name="DC" value="$DC" />
+          </run_actions>
+          <set_value name="$Fee" exact="($Fee * (100 - $RcvM.$Disc)) / 100" />
           <do_if value="$DC.money lt $Fee">
             <run_actions ref="md.FDN_Supply.Skip_Report">
               <param name="Station" value="$Station" />
