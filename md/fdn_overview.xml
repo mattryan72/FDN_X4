@@ -90,6 +90,14 @@
                       (zero for hours before 1.02 or in old saves), fees from $B. Then Recent activity with the
                       Show filter (All, Supplies, Returns, NPC, Problems), every stored entry (up to 50), 2 rows each.
                       View: md.FDN_Core.Init.$HiView = table[$Idx] (0 = All DCs) and the existing $OvView.$Filter.
+    - Card X4-22b: per-DC ware rules (md.FDN_Core.DC_Ware_Rule). A fifth private page 'FDN Ware Rules'
+      (fdn_overview_rules) is opened from a link row under the DC heading on FDN DCs and shows the DC that page
+      showed (md.FDN_Core.Init.$RuView = table[$DC, $Wares, $Confirm, $Back]). One row per ware the DC has in stock,
+      produces, uses or trades, or has a rule for (by name, up to the row limit): Rule cycle button (Stock, Keep %,
+      Never send, Do not accept; right-click goes back), a Keep % button (10 to 100 in steps of 10, wraps; only for
+      Keep %) and stock / target. 'Reset all to Stock' needs a second click. The back button returns to FDN DCs on
+      the same DC ($RuView.$Back, cleared when the Overview opens). The FDN DCs ware table adds the rule after the
+      ware name, e.g. 'Energy Cells [keep 30 %]'. The buttons echo an index into $RuView.$Wares.
       All four pages share On_Refresh and the $OvKeep flag: a button sets it before Refresh_Menu, the page being built
       keeps its view only when the flag is set and then clears it, so opening a page fresh starts at its first view.
       The On_Newer / On_Older buttons now page the Alerts Problems list; the History activity list is not paged.
@@ -125,6 +133,12 @@
           $columns = 6,
           $private = 1,
           $onOpen = On_Open_History]" comment="card X4-22a" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Register_Options_Menu" param="table[
+          $id = 'fdn_overview_rules',
+          $title = 'FDN Ware Rules',
+          $columns = 4,
+          $private = 1,
+          $onOpen = On_Open_Rules]" comment="card X4-22b" />
       </actions>
     </cue>
 
@@ -301,6 +315,9 @@
       <actions>
         <!-- card X4-22a: this page has no view of its own, but the flag is cleared here as before -->
         <include_actions ref="Ov_Keep" />
+        <do_if value="$Init.$RuView?" comment="card X4-22b: FDN DCs opened from here starts at the first DC again">
+          <set_value name="$Init.$RuView.$Back" exact="false" />
+        </do_if>
         <set_value name="$Max" exact="150" comment="the API allows 160 rows; stop adding DC rows here" />
         <set_value name="$Rows" exact="0" />
         <set_value name="$Shown" exact="0" />
@@ -429,6 +446,14 @@
       </conditions>
       <actions>
         <include_actions ref="Ov_Keep" />
+        <do_if value="$Init.$RuView?" comment="card X4-22b: back from FDN Ware Rules keeps the DC">
+          <do_if value="$Init.$RuView.$Back?">
+            <do_if value="$Init.$RuView.$Back">
+              <set_value name="$Keep" exact="true" />
+            </do_if>
+          </do_if>
+          <set_value name="$Init.$RuView.$Back" exact="false" />
+        </do_if>
         <do_if value="not $Keep or not $Init.$DcView?">
           <set_value name="$Init.$DcView" exact="table[$Idx = 1]" />
         </do_if>
@@ -478,6 +503,18 @@
           </do_if>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = '%1%2%3'.[$S.knownname, $Where, $State]]" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+          <do_if value="not $Init.$RuView?" comment="card X4-22b: the Ware Rules page shows this DC">
+            <set_value name="$Init.$RuView" exact="table[$DC = null, $Wares = [], $Confirm = false, $Back = false]" />
+          </do_if>
+          <set_value name="$Init.$RuView.$DC" exact="$S" />
+          <set_value name="$DRules" exact="table[]" />
+          <do_if value="$Init.$DCWareRules?">
+            <do_if value="$Init.$DCWareRules.{$S}?">
+              <set_value name="$DRules" exact="$Init.$DCWareRules.{$S}" />
+            </do_if>
+          </do_if>
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Submenu_Link" param="table[$id = 'fdn_overview_rules', $text = 'FDN Ware Rules for this DC (%1 set)'.[$DRules.keys.count] + ': Stock, Keep %, Never send, Do not accept']" comment="card X4-22b" />
           <set_value name="$Rows" exact="$Rows + 1" />
           <set_value name="$Near" exact="table[]" comment="card X4-16a: other DC -> gate jumps, within DCNetworkRange" />
           <do_all exact="$DCs.count" counter="$o">
@@ -585,8 +622,20 @@
             <do_if value="$S.cargo.{$W}.target?">
               <set_value name="$Target" exact="$S.cargo.{$W}.target" />
             </do_if>
+            <set_value name="$WName" exact="$W.name" />
+            <do_if value="$DRules.{$W}?" comment="card X4-22b: rule after the ware name">
+              <do_if value="$DRules.{$W}.$Rule == 'keep'">
+                <set_value name="$WName" exact="$WName + ' [keep %1'.[$DRules.{$W}.$Pct] + ' %]'" />
+              </do_if>
+              <do_elseif value="$DRules.{$W}.$Rule == 'never'">
+                <set_value name="$WName" exact="$WName + ' [never send]'" />
+              </do_elseif>
+              <do_elseif value="$DRules.{$W}.$Rule == 'noaccept'">
+                <set_value name="$WName" exact="$WName + ' [do not accept]'" />
+              </do_elseif>
+            </do_if>
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = $W.name]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = $WName]" />
             <set_value name="$Pct" exact="$PctOf.{$W}" />
             <do_if value="$Pct lt 25">
               <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = '%1'.[$S.cargo.{$W}.count], $halign = 'right', $color = 'Color.text_negative']" />
@@ -942,6 +991,290 @@
           <param name="Level" value="4" />
           <param name="Text" value="'history page opened: %1, 24h supplies %2, returns %3, collects %4, units %5, fees %6'.[$SelName, $Tot.$S, $Tot.$R, $Tot.$C, $Tot.$U, $Tot.$F.formatted.default + ' Cr'] + ', activity %1 %2 of %3, %4 rows'.[$ViewNames.{$View.$Filter}, $ActShown, $Act.count, $Rows]" />
         </run_actions>
+      </actions>
+    </cue>
+
+    <cue name="On_Open_Rules" instantiate="true" comment="card X4-22b: FDN Ware Rules page for the DC shown on FDN DCs">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <include_actions ref="Ov_Keep" />
+        <do_if value="not $Init.$RuView?">
+          <set_value name="$Init.$RuView" exact="table[$DC = null, $Wares = [], $Confirm = false, $Back = false]" />
+        </do_if>
+        <do_if value="not $Keep">
+          <set_value name="$Init.$RuView.$Confirm" exact="false" comment="a fresh open never starts half way through a reset" />
+        </do_if>
+        <set_value name="$Init.$RuView.$Back" exact="true" comment="the back button returns to FDN DCs on the same DC" />
+        <set_value name="$Max" exact="150" comment="the API allows 160 rows; stop adding ware rows here" />
+        <set_value name="$Rows" exact="0" />
+        <set_value name="$Cut" exact="false" />
+        <set_value name="$S" exact="null" />
+        <do_if value="$Init.$RuView.$DC?">
+          <set_value name="$S" exact="$Init.$RuView.$DC" />
+        </do_if>
+        <set_value name="$Ok" exact="$S != null and $S.exists" />
+        <do_if value="$Ok">
+          <set_value name="$Ok" exact="$Init.$Charters?" />
+          <do_if value="$Ok">
+            <set_value name="$Ok" exact="$Init.$Charters.{$S}?" />
+          </do_if>
+        </do_if>
+        <do_if value="not $Ok">
+          <set_value name="$Init.$RuView.$Wares" exact="[]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'This DC no longer exists or has no charter. Go back to FDN DCs and open the rules for another DC']" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+        </do_if>
+        <do_else>
+          <set_value name="$Rules" exact="table[]" />
+          <do_if value="$Init.$DCWareRules?">
+            <do_if value="$Init.$DCWareRules.{$S}?">
+              <set_value name="$Rules" exact="$Init.$DCWareRules.{$S}" />
+            </do_if>
+          </do_if>
+          <set_value name="$NRules" exact="$Rules.keys.count" />
+
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="control row" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
+            $col = 1,
+            $text = table[$text = 'Refresh', $halign = 'center'],
+            $mouseOverText = 'Reload the figures. The page does not update by itself',
+            $onClick = On_Refresh]" />
+          <do_if value="$NRules gt 0">
+            <set_value name="$RText" exact="'Reset all to Stock (%1 set)'.[$NRules]" />
+            <do_if value="$Init.$RuView.$Confirm">
+              <set_value name="$RText" exact="'Click again to reset %1 rules to Stock'.[$NRules]" />
+            </do_if>
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
+              $col = 2,
+              $colSpan = 2,
+              $text = table[$text = $RText, $halign = 'center'],
+              $mouseOverText = 'Set every ware at this DC back to Stock (normal behaviour). Needs a second click',
+              $onClick = On_Rule_Reset]" />
+          </do_if>
+          <do_else>
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = 'All wares on Stock', $halign = 'center']" />
+          </do_else>
+          <set_value name="$Rows" exact="$Rows + 1" />
+
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Ware rules at %1, %2'.[$S.knownname, $S.sector.knownname]]" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Stock: normal. Keep %: keeps that share of its storage target and supplies only above it. Never send: never supplies it to stations, still takes returns and collects.', $mouseOverText = 'Keep % uses the storage target, or the current stock when the ware has no target. The global DC reserve still applies; the larger reserve wins']" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Do not accept: takes no returns or collected overstock of it and is never picked as a destination for it, still supplies what it has. Click a button for the next value, right-click for the previous one.']" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Ware']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Rule', $halign = 'center']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = 'Keep %', $halign = 'center']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = 'Stock / target', $halign = 'right']" />
+          <set_value name="$Rows" exact="$Rows + 1" />
+
+          <set_value name="$Seen" exact="table[]" comment="wares in stock, products, resources, trade wares and wares that have a rule" />
+          <set_value name="$List" exact="[]" />
+          <set_value name="$Src" exact="[$S.cargo.list, $S.products.list, $S.resources.list, $S.tradewares.list, $Rules.keys.list]" />
+          <do_all exact="$Src.count" counter="$l">
+            <set_value name="$L" exact="$Src.{$l}" />
+            <do_all exact="$L.count" counter="$i">
+              <set_value name="$W" exact="$L.{$i}" />
+              <do_if value="$W != null and not $Seen.{$W}?">
+                <set_value name="$Seen.{$W}" exact="1" />
+                <append_to_list name="$List" exact="$W" />
+              </do_if>
+            </do_all>
+          </do_all>
+          <sort_list list="$List" sortbyvalue="loop.element.name" />
+          <set_value name="$Init.$RuView.$Wares" exact="$List" comment="the buttons echo an index into this list" />
+          <do_if value="$List.count == 0">
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No wares in stock or set to trade here']" />
+            <set_value name="$Rows" exact="$Rows + 1" />
+          </do_if>
+          <set_value name="$WShown" exact="0" />
+          <do_all exact="$List.count" counter="$w">
+            <do_if value="$Rows ge $Max">
+              <set_value name="$Cut" exact="true" />
+              <break />
+            </do_if>
+            <set_value name="$W" exact="$List.{$w}" />
+            <set_value name="$R" exact="'stock'" />
+            <set_value name="$P" exact="0" />
+            <do_if value="$Rules.{$W}?">
+              <set_value name="$R" exact="$Rules.{$W}.$Rule" />
+              <set_value name="$P" exact="$Rules.{$W}.$Pct" />
+            </do_if>
+            <set_value name="$RLabel" exact="'Stock'" />
+            <do_if value="$R == 'keep'">
+              <set_value name="$RLabel" exact="'Keep %'" />
+            </do_if>
+            <do_elseif value="$R == 'never'">
+              <set_value name="$RLabel" exact="'Never send'" />
+            </do_elseif>
+            <do_elseif value="$R == 'noaccept'">
+              <set_value name="$RLabel" exact="'Do not accept'" />
+            </do_elseif>
+            <set_value name="$Target" exact="0" />
+            <do_if value="$S.cargo.{$W}.target?">
+              <set_value name="$Target" exact="$S.cargo.{$W}.target" />
+            </do_if>
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = $W.name]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
+              $col = 2,
+              $echo = $w,
+              $text = table[$text = $RLabel, $halign = 'center'],
+              $mouseOverText = 'Click: next rule (Stock, Keep %, Never send, Do not accept). Right-click: previous rule',
+              $onClick = On_Rule_Cycle,
+              $onRightClick = On_Rule_Cycle]" />
+            <do_if value="$R == 'keep'">
+              <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
+                $col = 3,
+                $echo = $w,
+                $text = table[$text = '%1'.[$P] + ' %', $halign = 'center'],
+                $mouseOverText = 'Click: +10 (after 100 back to 10). Right-click: -10',
+                $onClick = On_Rule_Pct,
+                $onRightClick = On_Rule_Pct]" />
+            </do_if>
+            <do_else>
+              <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = '-', $halign = 'center']" />
+            </do_else>
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = '%1 / %2'.[$S.cargo.{$W}.count, $Target], $halign = 'right']" />
+            <set_value name="$Rows" exact="$Rows + 1" />
+            <set_value name="$WShown" exact="$WShown + 1" />
+          </do_all>
+          <do_if value="$Cut">
+            <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[$selectable = false]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'More not shown: the page holds at most 160 rows. %1 of %2 wares listed'.[$WShown, $List.count]]" />
+            <set_value name="$Rows" exact="$Rows + 1" />
+          </do_if>
+        </do_else>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="4" />
+          <param name="Text" value="'Ware Rules page opened: %1, %2 rows%3'.[(if $Ok then $S.knownname else '(no DC)'), $Rows, (if $Cut then ', more not shown' else '')]" />
+        </run_actions>
+      </actions>
+    </cue>
+
+    <!-- Card X4-22b: Ware Rules buttons. event.param.$echo is the ware's index in md.FDN_Core.Init.$RuView.$Wares. -->
+    <library name="Ov_Rule_Target" purpose="include_actions">
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <set_value name="$S" exact="null" />
+        <set_value name="$W" exact="null" />
+        <set_value name="$Back" exact="event.param.$event == 'onRightClick'" />
+        <do_if value="$Init.$RuView?">
+          <set_value name="$Init.$RuView.$Confirm" exact="false" />
+          <set_value name="$I" exact="event.param.$echo" />
+          <do_if value="$Init.$RuView.$DC? and $Init.$RuView.$Wares? and $I != null">
+            <do_if value="$I ge 1 and $I le $Init.$RuView.$Wares.count">
+              <set_value name="$S" exact="$Init.$RuView.$DC" />
+              <set_value name="$W" exact="$Init.$RuView.$Wares.{$I}" />
+            </do_if>
+          </do_if>
+        </do_if>
+        <do_if value="$S != null and not $S.exists">
+          <set_value name="$S" exact="null" />
+        </do_if>
+      </actions>
+    </library>
+
+    <cue name="On_Rule_Cycle" instantiate="true" comment="card X4-22b: Stock, Keep %, Never send, Do not accept (right-click goes back)">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <include_actions ref="Ov_Rule_Target" />
+        <do_if value="$S != null and $W != null">
+          <run_actions ref="md.FDN_Core.DC_Ware_Rule" result="$WR">
+            <param name="DC" value="$S" />
+            <param name="Ware" value="$W" />
+          </run_actions>
+          <set_value name="$Order" exact="['stock', 'keep', 'never', 'noaccept']" />
+          <set_value name="$Pos" exact="$Order.indexof.{$WR.$Rule}" />
+          <do_if value="not ($Pos ge 1)">
+            <set_value name="$Pos" exact="1" />
+          </do_if>
+          <do_if value="$Back">
+            <set_value name="$Pos" exact="if $Pos == 1 then $Order.count else $Pos - 1" />
+          </do_if>
+          <do_else>
+            <set_value name="$Pos" exact="if $Pos == $Order.count then 1 else $Pos + 1" />
+          </do_else>
+          <run_actions ref="md.FDN_Core.DC_Ware_Rule_Set" result="$Done">
+            <param name="DC" value="$S" />
+            <param name="Ware" value="$W" />
+            <param name="Rule" value="$Order.{$Pos}" />
+          </run_actions>
+        </do_if>
+        <set_value name="$Init.$OvKeep" exact="true" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Refresh_Menu" param="table[]" />
+      </actions>
+    </cue>
+
+    <cue name="On_Rule_Pct" instantiate="true" comment="card X4-22b: Keep % in steps of 10, 10 to 100, wraps (right-click goes down)">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <include_actions ref="Ov_Rule_Target" />
+        <do_if value="$S != null and $W != null">
+          <run_actions ref="md.FDN_Core.DC_Ware_Rule" result="$WR">
+            <param name="DC" value="$S" />
+            <param name="Ware" value="$W" />
+          </run_actions>
+          <do_if value="$WR.$Rule == 'keep'">
+            <set_value name="$P" exact="$WR.$Pct" />
+            <do_if value="$Back">
+              <set_value name="$P" exact="(($P + 9) / 10 - 1) * 10" comment="integer maths: down to the next lower multiple of 10" />
+              <do_if value="$P lt 10">
+                <set_value name="$P" exact="100" />
+              </do_if>
+            </do_if>
+            <do_else>
+              <set_value name="$P" exact="($P / 10 + 1) * 10" comment="integer maths: up to the next higher multiple of 10" />
+              <do_if value="$P gt 100">
+                <set_value name="$P" exact="10" />
+              </do_if>
+            </do_else>
+            <run_actions ref="md.FDN_Core.DC_Ware_Rule_Set" result="$Done">
+              <param name="DC" value="$S" />
+              <param name="Ware" value="$W" />
+              <param name="Rule" value="'keep'" />
+              <param name="Pct" value="$P" />
+            </run_actions>
+          </do_if>
+        </do_if>
+        <set_value name="$Init.$OvKeep" exact="true" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Refresh_Menu" param="table[]" />
+      </actions>
+    </cue>
+
+    <cue name="On_Rule_Reset" instantiate="true" comment="card X4-22b: first click arms, second click resets every ware at the DC to Stock">
+      <conditions>
+        <event_cue_signalled />
+      </conditions>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$RuView?">
+          <do_if value="$Init.$RuView.$Confirm">
+            <set_value name="$Init.$RuView.$Confirm" exact="false" />
+            <do_if value="$Init.$RuView.$DC?">
+              <run_actions ref="md.FDN_Core.DC_Ware_Rules_Reset" result="$N">
+                <param name="DC" value="$Init.$RuView.$DC" />
+              </run_actions>
+            </do_if>
+          </do_if>
+          <do_else>
+            <set_value name="$Init.$RuView.$Confirm" exact="true" />
+          </do_else>
+        </do_if>
+        <set_value name="md.FDN_Core.Init.$OvKeep" exact="true" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Refresh_Menu" param="table[]" />
       </actions>
     </cue>
 

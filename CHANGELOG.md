@@ -15,10 +15,18 @@ All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations
 
 - **FDN History page:** supplies, returns, collects, units and fees per hour for the last 24 hours, with a 24h totals row, for all DCs or one DC (**Showing:** button). Recent activity moved here and now lists every stored entry (up to 50) with the **Show:** filter.
 - Hourly counts of supplies, returns, collects and units per DC, kept for 24 hours like the existing hourly fees.
+- **Per-DC ware rules** (new page **FDN Ware Rules**, linked from **FDN DCs** for the DC shown). Each ware a DC stocks, produces, uses or trades gets a rule button:
+  - **Stock** – normal behaviour (the default for every ware).
+  - **Keep %** – the DC keeps that share of its storage target for the ware (10–100 %, steps of 10; starts at the **DC reserve** setting) and only supplies above it. The DC reserve setting still applies; the larger reserve wins.
+  - **Never send** – the DC never supplies the ware to stations, directly or through the network. It still takes returns and collected overstock.
+  - **Do not accept** – the DC takes no returns or collected overstock of the ware and is never chosen as a destination for it; the next DC in range that takes it is used instead. It can still supply what it has.
+  - Click for the next rule, right-click for the previous one. **Reset all to Stock** (two clicks) clears every rule at that DC. The FDN DCs ware table shows the rule after the ware name.
+  - Skips caused by a rule are the player's choice: no logbook or Needs attention entry, one fdn.log line at **Debug log detail** 4, throttled like other skip messages.
 
 ### Notes
 
 - Saves from 1.00 and 1.01 load as before. Hourly counts start at zero when 1.02 is installed; hourly fees already recorded still show.
+- Ware rules are saved with the game, per DC. Older saves start with every ware on Stock. Rules are removed when the DC's charter ends.
 - No settings added or changed. content.xml `version` stays `101` until the 1.02 release.
 
 ## [1.01] – BETA – 2026-11-14

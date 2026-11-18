@@ -23,6 +23,7 @@
               <run_actions ref="md.FDN_Stations.Purge" />
               <run_actions ref="md.FDN_Core.Claim_Purge" />
               <run_actions ref="md.FDN_Core.Station_Cfg_Purge" comment="card 10a: drop per-station settings of destroyed stations" />
+              <run_actions ref="md.FDN_Core.DC_Ware_Rules_Purge" comment="card X4-22b: drop ware rules of DCs that are gone or no longer chartered" />
               <!-- Step 9b: deliver delayed transfers that are due (only used when TransferDelay is 1) -->
               <run_actions ref="md.FDN_Supply.Process_Pending" />
 
@@ -452,6 +453,7 @@
     <!--
       Card X4-18c. Nearest DC in the station's range (same RangeLimit / RangeMaxJumps rule as Nearest_DC, active
       charter, not the station itself, not Exclude) where the ware is legal, and (RequireFree) has free storage for it.
+      Card X4-22b: a DC whose ware rule for this ware is 'noaccept' (Don't accept) is never returned.
       Returns [DC or null, jumps or -1, number of DCs in range before the legality / storage tests].
     -->
     <library name="Legal_DC_For_Ware" purpose="run_actions">
@@ -495,6 +497,13 @@
             <param name="Ware" value="$Ware" />
           </run_actions>
           <do_if value="$Blk.{1} == 1">
+            <continue />
+          </do_if>
+          <run_actions ref="md.FDN_Core.DC_Ware_Rule" result="$WR" comment="card X4-22b: Don't accept, not a legal destination">
+            <param name="DC" value="$DC" />
+            <param name="Ware" value="$Ware" />
+          </run_actions>
+          <do_if value="$WR.$Rule == 'noaccept'">
             <continue />
           </do_if>
           <do_if value="$RequireFree and not ($DC.cargo.{$Ware}.free gt 0)">
@@ -959,16 +968,50 @@
             <set_value name="$Reason" exact="'no DC in range has spare stock'" />
             <set_value name="$Kind" exact="'supply'" />
             <set_value name="$NoMoney" exact="false" comment="card 09o: true when the last reason is a fee the DC cannot pay" />
+            <set_value name="$RuleSkips" exact="0" comment="card X4-22b: candidates held back only by their ware rule" />
             <do_all exact="$Cands.count" counter="$c">
               <do_if value="$Left gt 0">
                 <set_value name="$DC" exact="$Cands.{$c}.{1}" />
                 <set_value name="$Jumps" exact="$Cands.{$c}.{2}" />
+                <run_actions ref="md.FDN_Core.DC_Ware_Rule" result="$WR" comment="card X4-22b: per-DC ware rule">
+                  <param name="DC" value="$DC" />
+                  <param name="Ware" value="$Ware" />
+                </run_actions>
+                <do_if value="$WR.$Rule == 'never'" comment="card X4-22b: Never send, this DC is not a source for the ware (direct supply or pull)">
+                  <set_value name="$RuleSkips" exact="$RuleSkips + 1" />
+                  <run_actions ref="md.FDN_Supply.Rule_Log">
+                    <param name="Station" value="$Station" />
+                    <param name="Ware" value="$Ware" />
+                    <param name="Text" value="'supply: DC %1 never sends %2 (ware rule), skipped for %3'.[$DC.knownname, $Ware.name, $Station.knownname]" />
+                    <param name="Tag" value="$DC" />
+                  </run_actions>
+                  <continue />
+                </do_if>
                 <set_value name="$Keep" exact="$KeepPct" />
                 <do_if value="$KeepTbl and $KeepTbl.{$Ware}?" comment="VERIFY: a table setting read through Cfg_Get keeps ware keys">
                   <set_value name="$Keep" exact="$KeepTbl.{$Ware}" />
                 </do_if>
                 <set_value name="$Stock" exact="$DC.cargo.{$Ware}.count" />
                 <set_value name="$Reserve" exact="($Stock * $Keep + 99) / 100" comment="integer maths, rounds up. VERIFY: integer division truncates" />
+                <do_if value="$WR.$Rule == 'keep'" comment="card X4-22b: Keep %, the larger of the global reserve and the rule reserve wins">
+                  <run_actions ref="md.FDN_Core.DC_Rule_Reserve" result="$RRes">
+                    <param name="DC" value="$DC" />
+                    <param name="Ware" value="$Ware" />
+                    <param name="Pct" value="$WR.$Pct" />
+                  </run_actions>
+                  <do_if value="$RRes gt $Reserve">
+                    <do_if value="$Stock gt $Reserve and $Stock le $RRes">
+                      <set_value name="$RuleSkips" exact="$RuleSkips + 1" />
+                      <run_actions ref="md.FDN_Supply.Rule_Log">
+                        <param name="Station" value="$Station" />
+                        <param name="Ware" value="$Ware" />
+                        <param name="Text" value="'supply: DC %1 keeps its %2 (ware rule keep %3 pct = %4, stock %5), skipped for %6'.[$DC.knownname, $Ware.name, $WR.$Pct, $RRes, $Stock, $Station.knownname]" />
+                        <param name="Tag" value="$DC" />
+                      </run_actions>
+                    </do_if>
+                    <set_value name="$Reserve" exact="$RRes" />
+                  </do_if>
+                </do_if>
                 <set_value name="$Avail" exact="$Stock - $Reserve" />
                 <set_value name="$Free" exact="$Station.cargo.{$Ware}.free" comment="proven in game: per-ware free amount (used like this in vanilla aiscripts)" />
                 <set_value name="$Qty" exact="[$Left, $Avail, $Free].min" />
@@ -1092,7 +1135,15 @@
                 </do_if>
               </do_if>
             </do_if>
-            <do_if value="$Moved == 0">
+            <do_if value="$Moved == 0 and $RuleSkips gt 0 and $RuleSkips == $Cands.count" comment="card X4-22b: held back only by ware rules (the player's choice), debug line only, no problem entry">
+              <run_actions ref="md.FDN_Supply.Rule_Log">
+                <param name="Station" value="$Station" />
+                <param name="Ware" value="$Ware" />
+                <param name="Text" value="'supply: %1 %2 not supplied (need %3), every DC in range holds it back by ware rule'.[$Station.knownname, $Ware.name, $Needs.{$Ware}.{1}]" />
+                <param name="Tag" value="'all'" />
+              </run_actions>
+            </do_if>
+            <do_elseif value="$Moved == 0">
               <run_actions ref="md.FDN_Supply.Skip_Report">
                 <param name="Station" value="$Station" />
                 <param name="Ware" value="$Ware" />
@@ -1101,7 +1152,7 @@
                 <param name="Kind" value="$Kind" />
                 <param name="NoMoney" value="$NoMoney" />
               </run_actions>
-            </do_if>
+            </do_elseif>
           </do_if>
         </do_all>
         <do_if value="$SumText != ''" comment="card 09o: one logbook summary per supply run (LogbookLevel 2)">
@@ -2018,6 +2069,73 @@
       remembered in md.FDN_Core.Init.$SkipLog, a list of [station, ware, time] searched in order (no component keys,
       nothing stored on the station). Entries for stations that no longer exist are dropped and the list is capped at 100.
     -->
+    <!--
+      Card X4-22b. One debug line (log level 4) for a skip caused by a per-DC ware rule (md.FDN_Core.DC_Ware_Rule).
+      These are the player's choice, so they never make a logbook entry or a Needs attention entry. Throttled like
+      Skip_Report: the same station, ware and Tag is written at most once per LogbookSkipInterval seconds. The throttle
+      list md.FDN_Core.Init.$RuleLog holds [station, ware, time, tag] entries, at most 100, oldest dropped first.
+      Nothing is stored when LogLevel is below 4.
+    -->
+    <library name="Rule_Log" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="Text" />
+        <param name="Tag" default="''" />
+      </params>
+      <actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Lvl">
+          <param name="Key" value="'LogLevel'" />
+        </run_actions>
+        <do_if value="not ($Lvl ge 4)">
+          <return />
+        </do_if>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$Gap">
+          <param name="Key" value="'LogbookSkipInterval'" />
+        </run_actions>
+        <do_if value="not $Init.$RuleLog?">
+          <set_value name="$Init.$RuleLog" exact="[]" />
+        </do_if>
+        <set_value name="$Keep" exact="[]" />
+        <set_value name="$Last" exact="null" />
+        <do_all exact="$Init.$RuleLog.count" counter="$k">
+          <set_value name="$E" exact="$Init.$RuleLog.{$k}" />
+          <do_if value="$E.{1}.exists">
+            <do_if value="$E.{1} == $Station and $E.{2} == $Ware and $E.{4} == $Tag">
+              <set_value name="$Last" exact="$E.{3}" />
+            </do_if>
+            <do_else>
+              <append_to_list name="$Keep" exact="$E" />
+            </do_else>
+          </do_if>
+        </do_all>
+        <set_value name="$Throttled" exact="false" />
+        <do_if value="$Last != null">
+          <do_if value="player.age lt $Last + $Gap">
+            <set_value name="$Throttled" exact="true" />
+          </do_if>
+        </do_if>
+        <do_if value="$Throttled">
+          <append_to_list name="$Keep" exact="[$Station, $Ware, $Last, $Tag]" />
+        </do_if>
+        <do_else>
+          <append_to_list name="$Keep" exact="[$Station, $Ware, player.age, $Tag]" />
+        </do_else>
+        <do_while value="$Keep.count gt 100">
+          <remove_value name="$Keep.{1}" comment="drops the oldest entry" />
+        </do_while>
+        <set_value name="$Init.$RuleLog" exact="$Keep" />
+        <do_if value="$Throttled">
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="4" />
+          <param name="Text" value="'RULE: ' + $Text" />
+        </run_actions>
+      </actions>
+    </library>
+
     <library name="Skip_Report" purpose="run_actions">
       <params>
         <param name="Station" />
@@ -2374,7 +2492,36 @@
             <set_value name="$DC" exact="$NearDC" />
             <set_value name="$Jumps" exact="$NearJumps" />
             <set_value name="$IllegalHold" exact="false" />
-            <do_if value="$DC" comment="card X4-18c: never move a ware into a DC whose sector police make it illegal">
+            <set_value name="$RuleHold" exact="false" comment="card X4-22b: true when the nearest DC does not accept the ware and no other DC in range takes it" />
+            <set_value name="$RuleDC" exact="$DC" />
+            <do_if value="$DC">
+              <run_actions ref="md.FDN_Core.DC_Ware_Rule" result="$WR">
+                <param name="DC" value="$DC" />
+                <param name="Ware" value="$Ware" />
+              </run_actions>
+              <do_if value="$WR.$Rule == 'noaccept'" comment="card X4-22b: Don't accept, use the nearest DC in range that takes it (same search as the illegal fallback)">
+                <run_actions ref="md.FDN_Supply.Legal_DC_For_Ware" result="$Alt">
+                  <param name="Station" value="$Station" />
+                  <param name="Ware" value="$Ware" />
+                  <param name="DCs" value="$DCs" />
+                  <param name="Exclude" value="$DC" />
+                </run_actions>
+                <do_if value="$Alt.{1}">
+                  <run_actions ref="md.FDN_Supply.Rule_Log">
+                    <param name="Station" value="$Station" />
+                    <param name="Ware" value="$Ware" />
+                    <param name="Text" value="'return: DC %1 does not accept %2 (ware rule), %3 uses DC %4 (%5 jumps) instead'.[$DC.knownname, $Ware.name, $Station.knownname, $Alt.{1}.knownname, $Alt.{2}]" />
+                    <param name="Tag" value="'return'" />
+                  </run_actions>
+                  <set_value name="$DC" exact="$Alt.{1}" />
+                  <set_value name="$Jumps" exact="$Alt.{2}" />
+                </do_if>
+                <do_else>
+                  <set_value name="$RuleHold" exact="true" />
+                </do_else>
+              </do_if>
+            </do_if>
+            <do_if value="$DC and not $RuleHold" comment="card X4-18c: never move a ware into a DC whose sector police make it illegal">
               <run_actions ref="md.FDN_Supply.Ware_Blocked_At" result="$Blk">
                 <param name="DC" value="$DC" />
                 <param name="Ware" value="$Ware" />
@@ -2406,12 +2553,20 @@
                 </do_else>
               </do_if>
             </do_if>
-              <do_if value="$IllegalHold">
+              <do_if value="$RuleHold" comment="card X4-22b">
+                <run_actions ref="md.FDN_Supply.Rule_Log">
+                  <param name="Station" value="$Station" />
+                  <param name="Ware" value="$Ware" />
+                  <param name="Text" value="'return: %1 %2 held, DC %3 does not accept it (ware rule) and no other DC in range takes it'.[$Station.knownname, $Ware.name, $RuleDC.knownname]" />
+                  <param name="Tag" value="'return'" />
+                </run_actions>
+              </do_if>
+              <do_elseif value="$IllegalHold">
                 <run_actions ref="md.FDN_Core.Log">
                   <param name="Level" value="4" />
                   <param name="Text" value="'return: %1 %2 held, illegal at every DC in range'.[$Station.knownname, $Ware.name]" />
                 </run_actions>
-              </do_if>
+              </do_elseif>
               <do_elseif value="not $DC">
                 <do_if value="$NoDCs" comment="card X4-15d: no DC exists, the once-per-session no DC exists warning already tells the player">
                   <run_actions ref="md.FDN_Core.Log">
@@ -2597,6 +2752,7 @@
       Card X4-18j. After a poll pass: for each home DC + ware whose stations needed stock this pass,
       if DC usable (after DCKeepPercent / DCKeepWare reserve) is below that need sum, Skip_Report
       kind 'lowstock' once (deduped). Does not change NPC buying. PassNeed is session-only.
+      Card X4-22b: a Keep % ware rule raises the reserve as in Supply_Station; a Never send ware is skipped.
     -->
     <library name="Lowstock_Flush" purpose="run_actions">
       <actions>
@@ -2623,12 +2779,29 @@
             <do_if value="not ($NeedSum gt 0)">
               <continue />
             </do_if>
+            <run_actions ref="md.FDN_Core.DC_Ware_Rule" result="$WR" comment="card X4-22b">
+              <param name="DC" value="$DC" />
+              <param name="Ware" value="$Ware" />
+            </run_actions>
+            <do_if value="$WR.$Rule == 'never'" comment="card X4-22b: Never send, the DC is not a source, so no running-low warning for it">
+              <continue />
+            </do_if>
             <set_value name="$Keep" exact="$KeepPct" />
             <do_if value="$KeepTbl and $KeepTbl.{$Ware}?">
               <set_value name="$Keep" exact="$KeepTbl.{$Ware}" />
             </do_if>
             <set_value name="$Stock" exact="$DC.cargo.{$Ware}.count" />
             <set_value name="$Reserve" exact="($Stock * $Keep + 99) / 100" />
+            <do_if value="$WR.$Rule == 'keep'" comment="card X4-22b: same reserve as Supply_Station">
+              <run_actions ref="md.FDN_Core.DC_Rule_Reserve" result="$RRes">
+                <param name="DC" value="$DC" />
+                <param name="Ware" value="$Ware" />
+                <param name="Pct" value="$WR.$Pct" />
+              </run_actions>
+              <do_if value="$RRes gt $Reserve">
+                <set_value name="$Reserve" exact="$RRes" />
+              </do_if>
+            </do_if>
             <set_value name="$Avail" exact="$Stock - $Reserve" />
             <do_if value="$Avail lt 0">
               <set_value name="$Avail" exact="0" />
@@ -2841,7 +3014,36 @@
             <set_value name="$DC" exact="$NearDC" />
           <set_value name="$Jumps" exact="$NearJumps" />
           <set_value name="$IllegalHold" exact="false" />
-          <do_if value="$DC" comment="card X4-18c: never move a ware into a DC whose sector police make it illegal">
+          <set_value name="$RuleHold" exact="false" comment="card X4-22b: true when the nearest DC does not accept the ware and no other DC in range takes it" />
+          <set_value name="$RuleDC" exact="$DC" />
+          <do_if value="$DC">
+            <run_actions ref="md.FDN_Core.DC_Ware_Rule" result="$WR">
+              <param name="DC" value="$DC" />
+              <param name="Ware" value="$Ware" />
+            </run_actions>
+            <do_if value="$WR.$Rule == 'noaccept'" comment="card X4-22b: Don't accept, use the nearest DC in range that takes it (same search as the illegal fallback)">
+              <run_actions ref="md.FDN_Supply.Legal_DC_For_Ware" result="$Alt">
+                <param name="Station" value="$Station" />
+                <param name="Ware" value="$Ware" />
+                <param name="DCs" value="$DCs" />
+                <param name="Exclude" value="$DC" />
+              </run_actions>
+              <do_if value="$Alt.{1}">
+                <run_actions ref="md.FDN_Supply.Rule_Log">
+                  <param name="Station" value="$Station" />
+                  <param name="Ware" value="$Ware" />
+                  <param name="Text" value="'overstock: DC %1 does not accept %2 (ware rule), %3 uses DC %4 (%5 jumps) instead'.[$DC.knownname, $Ware.name, $Station.knownname, $Alt.{1}.knownname, $Alt.{2}]" />
+                  <param name="Tag" value="'overstock'" />
+                </run_actions>
+                <set_value name="$DC" exact="$Alt.{1}" />
+                <set_value name="$Jumps" exact="$Alt.{2}" />
+              </do_if>
+              <do_else>
+                <set_value name="$RuleHold" exact="true" />
+              </do_else>
+            </do_if>
+          </do_if>
+          <do_if value="$DC and not $RuleHold" comment="card X4-18c: never move a ware into a DC whose sector police make it illegal">
             <run_actions ref="md.FDN_Supply.Ware_Blocked_At" result="$Blk">
               <param name="DC" value="$DC" />
               <param name="Ware" value="$Ware" />
@@ -2872,6 +3074,15 @@
                 </run_actions>
               </do_else>
             </do_if>
+          </do_if>
+          <do_if value="$RuleHold" comment="card X4-22b">
+            <run_actions ref="md.FDN_Supply.Rule_Log">
+              <param name="Station" value="$Station" />
+              <param name="Ware" value="$Ware" />
+              <param name="Text" value="'overstock: %1 %2 not collected, DC %3 does not accept it (ware rule) and no other DC in range takes it'.[$Station.knownname, $Ware.name, $RuleDC.knownname]" />
+              <param name="Tag" value="'overstock'" />
+            </run_actions>
+            <continue />
           </do_if>
           <do_if value="$IllegalHold">
             <continue />

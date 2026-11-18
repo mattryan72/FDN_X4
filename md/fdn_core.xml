@@ -28,6 +28,10 @@
       $SkipWarn  : card X4-18j, station -> ware -> table[$Kind, $Reason] last WARN fingerprint for Skip_Report.
       $MgrCache  : card X4-21a, DC -> DC_Manager result of the last supply pass (stars, ranges, fee discount). Rebuilt each pass.
       $MgrOffline: card X4-21a, DC -> time it went offline because it has no manager (only while ManagerSkill = 1).
+      $DCWareRules: card X4-22b, saved table of per-DC ware rules, DC -> ware -> table[$Rule, $Pct] (see DC_Ware_Rule).
+                   Created on first use; a missing entry means Stock. Removed with the charter.
+      $RuleLog   : card X4-22b, list [station, ware, time] throttling the level 4 rule skip lines (md.FDN_Supply.Rule_Log), at most 100.
+      $RuView    : card X4-22b, FDN Ware Rules page view, table[$DC, $Wares, $Confirm, $Back] (display only).
       $NoDcWarned: card X4-14c, true once the 'no DC exists' warning was written this session (reset on load).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
                    every load (see OnLoad) so new settings added in updates appear in old saves.
@@ -1086,6 +1090,11 @@
       </params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$DCWareRules?" comment="card X4-22b: ware rules go with the DC">
+          <do_if value="$Init.$DCWareRules.{$Station}?">
+            <remove_value name="$Init.$DCWareRules.{$Station}" />
+          </do_if>
+        </do_if>
         <do_if value="$Init.$Charters?">
           <do_if value="$Init.$Charters.{$Station}?">
             <remove_value name="$Init.$Charters.{$Station}" />
@@ -1601,6 +1610,157 @@
         </do_all>
         <set_value name="$Init.$MgrCache" exact="$Cache" />
         <return value="$Out" />
+      </actions>
+    </library>
+
+    <!--
+      PER-DC WARE RULES (card X4-22b, Matt's decision). Stored in md.FDN_Core.Init.$DCWareRules as
+      DC -> ware -> table[$Rule, $Pct] (saved, created on first use). A missing entry means 'stock', so 1.01 and
+      X4-22a saves behave exactly as before until the player sets a rule. Rules:
+        'stock'    current behaviour (never stored: setting it removes the entry)
+        'keep'     the DC keeps back $Pct percent of its storage target for that ware (cargo.{ware}.target; current
+                   stock when the ware has no target) and only supplies above it. Applied on top of the global
+                   DCKeepPercent / DCKeepWare reserve: the larger reserve wins
+        'never'    the DC never supplies that ware to stations (direct supply and network pulls). It still accepts
+                   returns and collected overstock
+        'noaccept' the DC never receives that ware through returns or collected overstock and is not a legal
+                   destination for it (Legal_DC_For_Ware). It can still supply out what it has
+      Removed by Charter_Clear (DC removed) and by DC_Ware_Rules_Purge (stations gone or no longer chartered).
+        DC_Ware_Rule        params DC, Ware               returns table[$Rule, $Pct] ($Rule 'stock' when none is set)
+        DC_Rule_Reserve     params DC, Ware, Pct          returns the keep-rule reserve (whole units, rounded up)
+        DC_Ware_Rule_Set    params DC, Ware, Rule[, Pct]  sets or clears one rule. Pct defaults to the global
+                                                          DCKeepPercent (10 when that is not 1 to 100). Returns true
+        DC_Ware_Rules_Reset params DC                     all wares back to Stock. Returns the number of rules removed
+        DC_Ware_Rules_Purge no params                     drops rules of stations that are gone or no longer chartered
+    -->
+    <library name="DC_Ware_Rule" purpose="run_actions">
+      <params>
+        <param name="DC" />
+        <param name="Ware" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$DC != null and $Ware != null and $Init.$DCWareRules?">
+          <do_if value="$Init.$DCWareRules.{$DC}?">
+            <do_if value="$Init.$DCWareRules.{$DC}.{$Ware}?">
+              <return value="$Init.$DCWareRules.{$DC}.{$Ware}" />
+            </do_if>
+          </do_if>
+        </do_if>
+        <return value="table[$Rule = 'stock', $Pct = 0]" />
+      </actions>
+    </library>
+
+    <library name="DC_Rule_Reserve" purpose="run_actions">
+      <params>
+        <param name="DC" />
+        <param name="Ware" />
+        <param name="Pct" />
+      </params>
+      <actions>
+        <do_if value="$DC == null or not $DC.exists or not ($Pct gt 0)">
+          <return value="0" />
+        </do_if>
+        <set_value name="$Base" exact="0" />
+        <do_if value="$DC.cargo.{$Ware}.target?">
+          <set_value name="$Base" exact="$DC.cargo.{$Ware}.target" />
+        </do_if>
+        <do_if value="not ($Base gt 0)" comment="no storage target: percent of current stock, as the global DCKeepPercent">
+          <set_value name="$Base" exact="$DC.cargo.{$Ware}.count" />
+        </do_if>
+        <return value="($Base * $Pct + 99) / 100" />
+      </actions>
+    </library>
+
+    <library name="DC_Ware_Rule_Set" purpose="run_actions">
+      <params>
+        <param name="DC" />
+        <param name="Ware" />
+        <param name="Rule" />
+        <param name="Pct" default="null" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$DC == null or $Ware == null">
+          <return value="false" />
+        </do_if>
+        <do_if value="not $Init.$DCWareRules?">
+          <set_value name="$Init.$DCWareRules" exact="table[]" />
+        </do_if>
+        <do_if value="$Rule != 'keep' and $Rule != 'never' and $Rule != 'noaccept'">
+          <do_if value="$Init.$DCWareRules.{$DC}?">
+            <do_if value="$Init.$DCWareRules.{$DC}.{$Ware}?">
+              <remove_value name="$Init.$DCWareRules.{$DC}.{$Ware}" />
+            </do_if>
+            <do_if value="$Init.$DCWareRules.{$DC}.keys.count == 0">
+              <remove_value name="$Init.$DCWareRules.{$DC}" />
+            </do_if>
+          </do_if>
+          <set_value name="$Rule" exact="'stock'" />
+        </do_if>
+        <do_else>
+          <do_if value="$Pct == null">
+            <run_actions ref="md.FDN_Core.Cfg_Get" result="$Pct">
+              <param name="Key" value="'DCKeepPercent'" />
+            </run_actions>
+          </do_if>
+          <do_if value="not ($Pct ge 1 and $Pct le 100)">
+            <set_value name="$Pct" exact="10" />
+          </do_if>
+          <do_if value="not $Init.$DCWareRules.{$DC}?">
+            <set_value name="$Init.$DCWareRules.{$DC}" exact="table[]" />
+          </do_if>
+          <set_value name="$Init.$DCWareRules.{$DC}.{$Ware}" exact="table[$Rule = $Rule, $Pct = $Pct]" />
+        </do_else>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'ware rule at DC %1: %2 set to %3'.[(if $DC.exists then $DC.knownname else '(gone)'), $Ware.name, (if $Rule == 'keep' then 'keep %1'.[$Pct] + ' %' else $Rule)]" />
+        </run_actions>
+        <return value="true" />
+      </actions>
+    </library>
+
+    <library name="DC_Ware_Rules_Reset" purpose="run_actions">
+      <params>
+        <param name="DC" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <set_value name="$N" exact="0" />
+        <do_if value="$DC != null and $Init.$DCWareRules?">
+          <do_if value="$Init.$DCWareRules.{$DC}?">
+            <set_value name="$N" exact="$Init.$DCWareRules.{$DC}.keys.count" />
+            <remove_value name="$Init.$DCWareRules.{$DC}" />
+          </do_if>
+        </do_if>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="3" />
+          <param name="Text" value="'ware rules at DC %1: %2 reset to Stock'.[(if $DC != null and $DC.exists then $DC.knownname else '(gone)'), $N]" />
+        </run_actions>
+        <return value="$N" />
+      </actions>
+    </library>
+
+    <library name="DC_Ware_Rules_Purge" purpose="run_actions">
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$DCWareRules?">
+          <return />
+        </do_if>
+        <set_value name="$Keys" exact="$Init.$DCWareRules.keys.list" />
+        <do_all exact="$Keys.count" counter="$k">
+          <set_value name="$K" exact="$Keys.{$k}" />
+          <set_value name="$Drop" exact="$K == null or not $K.exists" />
+          <do_if value="not $Drop">
+            <set_value name="$Drop" exact="not $Init.$Charters?" />
+            <do_if value="not $Drop">
+              <set_value name="$Drop" exact="not $Init.$Charters.{$K}?" />
+            </do_if>
+          </do_if>
+          <do_if value="$Drop">
+            <remove_value name="$Init.$DCWareRules.{$K}" />
+          </do_if>
+        </do_all>
       </actions>
     </library>
 
