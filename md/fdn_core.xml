@@ -22,6 +22,8 @@
                    skip entries add [.., reason, skip kind] (9 items); older 7-item entries still read fine.
       $FeeTrend  : card X4-16d/18j, saved table for the FDN Overview fee trend, station -> table[$Start, $B, $Supply,
                    $Return, $Collect]: $B total hourly fees; kind lists same shape. Missing kind lists read as 0 (old saves).
+                   Card X4-22a adds hourly count lists $CntSupply, $CntReturn, $CntCollect, $CntUnits (same shape and aging,
+                   for the FDN History page). Saves without them read as 0 and get zero lists on the next write.
       $LastSupply: card X4-18j, station -> ware -> time of last successful FDN supply (collect anti-ping-pong).
       $SkipWarn  : card X4-18j, station -> ware -> table[$Kind, $Reason] last WARN fingerprint for Skip_Report.
       $MgrCache  : card X4-21a, DC -> DC_Manager result of the last supply pass (stars, ranges, fee discount). Rebuilt each pass.
@@ -750,6 +752,10 @@
         DC_Stat_Add params DC[, Supplies, Returns, Units, Fee]  adds to the counters. Returns true, false if the DC is gone
       Card X4-16d/18j: a fee above 0 also goes into md.FDN_Core.Init.$FeeTrend.{DC} = table[$Start, $B, $Supply,
       $Return, $Collect] (24 hourly buckets each, newest first). FeeKind selects the kind list; $B always gets the fee.
+      Card X4-22a: every call that adds a supply, return, units or a fee also updates the hourly count lists
+      $CntSupply (+Supplies), $CntReturn (+Returns), $CntCollect (+Returns when FeeKind is 'collect', which is how
+      Collect_Overstock calls this) and $CntUnits (+Units) in the same table, aged with the fee lists. So a trend entry
+      can now exist with zero fees. $DCStats totals are unchanged (collects still count as returns there).
       Aging matches 16d for all lists. Old saves without kind lists get zeros on first write. Additions only, no money x float.
     -->
     <library name="DC_Stat_Add" purpose="run_actions">
@@ -778,6 +784,8 @@
         <set_value name="$St.$Units" exact="$St.$Units + $Units" />
         <do_if value="$Fee gt 0Cr">
           <set_value name="$St.$Fees" exact="$St.$Fees + $Fee" />
+        </do_if>
+        <do_if value="$Fee gt 0Cr or $Supplies gt 0 or $Returns gt 0 or $Units gt 0" comment="card X4-22a: hourly buckets for fees and counts (was fees only)">
           <do_if value="not $Init.$FeeTrend?" comment="card X4-16d: hourly fee buckets, see header">
             <set_value name="$Init.$FeeTrend" exact="table[]" />
           </do_if>
@@ -788,7 +796,7 @@
             </do_if>
           </do_all>
           <do_if value="not $Init.$FeeTrend.{$DC}?">
-            <set_value name="$Init.$FeeTrend.{$DC}" exact="table[$Start = player.age, $B = [0Cr], $Supply = [0Cr], $Return = [0Cr], $Collect = [0Cr]]" comment="card X4-18j: totals + per-kind hourly buckets" />
+            <set_value name="$Init.$FeeTrend.{$DC}" exact="table[$Start = player.age, $B = [0Cr], $Supply = [0Cr], $Return = [0Cr], $Collect = [0Cr], $CntSupply = [0], $CntReturn = [0], $CntCollect = [0], $CntUnits = [0]]" comment="card X4-18j: totals + per-kind hourly buckets; card X4-22a: hourly counts" />
           </do_if>
           <set_value name="$Tr" exact="$Init.$FeeTrend.{$DC}" />
           <do_if value="not $Tr.$Supply?" comment="card X4-18j: old saves have only $B; kind lists start at 0">
@@ -801,17 +809,37 @@
               <append_to_list name="$Tr.$Collect" exact="0Cr" />
             </do_all>
           </do_if>
+          <do_if value="not $Tr.$CntSupply?" comment="card X4-22a: saves before 1.02 have no count lists; they start at 0">
+            <set_value name="$Tr.$CntSupply" exact="[]" />
+            <set_value name="$Tr.$CntReturn" exact="[]" />
+            <set_value name="$Tr.$CntCollect" exact="[]" />
+            <set_value name="$Tr.$CntUnits" exact="[]" />
+            <do_all exact="$Tr.$B.count" counter="$h">
+              <append_to_list name="$Tr.$CntSupply" exact="0" />
+              <append_to_list name="$Tr.$CntReturn" exact="0" />
+              <append_to_list name="$Tr.$CntCollect" exact="0" />
+              <append_to_list name="$Tr.$CntUnits" exact="0" />
+            </do_all>
+          </do_if>
           <set_value name="$Hrs" exact="((player.age - $Tr.$Start) / 3600s)i" />
           <do_if value="$Hrs ge 1">
             <set_value name="$NewB" exact="[]" />
             <set_value name="$NewS" exact="[]" />
             <set_value name="$NewR" exact="[]" />
             <set_value name="$NewC" exact="[]" />
+            <set_value name="$NewNS" exact="[]" />
+            <set_value name="$NewNR" exact="[]" />
+            <set_value name="$NewNC" exact="[]" />
+            <set_value name="$NewNU" exact="[]" />
             <do_all exact="[$Hrs, 24].min" counter="$h">
               <append_to_list name="$NewB" exact="0Cr" />
               <append_to_list name="$NewS" exact="0Cr" />
               <append_to_list name="$NewR" exact="0Cr" />
               <append_to_list name="$NewC" exact="0Cr" />
+              <append_to_list name="$NewNS" exact="0" />
+              <append_to_list name="$NewNR" exact="0" />
+              <append_to_list name="$NewNC" exact="0" />
+              <append_to_list name="$NewNU" exact="0" />
             </do_all>
             <do_all exact="$Tr.$B.count" counter="$h">
               <do_if value="$NewB.count lt 24">
@@ -819,24 +847,42 @@
                 <append_to_list name="$NewS" exact="$Tr.$Supply.{$h}" />
                 <append_to_list name="$NewR" exact="$Tr.$Return.{$h}" />
                 <append_to_list name="$NewC" exact="$Tr.$Collect.{$h}" />
+                <append_to_list name="$NewNS" exact="$Tr.$CntSupply.{$h}" />
+                <append_to_list name="$NewNR" exact="$Tr.$CntReturn.{$h}" />
+                <append_to_list name="$NewNC" exact="$Tr.$CntCollect.{$h}" />
+                <append_to_list name="$NewNU" exact="$Tr.$CntUnits.{$h}" />
               </do_if>
             </do_all>
             <set_value name="$Tr.$B" exact="$NewB" />
             <set_value name="$Tr.$Supply" exact="$NewS" />
             <set_value name="$Tr.$Return" exact="$NewR" />
             <set_value name="$Tr.$Collect" exact="$NewC" />
+            <set_value name="$Tr.$CntSupply" exact="$NewNS" />
+            <set_value name="$Tr.$CntReturn" exact="$NewNR" />
+            <set_value name="$Tr.$CntCollect" exact="$NewNC" />
+            <set_value name="$Tr.$CntUnits" exact="$NewNU" />
             <set_value name="$Tr.$Start" exact="$Tr.$Start + $Hrs * 3600s" />
           </do_if>
-          <set_value name="$Tr.$B.{1}" exact="$Tr.$B.{1} + $Fee" />
-          <do_if value="$FeeKind == 'collect'">
-            <set_value name="$Tr.$Collect.{1}" exact="$Tr.$Collect.{1} + $Fee" />
+          <do_if value="$Fee gt 0Cr" comment="card X4-22a: fee buckets only take fees, as before">
+            <set_value name="$Tr.$B.{1}" exact="$Tr.$B.{1} + $Fee" />
+            <do_if value="$FeeKind == 'collect'">
+              <set_value name="$Tr.$Collect.{1}" exact="$Tr.$Collect.{1} + $Fee" />
+            </do_if>
+            <do_elseif value="$FeeKind == 'return'">
+              <set_value name="$Tr.$Return.{1}" exact="$Tr.$Return.{1} + $Fee" />
+            </do_elseif>
+            <do_else>
+              <set_value name="$Tr.$Supply.{1}" exact="$Tr.$Supply.{1} + $Fee" comment="supply, pull home fee, NPC fee" />
+            </do_else>
           </do_if>
-          <do_elseif value="$FeeKind == 'return'">
-            <set_value name="$Tr.$Return.{1}" exact="$Tr.$Return.{1} + $Fee" />
-          </do_elseif>
+          <set_value name="$Tr.$CntSupply.{1}" exact="$Tr.$CntSupply.{1} + $Supplies" comment="card X4-22a" />
+          <do_if value="$FeeKind == 'collect'" comment="card X4-22a: Collect_Overstock passes Returns = 1 with FeeKind collect">
+            <set_value name="$Tr.$CntCollect.{1}" exact="$Tr.$CntCollect.{1} + $Returns" />
+          </do_if>
           <do_else>
-            <set_value name="$Tr.$Supply.{1}" exact="$Tr.$Supply.{1} + $Fee" comment="supply, pull home fee, NPC fee" />
+            <set_value name="$Tr.$CntReturn.{1}" exact="$Tr.$CntReturn.{1} + $Returns" />
           </do_else>
+          <set_value name="$Tr.$CntUnits.{1}" exact="$Tr.$CntUnits.{1} + $Units" />
         </do_if>
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="4" />

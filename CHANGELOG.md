@@ -2,6 +2,25 @@
 
 All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations will be listed here.
 
+## [Unreleased] – 1.02 (in development)
+
+### Changed
+
+- **FDN Overview split into four pages** (Extension Options). The Overview keeps the network summary, network fees and one short row per DC (name, status, stock %, fees in the last 24h), plus a one-line Needs attention count and links to:
+  - **FDN DCs** – the full detail for one DC at a time (Network, Manager, totals, fees, ware stock vs target), with a **Next DC** button.
+  - **FDN Alerts** – the Needs attention list and the Problems from recent activity (10 per page, Newer / Older).
+  - **FDN History** – see Added.
+
+### Added
+
+- **FDN History page:** supplies, returns, collects, units and fees per hour for the last 24 hours, with a 24h totals row, for all DCs or one DC (**Showing:** button). Recent activity moved here and now lists every stored entry (up to 50) with the **Show:** filter.
+- Hourly counts of supplies, returns, collects and units per DC, kept for 24 hours like the existing hourly fees.
+
+### Notes
+
+- Saves from 1.00 and 1.01 load as before. Hourly counts start at zero when 1.02 is installed; hourly fees already recorded still show.
+- No settings added or changed. content.xml `version` stays `101` until the 1.02 release.
+
 ## [1.01] – BETA – 2026-11-14
 
 ### Added
