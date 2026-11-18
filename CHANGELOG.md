@@ -27,6 +27,7 @@ All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations
 
 - Saves from 1.00 and 1.01 load as before. Hourly counts start at zero when 1.02 is installed; hourly fees already recorded still show.
 - Ware rules are saved with the game, per DC. Older saves start with every ware on Stock. Rules are removed when the DC's charter ends.
+- All rows on the FDN Overview pages can be highlighted. This lets long pages (FDN History, big DC ware lists) scroll and fixes FDN Ware Rules closing the menu when opened.
 - No settings added or changed. content.xml `version` stays `101` until the 1.02 release.
 
 ## [1.01] – BETA – 2026-11-14
