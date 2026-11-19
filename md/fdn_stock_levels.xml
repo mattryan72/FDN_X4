@@ -27,6 +27,16 @@
     GetWareCapacity; proven by card X4-18a). Two phases per station: 'read' (no change) then 'set'/'restore'.
     One station at a time; replies carry a token, stale ones are ignored. Watchdog 10 s; on timeout nothing is
     assumed: saved originals stay and the next pass retries. Writes only when the value differs.
+    Card X4-22e (Matt's 1.02 choice: trade buy limit at the FDN level, FDN may turn buying on), setting TradeBuyLimits
+      (default 1): every ware FDN sets a resource storage level for also gets its Logical Overview trade BUY limit set to
+      that same level, with buying on (vanilla Helper.setBuyLimit: SetContainerBuyLimitOverride + SetContainerWareIsBuyable
+      true). Same rules as the levels: never for wares the station makes itself, never for products, never on DCs.
+      The original buy state (override 0/1, buy limit, buying on/off) is saved in md.FDN_Core.Init.$TradeLimits
+      (station -> ware -> table[$Had, $Orig, $Buy, $Set, $Ask]) BEFORE any change and put back (Clear or Set + buying
+      flag) when the ware leaves the plan, the setting or resource supply is turned off, the charter ends, there is no DC
+      in range, or the station is sold/now a DC. Sell limits, prices and trade rules are never touched.
+      $Set = buy limit the game reported after FDN's last set, $Ask = the level FDN asked for (when the game keeps a
+      different value, e.g. below a lower sell limit, FDN accepts it once and does not retry every pass).
     Card X4-18b also removes the X4-18a proof (md/fdn_stock_proof.xml, ui/fdn_stock_proof.lua): superseded.
     Its four delayed child cues were instantiate="true" with no conditions (load errors); the watchdog here uses the
     instantiate + event_cue_signalled + delay pattern already proven in this mod (md.FDN_Core Charter_Probe).
@@ -71,6 +81,12 @@
               <run_actions ref="md.FDN_Core.Log">
                 <param name="Level" value="3" />
                 <param name="Text" value="'stock levels: %1 station(s) with FDN-set levels and saved originals'.[$Init.$StockLevels.keys.count]" />
+              </run_actions>
+            </do_if>
+            <do_if value="$Init.$TradeLimits?" comment="card X4-22e">
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="3" />
+                <param name="Text" value="'trade limits: %1 station(s) with FDN-set buy limits and saved originals'.[$Init.$TradeLimits.keys.count]" />
               </run_actions>
             </do_if>
           </actions>
@@ -121,25 +137,40 @@
             </do_if>
           </do_all>
         </do_if>
-        <do_if value="not $Init.$StockLevels?">
+        <set_value name="$Keys" exact="[]" />
+        <do_if value="$Init.$StockLevels?">
+          <set_value name="$Keys" exact="$Init.$StockLevels.keys.list" />
+        </do_if>
+        <do_if value="$Init.$TradeLimits?" comment="card X4-22e: stations with only FDN-set buy limits are swept too">
+          <set_value name="$TKeys" exact="$Init.$TradeLimits.keys.list" />
+          <do_all exact="$TKeys.count" counter="$t">
+            <do_if value="not $Keys.indexof.{$TKeys.{$t}}">
+              <append_to_list name="$Keys" exact="$TKeys.{$t}" />
+            </do_if>
+          </do_all>
+        </do_if>
+        <do_if value="$Keys.count == 0">
           <return />
         </do_if>
-        <set_value name="$Keys" exact="$Init.$StockLevels.keys.list" />
         <do_all exact="$Keys.count" counter="$k">
           <set_value name="$S" exact="$Keys.{$k}" />
           <do_if value="not $S.exists">
+            <run_actions ref="Drop_Saved" result="$Cnt">
+              <param name="Station" value="$S" />
+            </run_actions>
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="2" />
-              <param name="Text" value="'stock levels: a station with FDN-set levels no longer exists, saved originals dropped'" />
+              <param name="Text" value="'stock levels: a station with FDN-set levels or buy limits no longer exists, saved originals dropped'" />
             </run_actions>
-            <remove_value name="$Init.$StockLevels.{$S}" />
           </do_if>
           <do_elseif value="$S.owner != faction.player">
+            <run_actions ref="Drop_Saved" result="$Cnt">
+              <param name="Station" value="$S" />
+            </run_actions>
             <run_actions ref="md.FDN_Core.Log">
               <param name="Level" value="2" />
-              <param name="Text" value="'stock levels: %1 is no longer yours, its levels could NOT be restored (%2 ware(s)); saved originals dropped'.[$S.knownname, $Init.$StockLevels.{$S}.keys.count]" />
+              <param name="Text" value="'stock levels: %1 is no longer yours, its levels and buy limits could NOT be restored (%2 saved original(s)); saved originals dropped'.[$S.knownname, $Cnt]" />
             </run_actions>
-            <remove_value name="$Init.$StockLevels.{$S}" />
           </do_elseif>
           <do_else>
             <run_actions ref="Is_DC" result="$IsDC">
@@ -159,6 +190,41 @@
             </do_if>
           </do_else>
         </do_all>
+      </actions>
+    </library>
+
+    <!-- Card X4-22e: drop the saved levels and buy limits of one station (gone or no longer yours). Returns how many. -->
+    <library name="Drop_Saved" purpose="run_actions">
+      <params><param name="Station" /></params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <set_value name="$Cnt" exact="0" />
+        <do_if value="$Init.$StockLevels?">
+          <do_if value="$Init.$StockLevels.{$Station}?">
+            <set_value name="$Cnt" exact="$Cnt + $Init.$StockLevels.{$Station}.keys.count" />
+            <remove_value name="$Init.$StockLevels.{$Station}" />
+          </do_if>
+        </do_if>
+        <do_if value="$Init.$TradeLimits?">
+          <do_if value="$Init.$TradeLimits.{$Station}?">
+            <set_value name="$Cnt" exact="$Cnt + $Init.$TradeLimits.{$Station}.keys.count" />
+            <remove_value name="$Init.$TradeLimits.{$Station}" />
+          </do_if>
+        </do_if>
+        <return value="$Cnt" />
+      </actions>
+    </library>
+
+    <!-- Card X4-22e: 1 when FDN sets trade buy limits (setting TradeBuyLimits), else 0. Callers compare with == 1. -->
+    <library name="Buy_On" purpose="run_actions">
+      <actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$V">
+          <param name="Key" value="'TradeBuyLimits'" />
+        </run_actions>
+        <do_if value="$V == 1">
+          <return value="1" />
+        </do_if>
+        <return value="0" />
       </actions>
     </library>
 
@@ -190,6 +256,12 @@
       <params><param name="Station" /><param name="Count" /></params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$TradeLimits?" comment="card X4-22e: wait until saved buy limits are back too">
+          <do_if value="$Init.$TradeLimits.{$Station}?">
+            <do_if value="$Init.$TradeLimits.{$Station}.keys.count gt 0"><return /></do_if>
+            <remove_value name="$Init.$TradeLimits.{$Station}" />
+          </do_if>
+        </do_if>
         <do_if value="$Init.$StockLevels.{$Station}?">
           <do_if value="$Init.$StockLevels.{$Station}.keys.count gt 0"><return /></do_if>
           <remove_value name="$Init.$StockLevels.{$Station}" />
@@ -352,18 +424,34 @@
         <do_if value="$Init.$StockLevels.{$Station}?">
           <set_value name="State.$RestoreCount" exact="$Init.$StockLevels.{$Station}.keys.count" />
         </do_if>
+        <run_actions ref="Buy_On" result="$BuyOn" comment="card X4-22e" />
         <set_value name="$Ops" exact="[]" />
+        <set_value name="$Listed" exact="[]" />
         <set_value name="$WKeys" exact="$Want.keys.list" />
         <do_all exact="$WKeys.count" counter="$i">
-          <append_to_list name="$Ops" exact="table[$Ware = $WKeys.{$i}, $Want = $Want.{$WKeys.{$i}}, $Read = 0]" />
+          <append_to_list name="$Ops" exact="table[$Ware = $WKeys.{$i}, $Want = $Want.{$WKeys.{$i}}, $BWant = (if $BuyOn == 1 then 1 else -1), $Read = 0]" comment="card X4-22e: $BWant 1 = buy limit at the storage level" />
+          <append_to_list name="$Listed" exact="$WKeys.{$i}" />
         </do_all>
         <do_if value="$Init.$StockLevels.{$Station}?">
           <set_value name="$EKeys" exact="$Init.$StockLevels.{$Station}.keys.list" />
           <do_all exact="$EKeys.count" counter="$i">
             <do_if value="not $WKeys.indexof.{$EKeys.{$i}}">
-              <append_to_list name="$Ops" exact="table[$Ware = $EKeys.{$i}, $Want = -1, $Read = 0]" comment="-1 = restore the original" />
+              <append_to_list name="$Ops" exact="table[$Ware = $EKeys.{$i}, $Want = -1, $BWant = -1, $Read = 0]" comment="-1 = restore the original" />
+              <append_to_list name="$Listed" exact="$EKeys.{$i}" />
             </do_if>
           </do_all>
+        </do_if>
+        <do_if value="$Init.$TradeLimits?" comment="card X4-22e: wares with only a saved buy limit get it restored">
+          <do_if value="$Init.$TradeLimits.{$Station}?">
+            <set_value name="$TKeys" exact="$Init.$TradeLimits.{$Station}.keys.list" />
+            <do_all exact="$TKeys.count" counter="$i">
+              <do_if value="not $Listed.indexof.{$TKeys.{$i}}">
+                <append_to_list name="$Ops" exact="table[$Ware = $TKeys.{$i}, $Want = -1, $BWant = -1, $Read = 0]" />
+                <append_to_list name="$Listed" exact="$TKeys.{$i}" />
+                <set_value name="State.$RestoreCount" exact="State.$RestoreCount + 1" />
+              </do_if>
+            </do_all>
+          </do_if>
         </do_if>
         <do_if value="$Ops.count == 0">
           <do_if value="State.$Restore?">
@@ -464,9 +552,14 @@
           <run_actions ref="Plan" result="$NowWant">
             <param name="Station" value="$Station" />
           </run_actions>
+          <run_actions ref="Buy_On" result="$BuyOnNow" comment="card X4-22e" />
           <do_all exact="State.$Ops.count" counter="$n">
             <do_if value="not $NowWant.{State.$Ops.{$n}.$Ware}?">
               <set_value name="State.$Ops.{$n}.$Want" exact="-1" />
+              <set_value name="State.$Ops.{$n}.$BWant" exact="-1" />
+            </do_if>
+            <do_if value="$BuyOnNow != 1">
+              <set_value name="State.$Ops.{$n}.$BWant" exact="-1" />
             </do_if>
           </do_all>
         </do_if>
@@ -500,6 +593,7 @@
             </do_if>
             <do_else>
               <set_value name="$Level" exact="[[$Op.$Want, $Cap].min, 1].max" />
+              <set_value name="$Op.$Level" exact="$Level" comment="card X4-22e: the buy limit uses this same level" />
               <do_if value="$Level lt $Op.$Want">
                 <run_actions ref="md.FDN_Core.Log">
                   <param name="Level" value="3" />
@@ -545,6 +639,87 @@
             </do_else>
           </do_elseif>
         </do_all>
+        <!-- Card X4-22e: trade buy limits, queued after every storage-level op so a level is set before its buy limit. -->
+        <set_value name="$TTbl" exact="null" />
+        <do_if value="$Init.$TradeLimits?">
+          <do_if value="$Init.$TradeLimits.{$Station}?">
+            <set_value name="$TTbl" exact="$Init.$TradeLimits.{$Station}" />
+          </do_if>
+        </do_if>
+        <do_all exact="State.$Ops.count" counter="$i">
+          <set_value name="$Op" exact="State.$Ops.{$i}" />
+          <set_value name="$W" exact="$Op.$Ware" />
+          <set_value name="$BHas" exact="false" />
+          <do_if value="$TTbl != null">
+            <set_value name="$BHas" exact="$TTbl.{$W}?" />
+          </do_if>
+          <set_value name="$BLevel" exact="0" />
+          <do_if value="$Op.$BWant == 1 and $Op.$Want ge 1 and $Op.$Level?">
+            <set_value name="$BLevel" exact="$Op.$Level" />
+          </do_if>
+          <do_if value="$Op.$R? and $Op.$R.$ok == 1" comment="no reply or read failed: already logged above, nothing changed">
+          <do_if value="@$Op.$R.$bok != 1">
+            <do_if value="$BLevel ge 1 or $BHas">
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="2" />
+                <param name="Text" value="'trade limits: %1 %2 buy limit could not be read (%3), nothing changed'.[$Station.knownname, $W.name, @$Op.$R.$berror]" />
+              </run_actions>
+            </do_if>
+          </do_if>
+          <do_elseif value="$BLevel ge 1">
+            <set_value name="$BHad" exact="$Op.$R.$bhad" />
+            <set_value name="$BCur" exact="$Op.$R.$bamount" />
+            <set_value name="$Buyable" exact="$Op.$R.$buyable" />
+            <do_if value="not $BHas">
+              <do_if value="$TTbl == null">
+                <do_if value="not $Init.$TradeLimits?">
+                  <set_value name="$Init.$TradeLimits" exact="table[]" comment="card X4-22e: station -> ware -> table[$Had, $Orig, $Buy, $Set, $Ask]" />
+                </do_if>
+                <set_value name="$Init.$TradeLimits.{$Station}" exact="table[]" />
+                <set_value name="$TTbl" exact="$Init.$TradeLimits.{$Station}" />
+              </do_if>
+              <set_value name="$TTbl.{$W}" exact="table[$Had = $BHad, $Orig = $BCur, $Buy = $Buyable, $Set = -1, $Ask = -1]" comment="original saved before any change" />
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="3" />
+                <param name="Text" value="'trade limits: %1 %2 original buy limit saved: %3 %4, buying %5'.[$Station.knownname, $W.name, if $BHad == 1 then 'manual' else 'automatic', $BCur, if $Buyable == 1 then 'on' else 'off']" />
+              </run_actions>
+            </do_if>
+            <do_elseif value="$TTbl.{$W}.$Set ge 1 and ($BHad != 1 or $BCur != $TTbl.{$W}.$Set)">
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="2" />
+                <param name="Text" value="'trade limits: %1 %2 buy limit was changed outside FDN (now %3 %4, FDN set %5); FDN sets %6 again. Turn Set trade buy limits off to keep your own'.[$Station.knownname, $W.name, if $BHad == 1 then 'manual' else 'automatic', $BCur, $TTbl.{$W}.$Set, $BLevel]" />
+              </run_actions>
+            </do_elseif>
+            <do_if value="$BHad == 1 and $Buyable == 1 and ($BCur == $BLevel or ($TTbl.{$W}.$Ask == $BLevel and $BCur == $TTbl.{$W}.$Set))">
+              <set_value name="$TTbl.{$W}.$Set" exact="$BCur" />
+              <set_value name="$TTbl.{$W}.$Ask" exact="$BLevel" />
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="4" />
+                <param name="Text" value="'trade limits: %1 %2 buy limit already %3'.[$Station.knownname, $W.name, $BCur]" />
+              </run_actions>
+            </do_if>
+            <do_else>
+              <append_to_list name="$Apply" exact="table[$Ware = $W, $Cmd = 'bset', $Had = 1, $Amount = $BLevel, $Buy = 1, $From = $BCur, $FromHad = $BHad, $FromBuy = $Buyable]" />
+            </do_else>
+          </do_elseif>
+          <do_elseif value="$BHas">
+            <set_value name="$E" exact="$TTbl.{$W}" />
+            <do_if value="(($E.$Had == 1 and $Op.$R.$bhad == 1 and $Op.$R.$bamount == $E.$Orig) or ($E.$Had != 1 and $Op.$R.$bhad != 1)) and $Op.$R.$buyable == $E.$Buy">
+              <remove_value name="$TTbl.{$W}" />
+              <run_actions ref="md.FDN_Core.Log">
+                <param name="Level" value="3" />
+                <param name="Text" value="'trade limits: %1 %2 buy limit already at its original (%3, buying %4), FDN lets go'.[$Station.knownname, $W.name, if $E.$Had == 1 then 'manual ' + $E.$Orig else 'automatic', if $E.$Buy == 1 then 'on' else 'off']" />
+              </run_actions>
+            </do_if>
+            <do_else>
+              <append_to_list name="$Apply" exact="table[$Ware = $W, $Cmd = 'brestore', $Had = $E.$Had, $Amount = $E.$Orig, $Buy = $E.$Buy]" />
+            </do_else>
+          </do_elseif>
+          </do_if>
+        </do_all>
+        <do_if value="$TTbl != null and $TTbl.keys.count == 0">
+          <remove_value name="$Init.$TradeLimits.{$Station}" />
+        </do_if>
         </do_if>
         <do_if value="not $Go or $Apply.count == 0" comment="card X4-18d: nothing to apply: no token change, nothing sent, no timer">
           <include_actions ref="Finish" />
@@ -558,7 +733,7 @@
           <set_value name="player.entity.$fdn_stock_levels_args" exact="[]" />
         </do_if>
         <do_all exact="$Apply.count" counter="$i">
-          <append_to_list name="player.entity.$fdn_stock_levels_args" exact="table[$cmd = $Apply.{$i}.$Cmd, $token = State.$Token, $seq = $i, $station = $Station, $wareid = $Apply.{$i}.$Ware.id, $had = $Apply.{$i}.$Had, $amount = $Apply.{$i}.$Amount]" />
+          <append_to_list name="player.entity.$fdn_stock_levels_args" exact="table[$cmd = $Apply.{$i}.$Cmd, $token = State.$Token, $seq = $i, $station = $Station, $wareid = $Apply.{$i}.$Ware.id, $had = $Apply.{$i}.$Had, $amount = $Apply.{$i}.$Amount, $buy = (if $Apply.{$i}.$Buy? then $Apply.{$i}.$Buy else 0)]" />
         </do_all>
         <raise_lua_event name="'FDN_StockLevels.Command'" />
         <set_value name="State.$SentAt" exact="player.age" />
@@ -578,6 +753,13 @@
         <do_all exact="State.$Ops.count" counter="$i">
           <set_value name="$Op" exact="State.$Ops.{$i}" />
           <set_value name="$W" exact="$Op.$Ware" />
+          <do_if value="$Op.$Cmd == 'bset' or $Op.$Cmd == 'brestore'" comment="card X4-22e">
+            <run_actions ref="Buy_Applied">
+              <param name="Station" value="$Station" />
+              <param name="Op" value="$Op" />
+            </run_actions>
+          </do_if>
+          <do_else>
           <set_value name="$Ok" exact="0" />
           <do_if value="$Op.$R? and $Op.$R.$ok == 1">
             <do_if value="$Op.$Had == 1">
@@ -622,11 +804,91 @@
               </run_actions>
             </do_if>
           </do_else>
+          </do_else>
         </do_all>
         <do_if value="$Tbl != null and $Tbl.keys.count == 0">
           <remove_value name="$Init.$StockLevels.{$Station}" />
         </do_if>
+        <do_if value="$Init.$TradeLimits?" comment="card X4-22e">
+          <do_if value="$Init.$TradeLimits.{$Station}?">
+            <do_if value="$Init.$TradeLimits.{$Station}.keys.count == 0">
+              <remove_value name="$Init.$TradeLimits.{$Station}" />
+            </do_if>
+          </do_if>
+        </do_if>
         <include_actions ref="Finish" />
+      </actions>
+    </library>
+
+    <!-- Card X4-22e: check one buy-limit set/restore reply. A set counts when the game reports an override with buying on;
+         the limit the game reports is kept as $Set (it may hold it below FDN's level, e.g. under a lower sell limit). -->
+    <library name="Buy_Applied" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Op" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <set_value name="$W" exact="$Op.$Ware" />
+        <set_value name="$E" exact="null" />
+        <do_if value="$Init.$TradeLimits?">
+          <do_if value="$Init.$TradeLimits.{$Station}?">
+            <do_if value="$Init.$TradeLimits.{$Station}.{$W}?">
+              <set_value name="$E" exact="$Init.$TradeLimits.{$Station}.{$W}" />
+            </do_if>
+          </do_if>
+        </do_if>
+        <set_value name="$Ok" exact="0" />
+        <do_if value="$Op.$R?">
+          <do_if value="$Op.$R.$ok == 1">
+            <do_if value="$Op.$Cmd == 'bset'">
+              <do_if value="$Op.$R.$bhad_after == 1 and $Op.$R.$buyable_after == 1">
+                <set_value name="$Ok" exact="1" />
+              </do_if>
+            </do_if>
+            <do_elseif value="$Op.$R.$buyable_after == $Op.$Buy">
+              <do_if value="$Op.$Had == 1">
+                <do_if value="$Op.$R.$bhad_after == 1">
+                  <set_value name="$Ok" exact="1" />
+                </do_if>
+              </do_if>
+              <do_elseif value="$Op.$R.$bhad_after != 1">
+                <set_value name="$Ok" exact="1" />
+              </do_elseif>
+            </do_elseif>
+          </do_if>
+        </do_if>
+        <do_if value="$Ok == 1 and $Op.$Cmd == 'bset'">
+          <do_if value="$E != null">
+            <set_value name="$E.$Set" exact="$Op.$R.$bafter" />
+            <set_value name="$E.$Ask" exact="$Op.$Amount" />
+          </do_if>
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'trade limits: SET %1 %2 buy limit %3 %4 -> %5, buying on (was %6)'.[$Station.knownname, $W.name, if $Op.$FromHad == 1 then 'manual' else 'automatic', $Op.$From, $Op.$R.$bafter, if $Op.$FromBuy == 1 then 'on' else 'off']" />
+          </run_actions>
+          <do_if value="$Op.$R.$bafter != $Op.$Amount">
+            <run_actions ref="md.FDN_Core.Log">
+              <param name="Level" value="2" />
+              <param name="Text" value="'trade limits: %1 %2 the game keeps the buy limit at %3, not the FDN level %4 (a lower sell limit?); FDN accepts it'.[$Station.knownname, $W.name, $Op.$R.$bafter, $Op.$Amount]" />
+            </run_actions>
+          </do_if>
+        </do_if>
+        <do_elseif value="$Ok == 1">
+          <do_if value="$E != null">
+            <remove_value name="$Init.$TradeLimits.{$Station}.{$W}" />
+          </do_if>
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="3" />
+            <param name="Text" value="'trade limits: RESTORED %1 %2 buy limit to its original %3, buying %4 (now %5)'.[$Station.knownname, $W.name, if $Op.$Had == 1 then 'manual ' + $Op.$Amount else 'automatic', if $Op.$Buy == 1 then 'on' else 'off', @$Op.$R.$bafter]" />
+          </run_actions>
+        </do_elseif>
+        <do_else>
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="1" />
+            <param name="Text" value="'trade limits: %1 FAILED %2 %3 (wanted %4 %5, buying %6; got override %7 amount %8 buying %9); original kept, retried next pass'.[$Op.$Cmd, $Station.knownname, $W.name, if $Op.$Had == 1 then 'manual' else 'automatic', $Op.$Amount, if $Op.$Buy == 1 then 'on' else 'off', if $Op.$R? then @$Op.$R.$bhad_after else -1, if $Op.$R? then @$Op.$R.$bafter else -1, if $Op.$R? then @$Op.$R.$buyable_after else -1]" />
+          </run_actions>
+        </do_else>
       </actions>
     </library>
 
@@ -637,6 +899,11 @@
             <set_value name="$Remaining" exact="0" />
             <do_if value="md.FDN_Core.Init.$StockLevels.{State.$Station}?">
               <set_value name="$Remaining" exact="md.FDN_Core.Init.$StockLevels.{State.$Station}.keys.count" />
+            </do_if>
+            <do_if value="md.FDN_Core.Init.$TradeLimits?" comment="card X4-22e">
+              <do_if value="md.FDN_Core.Init.$TradeLimits.{State.$Station}?">
+                <set_value name="$Remaining" exact="$Remaining + md.FDN_Core.Init.$TradeLimits.{State.$Station}.keys.count" />
+              </do_if>
             </do_if>
             <do_if value="$Remaining == 0">
               <remove_value name="State.$Restore.{State.$Station}" />

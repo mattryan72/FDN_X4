@@ -207,6 +207,7 @@
             <!-- ===== Station-side settings (step 9, each can be overridden per station with Station_Cfg_Set) ===== -->
             <set_value name="$Defaults.{'$CyclesToCover'}" exact="2" comment="production cycles of resources FDN supplies ahead. Card 9e: default 2 (was 1); set back to 1 here to revert" />
             <set_value name="$Defaults.{'$ResourcesFdnManaged'}" exact="1" comment="1 = FDN supplies this station's resources" />
+            <set_value name="$Defaults.{'$TradeBuyLimits'}" exact="1" comment="card X4-22e: 1 = each resource FDN sets a storage level for also gets its trade buy limit set to that level with buying on (Matt's 1.02 choice); 0 = FDN puts the saved original buy limits back. md.FDN_Stock_Levels" />
             <set_value name="$Defaults.{'$ProductsFdnManaged'}" exact="1" comment="1 = this station's products go to its nearest DC (card 9c)" />
             <set_value name="$Defaults.{'$ProductMinBatch'}" exact="100" comment="card 9c: smallest amount of a product sent to the DC in one go" />
             <set_value name="$Defaults.{'$ProductCyclesToKeep'}" exact="0" comment="card X4-18i: cycles of each product a station keeps before returning the rest. 0 = return all above ProductMinBatch. ProductKeepWare overrides per ware when set" />

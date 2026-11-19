@@ -27,6 +27,11 @@ All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations
   - a DC stays low on a ware (usable stock below what the stations it serves need; the same check as the existing low-stock warning, which is not duplicated).
   - The first alert comes once the shortage has lasted **Shortage alert after** game minutes, then at most once every **Repeat shortage alert after** minutes per station (or DC) and ware. The timer clears as soon as the station is supplied in full or the DC is restocked. A ware set to **Never send** at a DC never raises that DC's low-stock alert. A station with no free storage for a ware is not counted as short.
   - **FDN Alerts** lists the active shortages first (longest first, up to 30 rows), with minutes short, need and reason; red once the alert time is reached.
+- **Trade buy limits** (new setting **Set trade buy limits**, ON by default). For every resource FDN sets a stock level for (Logical Overview), FDN now also sets that ware's trade **buy limit** to the same level and turns buying on, so NPC traders can top the station up to the FDN level too.
+  - Same rules as the stock levels: never for wares the station makes itself, never for products, never on a DC, and only while **Supply station resources** is on for the station and a DC is in range.
+  - Before the first change FDN saves your own buy limit (automatic or your manual amount) and whether buying was on. It puts them back when the setting is turned off, resource supply is turned off for the station, the ware is no longer needed, the station has no DC in range, becomes a DC, or the charter of the DC ends.
+  - If you change a buy limit FDN manages, FDN logs it and sets its level again on the next pass; turn the setting off to keep your own.
+  - Sell limits, prices and trade rules are not changed. fdn.log shows `trade limits:` lines (SET and RESTORED at **Debug log detail** 3).
 
 ### Notes
 
@@ -34,7 +39,9 @@ All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations
 - Ware rules are saved with the game, per DC. Older saves start with every ware on Stock. Rules are removed when the DC's charter ends.
 - All rows on the FDN Overview pages can be highlighted. This lets long pages (FDN History, big DC ware lists) scroll and fixes FDN Ware Rules closing the menu when opened.
 - Shortages are saved with the game. Older saves start with none and pick up the new settings at their defaults. Entries of removed stations, DCs whose charter ended, and shortages not seen for an hour (or twice the repeat time) are dropped.
-- Settings added: **Shortage alerts**, **Shortage alert after**, **Repeat shortage alert after**. content.xml `version` stays `101` until the 1.02 release.
+- Buy limits FDN set are saved with the game, with the original values. Older saves start with none.
+- **Set trade buy limits** needs a game restart after installing 1.02 (the FDN UI helper changed); it works with Protected UI Mode on, like the stock levels.
+- Settings added: **Shortage alerts**, **Shortage alert after**, **Repeat shortage alert after**, **Set trade buy limits**. content.xml `version` stays `101` until the 1.02 release.
 
 ## [1.01] – BETA – 2026-11-14
 

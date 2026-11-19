@@ -1,4 +1,4 @@
--- Card X4-18b. Lua helper for FDN stock levels (real Logical Overview storage levels).
+-- Card X4-18b (buy limits added by card X4-22e). Lua helper for FDN stock levels (real Logical Overview storage levels).
 -- Replaces the X4-18a one-shot proof helper (same proven bridge and vanilla globals):
 --   HasContainerStockLimitOverride / GetWareProductionLimit / SetContainerStockLimitOverride /
 --   ClearContainerStockLimitOverride / GetWareCapacity (ego_detailmonitorhelper/helper.lua)
@@ -9,8 +9,15 @@
 --   read    {token, seq, station, wareid}                -> ok, had, amount, capacity (changes nothing)
 --   set     {token, seq, station, wareid, amount}        -> ok, had_after, after
 --   restore {token, seq, station, wareid, had, amount}   -> had=1: Set(amount); had=0: Clear; ok, had_after, after
+--   bset     {token, seq, station, wareid, amount}      -> card X4-22e: buy limit override = amount and buying on
+--                                                          (same two calls as vanilla Helper.setBuyLimit); ok, bhad_after, bafter, buyable_after
+--   brestore {token, seq, station, wareid, had, amount, buy} -> had=1: SetContainerBuyLimitOverride(amount); had=0: Clear;
+--                                                          then SetContainerWareIsBuyable(buy == 1); ok, bhad_after, bafter, buyable_after
+-- Card X4-22e: 'read' also returns the buy side: bhad (HasContainerBuyLimitOverride 0/1), bamount (GetContainerBuyLimit),
+-- buyable (GetContainerWareIsBuyable 0/1). Buy calls are vanilla ffi.C functions declared by helper.lua
+-- (ego_detailmonitorhelper), the same ones the Logical Overview buy offer uses. Missing ones fail only the buy fields/commands.
 -- Lua keeps no state between calls: MD saves the originals before any set.
--- Does NOT change buy/sell limits, prices or trade rules.
+-- Does NOT change sell limits, prices or trade rules.
 
 local ffi = require("ffi")
 local C = ffi.C
@@ -48,6 +55,34 @@ local function read_state(station, wareid)
   return had, amount
 end
 
+-- Card X4-22e: buy side. The ffi functions take a 64-bit container id (vanilla menus use ConvertIDTo64Bit).
+-- The station arrives from the MD blackboard like the containerid vanilla menus get from MD; try ConvertIDTo64Bit first,
+-- then the ConvertStringTo64Bit(tostring(...)) form vanilla also uses for components.
+local function to64(station)
+  local t = type(station)
+  if t == "cdata" or t == "number" then
+    return station
+  end
+  if ConvertIDTo64Bit then
+    local ok, v = pcall(ConvertIDTo64Bit, station)
+    if ok and v ~= nil and v ~= 0 then
+      return v
+    end
+  end
+  local v = ConvertStringTo64Bit(tostring(station))
+  if v == nil or v == 0 then
+    error("bad_station")
+  end
+  return v
+end
+
+local function read_buy(c64, wareid)
+  local bhad = C.HasContainerBuyLimitOverride(c64, wareid) and 1 or 0
+  local bamount = tonumber(C.GetContainerBuyLimit(c64, wareid)) or 0
+  local buyable = C.GetContainerWareIsBuyable(c64, wareid) and 1 or 0
+  return bhad, bamount, buyable
+end
+
 local function handle(args)
   local cmd = args.cmd
   local station = args.station
@@ -58,7 +93,43 @@ local function handle(args)
   if cmd == "read" then
     local had, amount = read_state(station, wareid)
     local capacity = tonumber(GetWareCapacity(station, wareid) or 0) or 0
-    return { ok = 1, error = "", had = had, amount = amount, capacity = capacity }
+    local res = { ok = 1, error = "", had = had, amount = amount, capacity = capacity, bok = 0 }
+    local okb, bhad, bamount, buyable = pcall(function () return read_buy(to64(station), wareid) end)
+    if okb then
+      res.bok = 1
+      res.bhad = bhad
+      res.bamount = bamount
+      res.buyable = buyable
+    else
+      res.berror = "lua_error:" .. tostring(bhad)
+      dbg("buy read failed: " .. tostring(bhad))
+    end
+    return res
+  elseif cmd == "bset" then
+    local amount = tonumber(args.amount)
+    if amount == nil or amount < 1 then
+      return { ok = 0, error = "bad_amount" }
+    end
+    local c64 = to64(station)
+    C.SetContainerBuyLimitOverride(c64, wareid, amount)
+    C.SetContainerWareIsBuyable(c64, wareid, true)
+    local bhad, bamount, buyable = read_buy(c64, wareid)
+    return { ok = 1, error = "", bhad_after = bhad, bafter = bamount, buyable_after = buyable }
+  elseif cmd == "brestore" then
+    local c64 = to64(station)
+    local had = tonumber(args.had) or 0
+    if had == 1 then
+      local amount = tonumber(args.amount)
+      if amount == nil or amount < 0 then
+        return { ok = 0, error = "bad_amount" }
+      end
+      C.SetContainerBuyLimitOverride(c64, wareid, amount)
+    else
+      C.ClearContainerBuyLimitOverride(c64, wareid)
+    end
+    C.SetContainerWareIsBuyable(c64, wareid, (tonumber(args.buy) or 0) == 1)
+    local bhad, bamount, buyable = read_buy(c64, wareid)
+    return { ok = 1, error = "", bhad_after = bhad, bafter = bamount, buyable_after = buyable }
   elseif cmd == "set" then
     local amount = tonumber(args.amount)
     if amount == nil or amount < 1 then
