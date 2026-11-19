@@ -2,7 +2,7 @@
 
 All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations will be listed here.
 
-## [Unreleased] – 1.02 (in development)
+## [1.02] – BETA – 2026-11-19
 
 ### Changed
 
@@ -41,7 +41,11 @@ All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations
 - Shortages are saved with the game. Older saves start with none and pick up the new settings at their defaults. Entries of removed stations, DCs whose charter ended, and shortages not seen for an hour (or twice the repeat time) are dropped.
 - Buy limits FDN set are saved with the game, with the original values. Older saves start with none.
 - **Set trade buy limits** needs a game restart after installing 1.02 (the FDN UI helper changed); it works with Protected UI Mode on, like the stock levels.
-- Settings added: **Shortage alerts**, **Shortage alert after**, **Repeat shortage alert after**, **Set trade buy limits**. content.xml `version` stays `101` until the 1.02 release.
+- Settings added: **Shortage alerts**, **Shortage alert after**, **Repeat shortage alert after**, **Set trade buy limits**.
+- content.xml `version` = `102` (the game shows 1.02).
+- v1.00 and v1.01 saves update in place; no steps needed. Settings, DC state, ware rules, shortage timers and saved buy limits live in the save. Manual installs: close the game, delete the old `extensions\fdn_x4` folder, then extract the new zip into `extensions\`.
+- Workshop installs use extension id `ws_3835284205` and GitHub/manual installs use `fdn_x4`, so saves don't carry over between them. Pick one and don't install both.
+- Dependency (SirNukes Mod Support APIs, `ws_2042901274`) and install path are unchanged.
 
 ## [1.01] – BETA – 2026-11-14
 
@@ -90,7 +94,6 @@ All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations
 
 - Defaults may change during beta.
 - Dependency: SirNukes Mod Support APIs (`ws_2042901274`, folder `sn_mod_support_apis`).
-- See internal release notes for test coverage details (not listed on public forum/Workshop posts).
 
 ### Notes
 
