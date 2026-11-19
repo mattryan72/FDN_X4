@@ -24,6 +24,7 @@
               <run_actions ref="md.FDN_Core.Claim_Purge" />
               <run_actions ref="md.FDN_Core.Station_Cfg_Purge" comment="card 10a: drop per-station settings of destroyed stations" />
               <run_actions ref="md.FDN_Core.DC_Ware_Rules_Purge" comment="card X4-22b: drop ware rules of DCs that are gone or no longer chartered" />
+              <run_actions ref="md.FDN_Core.Shortage_Purge" comment="card X4-22d: drop shortages of stations that are gone, DCs no longer chartered, and stale entries" />
               <!-- Step 9b: deliver delayed transfers that are due (only used when TransferDelay is 1) -->
               <run_actions ref="md.FDN_Supply.Process_Pending" />
 
@@ -109,7 +110,19 @@
                       <param name="Networks" value="$Networks" />
                       <param name="Ranked" value="$Ranked" />
                     </run_actions>
+                    <run_actions ref="md.FDN_Core.Shortage_Sync" comment="card X4-22d: wares no longer short at all">
+                      <param name="Station" value="$Station" />
+                      <param name="Kind" value="'station'" />
+                      <param name="Wares" value="$Ranked" />
+                    </run_actions>
                   </do_if>
+                  <do_else comment="card X4-22d: nothing short (or no DC exists at all): clear this station's shortages">
+                    <run_actions ref="md.FDN_Core.Shortage_Sync">
+                      <param name="Station" value="$Station" />
+                      <param name="Kind" value="'station'" />
+                      <param name="Wares" value="[]" />
+                    </run_actions>
+                  </do_else>
                   <!-- Card X4-18b: queue the station for FDN stock levels (real Logical Overview levels, md.FDN_Stock_Levels) -->
                   <run_actions ref="md.FDN_Stock_Levels.Request">
                     <param name="Station" value="$Station" />
@@ -874,6 +887,32 @@
             <param name="Level" value="4" />
             <param name="Text" value="'supply: %1 has no other DC in range'.[$Station.knownname]" />
           </run_actions>
+          <run_actions ref="md.FDN_Supply.Calc_Need" result="$Needs" comment="card X4-22d: what it is short of, for the shortage alerts">
+            <param name="Station" value="$Station" />
+            <param name="Module" value="$Module" />
+          </run_actions>
+          <set_value name="$ShortNow" exact="[]" />
+          <do_all exact="$Ranked.count" counter="$w">
+            <set_value name="$Ware" exact="$Ranked.{$w}" />
+            <do_if value="$Needs.{$Ware}?">
+              <do_if value="$Needs.{$Ware}.{1} gt 0">
+                <append_to_list name="$ShortNow" exact="$Ware" />
+                <run_actions ref="md.FDN_Core.Shortage_Track">
+                  <param name="Station" value="$Station" />
+                  <param name="Ware" value="$Ware" />
+                  <param name="Kind" value="'station'" />
+                  <param name="Need" value="$Needs.{$Ware}.{1}" />
+                  <param name="Reason" value="'no DC in range'" />
+                </run_actions>
+              </do_if>
+            </do_if>
+          </do_all>
+          <run_actions ref="md.FDN_Core.Shortage_Sync">
+            <param name="Station" value="$Station" />
+            <param name="Kind" value="'station'" />
+            <param name="Wares" value="$ShortNow" />
+            <param name="Scope" value="$Ranked" />
+          </run_actions>
           <return />
         </do_if>
         <run_actions ref="md.FDN_Supply.Calc_Need" result="$Needs">
@@ -928,6 +967,7 @@
         <set_value name="$SumFee" exact="0Cr" />
         <set_value name="$SumCost" exact="0Cr" comment="card 09p: ware cost paid to NPC sellers in this run" />
         <set_value name="$SumDCs" exact="[]" />
+        <set_value name="$ShortNow" exact="[]" comment="card X4-22d: wares still short after this run" />
         <do_all exact="$Ranked.count" counter="$w">
           <set_value name="$Ware" exact="$Ranked.{$w}" />
           <set_value name="$IllegalIn" exact="false" />
@@ -1153,8 +1193,24 @@
                 <param name="NoMoney" value="$NoMoney" />
               </run_actions>
             </do_elseif>
+            <do_if value="$Left gt 0 and $Reason != 'station has no free storage for it'" comment="card X4-22d: still short after DCs and NPC fallback (a full station is not short)">
+              <append_to_list name="$ShortNow" exact="$Ware" />
+              <run_actions ref="md.FDN_Core.Shortage_Track">
+                <param name="Station" value="$Station" />
+                <param name="Ware" value="$Ware" />
+                <param name="Kind" value="'station'" />
+                <param name="Need" value="$Left" />
+                <param name="Reason" value="if $RuleSkips gt 0 and $RuleSkips == $Cands.count then 'every DC in range holds it back by ware rule' else (if $Moved gt 0 then 'partly supplied, ' + $Reason else $Reason)" />
+              </run_actions>
+            </do_if>
           </do_if>
         </do_all>
+        <run_actions ref="md.FDN_Core.Shortage_Sync" comment="card X4-22d: supplied in full, or no longer needed: shortage cleared">
+          <param name="Station" value="$Station" />
+          <param name="Kind" value="'station'" />
+          <param name="Wares" value="$ShortNow" />
+          <param name="Scope" value="$Ranked" />
+        </run_actions>
         <do_if value="$SumText != ''" comment="card 09o: one logbook summary per supply run (LogbookLevel 2)">
           <run_actions ref="md.FDN_Core.Logbook_Event">
             <param name="Tier" value="'summary'" />
@@ -2753,6 +2809,8 @@
       if DC usable (after DCKeepPercent / DCKeepWare reserve) is below that need sum, Skip_Report
       kind 'lowstock' once (deduped). Does not change NPC buying. PassNeed is session-only.
       Card X4-22b: a Keep % ware rule raises the reserve as in Supply_Station; a Never send ware is skipped.
+      Card X4-22d: the same check feeds md.FDN_Core.Shortage_Track (kind 'lowstock', alert after ShortageAlertMinutes,
+      repeat at most every ShortageRepeatMinutes) and Shortage_Clear when usable stock catches up or the ware is Never send.
     -->
     <library name="Lowstock_Flush" purpose="run_actions">
       <actions>
@@ -2784,6 +2842,11 @@
               <param name="Ware" value="$Ware" />
             </run_actions>
             <do_if value="$WR.$Rule == 'never'" comment="card X4-22b: Never send, the DC is not a source, so no running-low warning for it">
+              <run_actions ref="md.FDN_Core.Shortage_Clear" comment="card X4-22d: and no low-stock shortage alert">
+                <param name="Station" value="$DC" />
+                <param name="Ware" value="$Ware" />
+                <param name="Kind" value="'lowstock'" />
+              </run_actions>
               <continue />
             </do_if>
             <set_value name="$Keep" exact="$KeepPct" />
@@ -2815,8 +2878,21 @@
                 <param name="Reason" value="'usable %1, stations need %2'.[$Avail, $NeedSum]" />
                 <param name="Kind" value="'lowstock'" />
               </run_actions>
+              <run_actions ref="md.FDN_Core.Shortage_Track" comment="card X4-22d: same detection, alert after ShortageAlertMinutes">
+                <param name="Station" value="$DC" />
+                <param name="Ware" value="$Ware" />
+                <param name="Kind" value="'lowstock'" />
+                <param name="Need" value="$Avail" />
+                <param name="NeedTotal" value="$NeedSum" />
+                <param name="Reason" value="'usable %1, stations need %2'.[$Avail, $NeedSum]" />
+              </run_actions>
             </do_if>
             <do_else comment="card X4-18j: clear fingerprint when usable catches up so a later dip WARNs again">
+              <run_actions ref="md.FDN_Core.Shortage_Clear" comment="card X4-22d: restocked">
+                <param name="Station" value="$DC" />
+                <param name="Ware" value="$Ware" />
+                <param name="Kind" value="'lowstock'" />
+              </run_actions>
               <do_if value="$Init.$SkipWarn?">
                 <do_if value="$Init.$SkipWarn.{$DC}?">
                   <do_if value="$Init.$SkipWarn.{$DC}.{$Ware}?">

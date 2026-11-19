@@ -31,6 +31,8 @@
       $DCWareRules: card X4-22b, saved table of per-DC ware rules, DC -> ware -> table[$Rule, $Pct] (see DC_Ware_Rule).
                    Created on first use; a missing entry means Stock. Removed with the charter.
       $RuleLog   : card X4-22b, list [station, ware, time] throttling the level 4 rule skip lines (md.FDN_Supply.Rule_Log), at most 100.
+      $Shortages : card X4-22d, saved table table[$St, $Low] of active shortages, station or DC -> ware -> table[$Since, $Seen,
+                   $Alerted, $Need, $NeedTotal, $Reason] (see Shortage_Track). Created on first use.
       $RuView    : card X4-22b, FDN Ware Rules page view, table[$DC, $Wares, $Confirm, $Back] (display only).
       $NoDcWarned: card X4-14c, true once the 'no DC exists' warning was written this session (reset on load).
       $Defaults  : table of built-in defaults. NOT meant to be saved long-term: it is rebuilt on
@@ -198,6 +200,9 @@
             <set_value name="$Defaults.{'$LogbookSkipInterval'}" exact="600" comment="seconds before the same skipped station and ware is written to the logbook again" />
             <set_value name="$Defaults.{'$LogbookLevel'}" exact="2" comment="card 09o: game logbook detail. 0 = off, 1 = problems only, 2 = problems + one summary per supply run and DC network changes, 3 = problems + every transfer (throttled per station and ware) and DC network changes" />
             <set_value name="$Defaults.{'$NotifyMoneySkip'}" exact="1" comment="card 09o: 1 = on-screen ticker message when a transfer is skipped because a DC cannot pay. Only when LogbookLevel is 1 or more" />
+            <set_value name="$Defaults.{'$ShortageAlerts'}" exact="1" comment="card X4-22d: 1 = ticker + logbook when a station or DC shortage lasts ShortageAlertMinutes (Matt: on by default)" />
+            <set_value name="$Defaults.{'$ShortageAlertMinutes'}" exact="10" comment="card X4-22d: game minutes a shortage must last before the first alert" />
+            <set_value name="$Defaults.{'$ShortageRepeatMinutes'}" exact="30" comment="card X4-22d: minimum game minutes between two alerts for the same station (or DC) and ware" />
 
             <!-- ===== Station-side settings (step 9, each can be overridden per station with Station_Cfg_Set) ===== -->
             <set_value name="$Defaults.{'$CyclesToCover'}" exact="2" comment="production cycles of resources FDN supplies ahead. Card 9e: default 2 (was 1); set back to 1 here to revert" />
@@ -1090,6 +1095,11 @@
       </params>
       <actions>
         <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Init.$Shortages?" comment="card X4-22d: the DC low-stock shortages go with the DC">
+          <do_if value="$Init.$Shortages.$Low.{$Station}?">
+            <remove_value name="$Init.$Shortages.$Low.{$Station}" />
+          </do_if>
+        </do_if>
         <do_if value="$Init.$DCWareRules?" comment="card X4-22b: ware rules go with the DC">
           <do_if value="$Init.$DCWareRules.{$Station}?">
             <remove_value name="$Init.$DCWareRules.{$Station}" />
@@ -1760,6 +1770,220 @@
           <do_if value="$Drop">
             <remove_value name="$Init.$DCWareRules.{$K}" />
           </do_if>
+        </do_all>
+      </actions>
+    </library>
+
+    <!--
+      SHORTAGE ALERTS (card X4-22d, Matt's decision). Stored in md.FDN_Core.Init.$Shortages (saved, created on first use):
+        $St      : station -> ware -> entry   a managed station short of an input ware FDN could not supply
+                                              (no DC in range, no DC with spare stock, all DCs held back by ware rules,
+                                              DC cannot pay). Written by md.FDN_Supply.Supply_Station
+        $Low     : DC -> ware -> entry        a DC running low (the existing lowstock check in md.FDN_Supply.Lowstock_Flush,
+                                              which still writes its own deduplicated Skip_Report entry as before)
+        entry = table[$Since, $Seen, $Alerted (-1 = not yet), $Need, $NeedTotal, $Reason]
+      Alert (ShortageAlerts = 1): once a shortage has lasted ShortageAlertMinutes (default 10) game minutes, one on-screen
+      ticker (show_notification) plus one logbook problem entry, then again at most every ShortageRepeatMinutes (default 30)
+      per station + ware (per DC + ware for $Low). The entries are kept with alerts off too (FDN Alerts shows them).
+      An entry is cleared when the station is supplied in full / the DC has enough usable stock again (Shortage_Clear,
+      Shortage_Sync), when its charter ends (Charter_Clear, $Low), and by Shortage_Purge (station gone, DC no longer
+      chartered, or not seen for max(1 h, 2 x ShortageRepeatMinutes)). Older saves have no table: nothing to read.
+        Shortage_Track params Station, Ware, Kind ('station' or 'lowstock'), Need, Reason[, NeedTotal]
+        Shortage_Clear params Station, Ware, Kind
+        Shortage_Sync  params Station, Kind, Wares[, Scope]  clears the Kind entries of Station whose ware is not in
+                                              Wares; with Scope (a list) only wares in Scope are looked at (a module-only
+                                              supply check must not clear the other wares)
+        Shortage_Purge no params
+    -->
+    <library name="Shortage_Track" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="Kind" default="'station'" />
+        <param name="Need" default="0" />
+        <param name="Reason" default="''" />
+        <param name="NeedTotal" default="0" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Station == null or $Ware == null">
+          <return />
+        </do_if>
+        <do_if value="not $Station.exists">
+          <return />
+        </do_if>
+        <do_if value="not $Init.$Shortages?">
+          <set_value name="$Init.$Shortages" exact="table[$St = table[], $Low = table[]]" />
+        </do_if>
+        <set_value name="$T" exact="if $Kind == 'lowstock' then $Init.$Shortages.$Low else $Init.$Shortages.$St" />
+        <do_if value="not $T.{$Station}?">
+          <set_value name="$T.{$Station}" exact="table[]" />
+        </do_if>
+        <do_if value="not $T.{$Station}.{$Ware}?">
+          <set_value name="$T.{$Station}.{$Ware}" exact="table[$Since = player.age, $Seen = player.age, $Alerted = -1, $Need = $Need, $NeedTotal = $NeedTotal, $Reason = $Reason]" />
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="4" />
+            <param name="Text" value="'shortage started (%1): %2 %3, need %4: %5'.[$Kind, $Station.knownname, $Ware.name, $Need, $Reason]" />
+          </run_actions>
+        </do_if>
+        <set_value name="$E" exact="$T.{$Station}.{$Ware}" />
+        <set_value name="$E.$Seen" exact="player.age" />
+        <set_value name="$E.$Need" exact="$Need" />
+        <set_value name="$E.$NeedTotal" exact="$NeedTotal" />
+        <set_value name="$E.$Reason" exact="$Reason" />
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$On">
+          <param name="Key" value="'ShortageAlerts'" />
+        </run_actions>
+        <do_if value="$On != 1">
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$MinM">
+          <param name="Key" value="'ShortageAlertMinutes'" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$RepM">
+          <param name="Key" value="'ShortageRepeatMinutes'" />
+        </run_actions>
+        <do_if value="not ($MinM ge 0)">
+          <set_value name="$MinM" exact="10" />
+        </do_if>
+        <do_if value="not ($RepM ge 1)">
+          <set_value name="$RepM" exact="30" />
+        </do_if>
+        <set_value name="$Dur" exact="((player.age - $E.$Since) / 1s)i" comment="whole seconds the shortage has lasted" />
+        <do_if value="$Dur lt $MinM * 60">
+          <return />
+        </do_if>
+        <do_if value="$E.$Alerted ge 0">
+          <do_if value="((player.age - $E.$Alerted) / 1s)i lt $RepM * 60">
+            <return />
+          </do_if>
+        </do_if>
+        <set_value name="$Mins" exact="$Dur / 60" />
+        <do_if value="$Kind == 'lowstock'">
+          <set_value name="$Title" exact="'DC low on stock at %1'.[$Station.knownname]" />
+          <set_value name="$Msg" exact="'DC %1 low on %2 for %3 min: usable %4, stations need %5'.[$Station.knownname, $Ware.name, $Mins, $Need, $NeedTotal]" />
+        </do_if>
+        <do_else>
+          <set_value name="$Title" exact="'shortage at %1'.[$Station.knownname]" />
+          <set_value name="$Msg" exact="'%1 short of %2 for %3 min (need %4): %5'.[$Station.knownname, $Ware.name, $Mins, $Need, $Reason]" />
+        </do_else>
+        <set_value name="$E.$Alerted" exact="player.age" />
+        <show_notification text="'FDN: ' + $Msg" comment="plain string text, as Logbook_Event (vanilla diplomacy.xml)" />
+        <run_actions ref="md.FDN_Core.Logbook_Event">
+          <param name="Tier" value="'problem'" />
+          <param name="Title" value="$Title" />
+          <param name="Text" value="$Msg" />
+          <param name="Object" value="$Station" />
+        </run_actions>
+        <run_actions ref="md.FDN_Core.Log">
+          <param name="Level" value="2" />
+          <param name="Text" value="'SHORTAGE: ' + $Msg" />
+        </run_actions>
+      </actions>
+    </library>
+
+    <library name="Shortage_Clear" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Ware" />
+        <param name="Kind" default="'station'" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Station == null or $Ware == null or not $Init.$Shortages?">
+          <return />
+        </do_if>
+        <set_value name="$T" exact="if $Kind == 'lowstock' then $Init.$Shortages.$Low else $Init.$Shortages.$St" />
+        <do_if value="not $T.{$Station}?">
+          <return />
+        </do_if>
+        <do_if value="$T.{$Station}.{$Ware}?">
+          <set_value name="$E" exact="$T.{$Station}.{$Ware}" />
+          <run_actions ref="md.FDN_Core.Log">
+            <param name="Level" value="(if $E.$Alerted ge 0 then 3 else 4)" />
+            <param name="Text" value="'shortage ended (%1): %2 %3 after %4 min'.[$Kind, (if $Station.exists then $Station.knownname else '(gone)'), $Ware.name, ((player.age - $E.$Since) / 60s)i]" />
+          </run_actions>
+          <remove_value name="$T.{$Station}.{$Ware}" />
+        </do_if>
+        <do_if value="$T.{$Station}.keys.count == 0">
+          <remove_value name="$T.{$Station}" />
+        </do_if>
+      </actions>
+    </library>
+
+    <library name="Shortage_Sync" purpose="run_actions">
+      <params>
+        <param name="Station" />
+        <param name="Kind" default="'station'" />
+        <param name="Wares" default="[]" />
+        <param name="Scope" default="null" />
+      </params>
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="$Station == null or not $Init.$Shortages?">
+          <return />
+        </do_if>
+        <set_value name="$T" exact="if $Kind == 'lowstock' then $Init.$Shortages.$Low else $Init.$Shortages.$St" />
+        <do_if value="not $T.{$Station}?">
+          <return />
+        </do_if>
+        <set_value name="$Keys" exact="$T.{$Station}.keys.list" />
+        <do_all exact="$Keys.count" counter="$k">
+          <set_value name="$In" exact="true" />
+          <do_if value="$Scope != null">
+            <set_value name="$In" exact="$Scope.indexof.{$Keys.{$k}} gt 0" />
+          </do_if>
+          <do_if value="$In and not $Wares.indexof.{$Keys.{$k}}">
+            <run_actions ref="md.FDN_Core.Shortage_Clear">
+              <param name="Station" value="$Station" />
+              <param name="Ware" value="$Keys.{$k}" />
+              <param name="Kind" value="$Kind" />
+            </run_actions>
+          </do_if>
+        </do_all>
+      </actions>
+    </library>
+
+    <library name="Shortage_Purge" purpose="run_actions">
+      <actions>
+        <set_value name="$Init" exact="md.FDN_Core.Init" />
+        <do_if value="not $Init.$Shortages?">
+          <return />
+        </do_if>
+        <run_actions ref="md.FDN_Core.Cfg_Get" result="$RepM">
+          <param name="Key" value="'ShortageRepeatMinutes'" />
+        </run_actions>
+        <do_if value="not ($RepM ge 1)">
+          <set_value name="$RepM" exact="30" />
+        </do_if>
+        <set_value name="$Stale" exact="[3600, $RepM * 120].max" comment="seconds without being seen before an entry is dropped" />
+        <do_all exact="2" counter="$t">
+          <set_value name="$T" exact="if $t == 1 then $Init.$Shortages.$St else $Init.$Shortages.$Low" />
+          <set_value name="$Keys" exact="$T.keys.list" />
+          <do_all exact="$Keys.count" counter="$k">
+            <set_value name="$K" exact="$Keys.{$k}" />
+            <set_value name="$Drop" exact="$K == null or not $K.exists" />
+            <do_if value="not $Drop and $t == 2">
+              <set_value name="$Drop" exact="not $Init.$Charters?" />
+              <do_if value="not $Drop">
+                <set_value name="$Drop" exact="not $Init.$Charters.{$K}?" />
+              </do_if>
+            </do_if>
+            <do_if value="$Drop">
+              <remove_value name="$T.{$K}" />
+            </do_if>
+            <do_else>
+              <set_value name="$WKeys" exact="$T.{$K}.keys.list" />
+              <do_all exact="$WKeys.count" counter="$w">
+                <do_if value="((player.age - $T.{$K}.{$WKeys.{$w}}.$Seen) / 1s)i gt $Stale">
+                  <remove_value name="$T.{$K}.{$WKeys.{$w}}" />
+                </do_if>
+              </do_all>
+              <do_if value="$T.{$K}.keys.count == 0">
+                <remove_value name="$T.{$K}" />
+              </do_if>
+            </do_else>
+          </do_all>
         </do_all>
       </actions>
     </library>

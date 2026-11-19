@@ -29,6 +29,8 @@
       new id fdn_TransferFeePercent_f so the old whole-percent id fdn_TransferFeePercent is never reused.
       The fee maths in fdn_supply.xml already takes fractional percents (percent x 1000 as one whole number).
     - Card X4-21a: on/off button 'Manager skill sets range and fees' (ManagerSkill, default 1), after Maximum supply range.
+    - Card X4-22d: 'Shortage alerts' on/off (ShortageAlerts, default 1), 'Shortage alert after' (ShortageAlertMinutes, 1 to 120 min,
+      default 10) and 'Repeat shortage alert after' (ShortageRepeatMinutes, 5 to 240 min, default 30), after Repeat skip entries after.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -198,6 +200,9 @@
         <append_to_list name="$List" exact="table[$Key = 'LogbookLevel', $type = 'slidercell', $name = 'Logbook detail', $mouseover = '0 = off, 1 = problems only, 2 = problems and one summary per supply run, 3 = problems and every transfer', $IdSuffix = '', $Scale = 1, $args = table[$min = 0, $max = 3, $step = 1, $suffix = '']]" />
         <append_to_list name="$List" exact="table[$Key = 'NotifyMoneySkip', $type = 'button', $name = 'Notify when a DC cannot pay', $mouseover = 'Show an on-screen message when a transfer is skipped because the DC cannot pay the fee', $IdSuffix = '', $Scale = 1]" />
         <append_to_list name="$List" exact="table[$Key = 'LogbookSkipInterval', $type = 'slidercell', $name = 'Repeat skip entries after', $mouseover = 'Seconds before the same skipped station and ware is written to the logbook again', $IdSuffix = '', $Scale = 1, $args = table[$min = 60, $max = 3600, $step = 60, $suffix = ' s']]" />
+        <append_to_list name="$List" exact="table[$Key = 'ShortageAlerts', $type = 'button', $name = 'Shortage alerts', $mouseover = 'On-screen message and logbook entry when a station stays short of a ware FDN cannot supply, or a DC stays low on stock', $IdSuffix = '', $Scale = 1]" comment="card X4-22d" />
+        <append_to_list name="$List" exact="table[$Key = 'ShortageAlertMinutes', $type = 'slidercell', $name = 'Shortage alert after', $mouseover = 'Game minutes a shortage must last before the first alert', $IdSuffix = '', $Scale = 1, $args = table[$min = 1, $max = 120, $step = 1, $suffix = ' min']]" comment="card X4-22d" />
+        <append_to_list name="$List" exact="table[$Key = 'ShortageRepeatMinutes', $type = 'slidercell', $name = 'Repeat shortage alert after', $mouseover = 'Minimum game minutes between two alerts for the same station or DC and ware', $IdSuffix = '', $Scale = 1, $args = table[$min = 5, $max = 240, $step = 5, $suffix = ' min']]" comment="card X4-22d" />
         <append_to_list name="$List" exact="table[$Key = 'PollInterval', $type = 'slidercell', $name = 'Supply check interval', $mouseover = 'Seconds between FDN supply passes', $IdSuffix = '', $Scale = 1, $args = table[$min = 10, $max = 600, $step = 10, $suffix = ' s']]" />
         <append_to_list name="$List" exact="table[$Key = 'PollStationsPerPass', $type = 'slidercell', $name = 'Stations per supply pass', $mouseover = 'How many stations each supply pass looks at', $IdSuffix = '', $Scale = 1, $args = table[$min = 1, $max = 20, $step = 1, $suffix = '']]" />
         <append_to_list name="$List" exact="table[$Key = 'TriggerMinGap', $type = 'slidercell', $name = 'Minimum gap between checks', $mouseover = 'Minimum seconds between two production-finished checks of the same station', $IdSuffix = '', $Scale = 1, $args = table[$min = 0, $max = 300, $step = 5, $suffix = ' s']]" />

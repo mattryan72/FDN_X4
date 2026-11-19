@@ -8,7 +8,7 @@ All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations
 
 - **FDN Overview split into four pages** (Extension Options). The Overview keeps the network summary, network fees and one short row per DC (name, status, stock %, fees in the last 24h), plus a one-line Needs attention count and links to:
   - **FDN DCs** – the full detail for one DC at a time (Network, Manager, totals, fees, ware stock vs target), with a **Next DC** button.
-  - **FDN Alerts** – the Needs attention list and the Problems from recent activity (10 per page, Newer / Older).
+  - **FDN Alerts** – active Shortages (see Added), the Needs attention list and the Problems from recent activity (10 per page, Newer / Older).
   - **FDN History** – see Added.
 
 ### Added
@@ -22,13 +22,19 @@ All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations
   - **Do not accept** – the DC takes no returns or collected overstock of the ware and is never chosen as a destination for it; the next DC in range that takes it is used instead. It can still supply what it has.
   - Click for the next rule, right-click for the previous one. **Reset all to Stock** (two clicks) clears every rule at that DC. The FDN DCs ware table shows the rule after the ware name.
   - Skips caused by a rule are the player's choice: no logbook or Needs attention entry, one fdn.log line at **Debug log detail** 4, throttled like other skip messages.
+- **Shortage alerts** (new settings **Shortage alerts**, ON by default; **Shortage alert after**, 1–120 min, default 10; **Repeat shortage alert after**, 5–240 min, default 30). An on-screen message and a logbook entry (Alerts) when:
+  - a managed station stays short of an input ware the FDN could not supply (no DC in range has it, every DC in range holds it back by ware rule, no DC in range, or not enough stock), or
+  - a DC stays low on a ware (usable stock below what the stations it serves need; the same check as the existing low-stock warning, which is not duplicated).
+  - The first alert comes once the shortage has lasted **Shortage alert after** game minutes, then at most once every **Repeat shortage alert after** minutes per station (or DC) and ware. The timer clears as soon as the station is supplied in full or the DC is restocked. A ware set to **Never send** at a DC never raises that DC's low-stock alert. A station with no free storage for a ware is not counted as short.
+  - **FDN Alerts** lists the active shortages first (longest first, up to 30 rows), with minutes short, need and reason; red once the alert time is reached.
 
 ### Notes
 
 - Saves from 1.00 and 1.01 load as before. Hourly counts start at zero when 1.02 is installed; hourly fees already recorded still show.
 - Ware rules are saved with the game, per DC. Older saves start with every ware on Stock. Rules are removed when the DC's charter ends.
 - All rows on the FDN Overview pages can be highlighted. This lets long pages (FDN History, big DC ware lists) scroll and fixes FDN Ware Rules closing the menu when opened.
-- No settings added or changed. content.xml `version` stays `101` until the 1.02 release.
+- Shortages are saved with the game. Older saves start with none and pick up the new settings at their defaults. Entries of removed stations, DCs whose charter ended, and shortages not seen for an hour (or twice the repeat time) are dropped.
+- Settings added: **Shortage alerts**, **Shortage alert after**, **Repeat shortage alert after**. content.xml `version` stays `101` until the 1.02 release.
 
 ## [1.01] – BETA – 2026-11-14
 
