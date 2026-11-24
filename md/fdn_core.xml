@@ -150,7 +150,7 @@
               <do_if value="$Init.$Charters.{event.param}?">
                 <run_actions ref="md.FDN_Core.Charter_End" result="$Ended">
                   <param name="Station" value="event.param" />
-                  <param name="Reason" value="'station destroyed'" />
+                  <param name="Reason" value="{477605,7001}" />
                 </run_actions>
               </do_if>
             </do_if>
@@ -487,12 +487,12 @@
             <return />
           </do_if>
         </do_if>
-        <set_value name="$FullTitle" exact="'FDN: ' + $Title" />
+        <set_value name="$FullTitle" exact="{477605,6001}.[$Title]" />
         <set_value name="$Shown" exact="0Cr - $Money" comment="card 09p: fee paid = money leaving, shown negative (red)" />
         <set_value name="$FullText" exact="$Text" />
         <do_if value="$Cost != null">
           <set_value name="$Shown" exact="0Cr - ($Money + $Cost)" comment="card 09p: fee + ware cost paid, shown negative" />
-          <set_value name="$FullText" exact="$Text + ' (ware cost %1, fee %2)'.[$Cost.formatted.default + ' Cr', $Money.formatted.default + ' Cr']" />
+          <set_value name="$FullText" exact="{477605,6002}.[$Text, $Cost.formatted.default + ' Cr', $Money.formatted.default + ' Cr']" />
         </do_if>
         <set_value name="$Hi" exact="$Tier == 'problem'" />
         <set_value name="$UseObj" exact="false" comment="VERIFY in game: entity shown as source 'FDN', money shown when not 0. category must be a literal (schema enum)" />
@@ -530,7 +530,7 @@
             <param name="Key" value="'NotifyMoneySkip'" />
           </run_actions>
           <do_if value="$Tick == 1">
-            <show_notification text="'FDN: ' + $NotifyText" comment="plain string text, as vanilla diplomacy.xml:2452" />
+            <show_notification text="{477605,6001}.[$NotifyText]" comment="plain string text, as vanilla diplomacy.xml:2452" />
           </do_if>
         </do_if>
         <run_actions ref="md.FDN_Core.Log">
@@ -1170,7 +1170,7 @@
     <library name="Charter_End" purpose="run_actions">
       <params>
         <param name="Station" />
-        <param name="Reason" default="'unknown reason'" />
+        <param name="Reason" default="{477605,7004}" />
         <param name="Revoke" default="false" comment="true = the player revoked it from the menu" />
       </params>
       <actions>
@@ -1182,7 +1182,7 @@
           <return value="false" />
         </do_if>
         <set_value name="$Ch" exact="$Init.$Charters.{$Station}" />
-        <set_value name="$Name" exact="'a destroyed station'" />
+        <set_value name="$Name" exact="{477605,2}" />
         <do_if value="$Station.exists">
           <set_value name="$Name" exact="$Station.knownname" />
         </do_if>
@@ -1205,8 +1205,8 @@
           <run_actions ref="md.FDN_Core.Logbook_Event">
             <param name="Tier" value="'notice'" />
             <param name="Category" value="'general'" />
-            <param name="Title" value="'charter revoked for %1'.[$Name]" />
-            <param name="Text" value="'The FDN charter for %1 was revoked. No refund. The station is no longer a Distribution Centre.'.[$Name]" />
+            <param name="Title" value="{477605,5207}.[$Name]" />
+            <param name="Text" value="{477605,5208}.[$Name]" />
             <param name="Object" value="$Obj" />
           </run_actions>
         </do_if>
@@ -1217,8 +1217,8 @@
           </run_actions>
           <run_actions ref="md.FDN_Core.Logbook_Event">
             <param name="Tier" value="'problem'" />
-            <param name="Title" value="'charter ended for %1 (%2)'.[$Name, $Reason]" />
-            <param name="Text" value="'The FDN charter for %1 ended: %2. The station is no longer a Distribution Centre. A new charter has to be bought.'.[$Name, $Reason]" />
+            <param name="Title" value="{477605,5209}.[$Name, $Reason]" />
+            <param name="Text" value="{477605,5210}.[$Name, $Reason]" />
             <param name="Object" value="$Obj" />
           </run_actions>
         </do_else>
@@ -1242,10 +1242,10 @@
           <set_value name="$S" exact="$Keys.{$k}" />
           <set_value name="$Why" exact="''" />
           <do_if value="$S == null or not $S.exists">
-            <set_value name="$Why" exact="'station destroyed'" />
+            <set_value name="$Why" exact="{477605,7001}" />
           </do_if>
           <do_elseif value="not $S.isplayerowned">
-            <set_value name="$Why" exact="'station no longer player owned'" />
+            <set_value name="$Why" exact="{477605,7002}" />
           </do_elseif>
           <do_else>
             <run_actions ref="md.FDN_Core.Charter_Has_Dock" result="$HasDock">
@@ -1264,7 +1264,7 @@
               </run_actions>
             </do_elseif>
             <do_elseif value="player.age ge $Init.$Charters.{$S}.$DockMiss + 30">
-              <set_value name="$Why" exact="'no working qualifying dock'" />
+              <set_value name="$Why" exact="{477605,7003}" />
             </do_elseif>
           </do_else>
           <do_if value="$Why != ''">
@@ -1551,16 +1551,17 @@
             <append_to_list name="$Out" exact="$S" />
             <do_if value="$Init.$MgrOffline.{$S}?">
               <remove_value name="$Init.$MgrOffline.{$S}" />
-              <set_value name="$Why" exact="if $M.$On == 1 then 'a manager was assigned (%1 stars)'.[$M.$Stars] else 'the manager rule was turned off'" />
+              <set_value name="$WhyLog" exact="if $M.$On == 1 then 'a manager was assigned (%1 stars)'.[$M.$Stars] else 'the manager rule was turned off'" comment="card X4-23b: English for fdn.log" />
+              <set_value name="$Why" exact="if $M.$On == 1 then {477605,7011}.[$M.$Stars] else {477605,7012}" />
               <run_actions ref="md.FDN_Core.Log">
                 <param name="Level" value="3" />
-                <param name="Text" value="'DC %1 is back online for FDN: %2'.[$S.knownname, $Why]" />
+                <param name="Text" value="'DC %1 is back online for FDN: %2'.[$S.knownname, $WhyLog]" />
               </run_actions>
               <run_actions ref="md.FDN_Core.Logbook_Event">
                 <param name="Tier" value="'info'" />
                 <param name="Category" value="'general'" />
-                <param name="Title" value="'DC %1 back online'.[$S.knownname]" />
-                <param name="Text" value="'Distribution Centre %1 is used by FDN again: %2.'.[$S.knownname, $Why]" />
+                <param name="Title" value="{477605,6011}.[$S.knownname]" />
+                <param name="Text" value="{477605,6012}.[$S.knownname, $Why]" />
                 <param name="Object" value="$S" />
               </run_actions>
               <do_if value="$Init.$Attention?">
@@ -1573,7 +1574,7 @@
             </do_if>
           </do_if>
           <do_else>
-            <set_value name="$Reason" exact="'no manager: FDN does not use this DC until a manager is assigned'" />
+            <set_value name="$Reason" exact="{477605,7013}" />
             <do_if value="not $Init.$MgrOffline.{$S}?" comment="warn once when it goes offline (saved, so not again after a load)">
               <set_value name="$Init.$MgrOffline.{$S}" exact="player.age" />
               <run_actions ref="md.FDN_Core.Log">
@@ -1582,8 +1583,8 @@
               </run_actions>
               <run_actions ref="md.FDN_Core.Logbook_Event">
                 <param name="Tier" value="'problem'" />
-                <param name="Title" value="'DC %1 has no manager'.[$S.knownname]" />
-                <param name="Text" value="'Distribution Centre %1 has no station manager, so FDN does not use it: no supplies, returns, collection or DC links. Assign a manager and it comes back by itself at the next supply check.'.[$S.knownname]" />
+                <param name="Title" value="{477605,6013}.[$S.knownname]" />
+                <param name="Text" value="{477605,6014}.[$S.knownname]" />
                 <param name="Object" value="$S" />
               </run_actions>
             </do_if>
@@ -1861,15 +1862,17 @@
         </do_if>
         <set_value name="$Mins" exact="$Dur / 60" />
         <do_if value="$Kind == 'lowstock'">
-          <set_value name="$Title" exact="'DC low on stock at %1'.[$Station.knownname]" />
-          <set_value name="$Msg" exact="'DC %1 low on %2 for %3 min: usable %4, stations need %5'.[$Station.knownname, $Ware.name, $Mins, $Need, $NeedTotal]" />
+          <set_value name="$Title" exact="{477605,6021}.[$Station.knownname]" />
+          <set_value name="$Msg" exact="{477605,6022}.[$Station.knownname, $Ware.name, $Mins, $Need, $NeedTotal]" />
+          <set_value name="$MsgLog" exact="'DC %1 low on %2 for %3 min: usable %4, stations need %5'.[$Station.knownname, $Ware.name, $Mins, $Need, $NeedTotal]" comment="card X4-23b: English for fdn.log" />
         </do_if>
         <do_else>
-          <set_value name="$Title" exact="'shortage at %1'.[$Station.knownname]" />
-          <set_value name="$Msg" exact="'%1 short of %2 for %3 min (need %4): %5'.[$Station.knownname, $Ware.name, $Mins, $Need, $Reason]" />
+          <set_value name="$Title" exact="{477605,6023}.[$Station.knownname]" />
+          <set_value name="$Msg" exact="{477605,6024}.[$Station.knownname, $Ware.name, $Mins, $Need, $Reason]" />
+          <set_value name="$MsgLog" exact="'%1 short of %2 for %3 min (need %4): %5'.[$Station.knownname, $Ware.name, $Mins, $Need, $Reason]" comment="card X4-23b: English for fdn.log" />
         </do_else>
         <set_value name="$E.$Alerted" exact="player.age" />
-        <show_notification text="'FDN: ' + $Msg" comment="plain string text, as Logbook_Event (vanilla diplomacy.xml)" />
+        <show_notification text="{477605,6001}.[$Msg]" comment="plain string text, as Logbook_Event (vanilla diplomacy.xml)" />
         <run_actions ref="md.FDN_Core.Logbook_Event">
           <param name="Tier" value="'problem'" />
           <param name="Title" value="$Title" />
@@ -1878,7 +1881,7 @@
         </run_actions>
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="2" />
-          <param name="Text" value="'SHORTAGE: ' + $Msg" />
+          <param name="Text" value="'SHORTAGE: ' + $MsgLog" />
         </run_actions>
       </actions>
     </library>

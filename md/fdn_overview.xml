@@ -315,7 +315,7 @@
               <do_if value="not $Att.indexof.{$S}">
                 <append_to_list name="$Att" exact="$S" />
               </do_if>
-              <set_value name="$AttE.{$S}" exact="table[$Ware = null, $Reason = 'no manager: FDN does not use this DC until a manager is assigned', $Kind = 'manager', $Time = player.age]" comment="same text as DC_Mgr_Review" />
+              <set_value name="$AttE.{$S}" exact="table[$Ware = null, $Reason = {477605,7013}, $Kind = 'manager', $Time = player.age]" comment="same text as DC_Mgr_Review" />
             </do_if>
           </do_if>
         </do_all>

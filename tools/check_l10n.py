@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FDN text check (card X4-23a). Run from anywhere: python tools/check_l10n.py
+"""FDN text check (cards X4-23a, X4-23b). Run from anywhere: python tools/check_l10n.py
 
 Checks the FDN text page 477605 against the md scripts:
   - t/0001-l044.xml and t/0001.xml exist, parse, are identical and hold page 477605
@@ -8,9 +8,10 @@ Checks the FDN text page 477605 against the md scripts:
   - %1..%n numbered without gaps; a text that gets values has no plain % sign
   - every {477605,id} used in md/*.xml exists (missing ids), every id is used (unused ids)
   - each use passes as many values (.[a, b]) as the text has %n slots
-  - no English text left in the converted files (md/fdn_options.xml, md/fdn_overview.xml),
-    apart from ids, keys and the fdn.log lines, which stay English on purpose
-Other md files are listed for information only (they are converted in later cards).
+  - no English text left in any md/*.xml file (card X4-23b: all files are converted), apart from
+    ids, keys and the fdn.log lines, which stay English on purpose. Lines inside a
+    md.FDN_Core.Log or md.FDN_Supply.Rule_Log call and debug_text lines are fdn.log text and are
+    skipped; the few other English literals kept for fdn.log are listed in LITERAL_OK with the reason
 Exit code 0 = pass, 1 = fail. Uses only the Python standard library.
 """
 import os, re, sys
@@ -19,16 +20,26 @@ import xml.etree.ElementTree as ET
 PAGE = 477605
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TFILES = ['t/0001-l044.xml', 't/0001.xml']
-CONVERTED = ['md/fdn_options.xml', 'md/fdn_overview.xml']
+CONVERTED = None  # card X4-23b: every md/*.xml file (filled in below)
 
 # Literals in the converted files that are not shown text. Each entry: (regex on the text before the
 # literal, why). The literal is allowed when the text just before it matches.
 CONTEXT_OK = [
-    (r"\$(Key|id|type|category|font|halign|color|IdSuffix|event|Kind)\s*=\s*$", 'id, key, saved kind or style value'),
+    (r"\$(Key|id|type|category|font|halign|color|IdSuffix|event|Kind|cmd|Cmd|Rule|echo)\s*=\s*$", 'id, key, saved kind, rule id, menu echo, command or style value'),
     (r'name="\$R" exact="$', 'rule id'),
     (r"indexof\.\{$", 'table key'),
     (r"(==|!=)\s*$", 'compared with a saved id'),
-    (r'name="(Key|Rule|Source|Kind)" value="$', 'setting key, rule id or log suffix'),
+    (r'name="(Key|Rule|Source|Kind|Tier|Category|Tag|What|FeeKind|SkipKind)" (value|default)="$', 'setting key, rule id, kind, logbook tier/category or log suffix'),
+    (r'name="(Key|Kind)" value="[^"]*\s(==|!=|then|else)\s*$', 'kind id chosen by a condition'),
+    (r'name="\$(Prefix|Phase|Kind|QtyWord|Via|KeepSrc|Rule|R|Word)" exact="$', 'log prefix, state, kind or rule id'),
+    (r'name="State\.\$Phase" exact="$', 'helper state'),
+    (r'name="\$\w*Log" exact="[^"]*$', 'English text kept for fdn.log (variable name ends in Log)'),
+    (r'name="\$LogText" exact="$', 'Skip_Report fdn.log line (English on purpose; the logbook uses $LowText / ids 6085-6086)'),
+    (r'(screen|control|entity)="$', 'UI event or logbook source id'),
+    (r'raise_lua_event name="$', 'Lua event name'),
+    (r'name="Entry" value="\[[^\]]*$', 'ledger entry kind'),
+    (r'<return value="\[\$Ranked, $', 'skip kind id'),
+    (r"\$Defaults\.\{'\$\w+'\}\" exact=\"\[[^\]]*$", 'dock macro names'),
     (r"\$Order\" exact=\"\[[^\]]*$", 'rule ids'),
     (r"\$ViewIds\" exact=\"\[[^\]]*$", 'view names for fdn.log (English on purpose)'),
     (r"\$Defaults\.\{$", 'setting key'),
@@ -36,9 +47,23 @@ CONTEXT_OK = [
 LITERAL_OK = {
     'FDN': 'category text, not translated (decision D6)',
     ' Cr': 'credits unit, not translated (decision D6)',
-    'no manager: FDN does not use this DC until a manager is assigned': 'reason text, converted with the reasons in X4-23b',
+    # card X4-23b: English kept on purpose because it only goes to fdn.log
+    'no qualifying dock': 'Charter_Fee reason, fdn.log only (the menu shows its own reasons, ids 5101-5103)',
+    'need %1 with %2 (you have %3)': 'Charter_Fee reason, fdn.log only (the menu shows its own reasons, ids 5101-5103)',
+    '=no ware': 'CHARTER DOCKS debug line (fdn.log)',
+    '=not qualifying': 'CHARTER DOCKS debug line (fdn.log)',
+    'revoked from the station menu': 'Charter_End reason for a revoke, only written to fdn.log',
+    'mixed reasons': 'NPC CHECK reason, fdn.log only (npc-none skips are LogOnly)',
+    'none found in range': 'NPC CHECK reason, fdn.log only (npc-none skips are LogOnly)',
+    'all player-owned, hostile or not tradeable with the home DC': 'NPC CHECK reason, fdn.log only (npc-none skips are LogOnly)',
+    'all over price cap': 'NPC CHECK reason, fdn.log only (npc-none skips are LogOnly)',
+    'all out of range': 'NPC CHECK reason, fdn.log only (npc-none skips are LogOnly)',
+    'all empty': 'NPC CHECK reason, fdn.log only (npc-none skips are LogOnly)',
+    'no usable NPC offer: ': 'npc-none skip reason, LogOnly = fdn.log only',
+    '%1.%2%3 pct': 'PULL / TRANSFER fdn.log value text',
 }
-SKIP_LINE = [r'<debug_text ', r'<param name="Text" value=', r'<param name="Level" value=']
+SKIP_LINE = [r'<debug_text ', r'<param name="Level" value=']
+LOG_CALL = re.compile(r'<run_actions ref="md\.(FDN_Core\.Log|FDN_Supply\.Rule_Log)"')  # card X4-23b: fdn.log calls, skipped to </run_actions>
 
 errors, notes = [], []
 
@@ -146,11 +171,19 @@ for i in sorted(set(E) - set(used)):
 
 # ---------- English left in md ----------
 LIT = re.compile(r"'((?:[^'\\]|\\.)*)'")
+kept = {}
 def leftovers(p):
     out = []
     in_comment = False
+    in_log = False
     for n, line in enumerate(read(p).split('\n'), 1):
         s = line
+        if in_log:
+            if '</run_actions>' in s: in_log = False
+            continue
+        if LOG_CALL.search(s) and '<!--' not in s:
+            in_log = '</run_actions>' not in s
+            continue
         if in_comment:
             if '-->' not in s: continue
             s = s.split('-->', 1)[1]; in_comment = False
@@ -169,20 +202,20 @@ def leftovers(p):
                 continue
             before = s[:m.start()]
             if lit in LITERAL_OK or lit.startswith('Color.') or lit.startswith('fdn_'):
+                kept[(p, n, lit)] = 1
                 continue
             if any(re.search(r, before) for r, _ in CONTEXT_OK):
+                kept[(p, n, lit)] = 1
                 continue
             out.append((n, lit))
     return out
 
+CONVERTED = ['md/' + f for f in mdfiles]
+left = 0
 for p in CONVERTED:
     for n, lit in leftovers(p):
+        left += 1
         err('%s:%d: English text not moved to page %d: %r' % (p, n, PAGE, lit))
-info = []
-for f in mdfiles:
-    p = 'md/' + f
-    if p in CONVERTED: continue
-    info.append('  %-26s %3d quoted English strings outside log lines (later cards)' % (p, len(leftovers(p))))
 
 # ---------- report ----------
 def ranges(ids):
@@ -204,12 +237,11 @@ print('  entries    : %d' % len(E))
 print('  ids        : %s' % ranges(sorted(E)))
 print('  references : %d in md/ (%d ids used)' % (sum(len(v) for v in used.values()), len(used)))
 print('  converted  : %s' % ', '.join(CONVERTED))
-print('Not converted yet (information only):')
-for l in info:
-    print(l)
+print('  English left in md (not fdn.log, not an id): %d' % left)
+print('  literals kept on purpose (ids, keys, fdn.log text outside Log calls): %d' % len(kept))
 if errors:
     print('FAIL: %d problem(s)' % len(errors))
     for e in errors:
         print('  ' + e)
     sys.exit(1)
-print('PASS: no missing, unused or duplicate ids, no unescaped brackets, slots match, no English left in the converted files')
+print('PASS: no missing, unused or duplicate ids, no unescaped brackets, slots match, no English left in md/')

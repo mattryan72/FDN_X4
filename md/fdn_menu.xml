@@ -40,8 +40,8 @@
             <do_if value="not md.FDN_Core.Init.$Defaults?">
               <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
                 $id = 'fdn_station_notready',
-                $text = 'FDN: not ready',
-                $mouseover = 'FDN is not set up in this save yet. Save and reload, then try again',
+                $text = {477605,5001},
+                $mouseover = {477605,5002},
                 $active = false]" />
             </do_if>
             <do_else>
@@ -64,16 +64,16 @@
                   <param name="Station" value="$Station" />
                   <param name="Key" value="$E.$Key" />
                 </run_actions>
-                <set_value name="$State" exact="'OFF'" />
-                <set_value name="$Next" exact="'on'" />
+                <set_value name="$EText" exact="{477605,5004}.[$E.$Label]" comment="card X4-23b: whole texts per state (was FDN: + label + ON/OFF)" />
+                <set_value name="$EMouse" exact="{477605,5006}.[$E.$Mouseover]" />
                 <do_if value="$Cur == 1">
-                  <set_value name="$State" exact="'ON'" />
-                  <set_value name="$Next" exact="'off'" />
+                  <set_value name="$EText" exact="{477605,5003}.[$E.$Label]" />
+                  <set_value name="$EMouse" exact="{477605,5005}.[$E.$Mouseover]" />
                 </do_if>
                 <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
                   $id = 'fdn_station_' + $E.$Key,
-                  $text = 'FDN: ' + $E.$Label + ' ' + $State,
-                  $mouseover = $E.$Mouseover + '. Click to turn it ' + $Next + ' for this station',
+                  $text = $EText,
+                  $mouseover = $EMouse,
                   $callback = On_Toggle,
                   $echo = $E.$Key]" />
               </do_for_each>
@@ -93,13 +93,13 @@
         <do_if value="$Ch != null">
           <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
             $id = 'fdn_station_charter',
-            $text = 'FDN: charter active',
-            $mouseover = 'This station has an FDN charter and is a Distribution Centre while it has a working dock or pier',
+            $text = {477605,5007},
+            $mouseover = {477605,5008},
             $active = false]" />
           <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
             $id = 'fdn_station_charter_revoke',
-            $text = 'FDN: revoke charter (no refund)',
-            $mouseover = 'Click to end the FDN charter of this station at once. No confirmation and no refund. The station stops being a Distribution Centre',
+            $text = {477605,5009},
+            $mouseover = {477605,5010},
             $callback = md.FDN_Menu.On_Revoke_Charter,
             $echo = 'revoke']" />
         </do_if>
@@ -110,16 +110,16 @@
           <do_if value="$Chk.$Ok">
             <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
               $id = 'fdn_station_charter',
-              $text = 'FDN: buy charter (%1 Cr)'.[$Chk.$Info.$Fee.formatted.default],
-              $mouseover = 'Click to pay %1 Cr now for an FDN charter on this station. It becomes a Distribution Centre. No confirmation and no refund'.[$Chk.$Info.$Fee.formatted.default],
+              $text = {477605,5011}.[$Chk.$Info.$Fee.formatted.default],
+              $mouseover = {477605,5012}.[$Chk.$Info.$Fee.formatted.default],
               $callback = md.FDN_Menu.On_Buy_Charter,
               $echo = 'charter']" />
           </do_if>
           <do_else>
             <signal_cue_instantly cue="md.Interact_Menu_API.Add_Action" param="table[
               $id = 'fdn_station_charter',
-              $text = 'FDN: charter blocked - ' + $Chk.$Reason,
-              $mouseover = 'FDN charter not possible here: ' + $Chk.$Reason,
+              $text = {477605,5013}.[$Chk.$Reason],
+              $mouseover = {477605,5014}.[$Chk.$Reason],
               $active = false]" />
           </do_else>
         </do_else>
@@ -136,16 +136,16 @@
           <param name="Station" value="$Station" />
         </run_actions>
         <do_if value="$Info.$Macro == ''">
-          <return value="table[$Ok = false, $Reason = 'no qualifying dock or pier', $Info = $Info]" />
+          <return value="table[$Ok = false, $Reason = {477605,5101}, $Info = $Info]" />
         </do_if>
         <do_if value="not $Info.$Allowed">
           <run_actions ref="md.FDN_Core.Cfg_Get" result="$MinSt">
             <param name="Key" value="'CharterMinStanding'" />
           </run_actions>
-          <return value="table[$Ok = false, $Reason = 'standing too low with %1 (have %2, need %3)'.[(if $Info.$Faction then $Info.$Faction.knownname else '?'), $Info.$Standing, $MinSt], $Info = $Info]" />
+          <return value="table[$Ok = false, $Reason = {477605,5102}.[(if $Info.$Faction then $Info.$Faction.knownname else '?'), $Info.$Standing, $MinSt], $Info = $Info]" />
         </do_if>
         <do_if value="player.money lt $Info.$Fee">
-          <return value="table[$Ok = false, $Reason = 'not enough money (need %1 Cr, have %2 Cr)'.[$Info.$Fee.formatted.default, player.money.formatted.default], $Info = $Info]" />
+          <return value="table[$Ok = false, $Reason = {477605,5103}.[$Info.$Fee.formatted.default, player.money.formatted.default], $Info = $Info]" />
         </do_if>
         <return value="table[$Ok = true, $Reason = '', $Info = $Info]" />
       </actions>
@@ -159,10 +159,10 @@
       <actions>
         <do_if value="md.FDN_Core.Init.$Defaults? and event.param.$object?">
           <set_value name="$Station" exact="event.param.$object" />
-          <set_value name="$Name" exact="'unknown station'" />
+          <set_value name="$Name" exact="{477605,1}" />
           <set_value name="$Reason" exact="''" />
           <do_if value="$Station == null or not $Station.exists or not $Station.isclass.station or not $Station.isplayerowned">
-            <set_value name="$Reason" exact="'the station is gone or not yours'" />
+            <set_value name="$Reason" exact="{477605,5104}" />
           </do_if>
           <do_else>
             <set_value name="$Name" exact="$Station.knownname" />
@@ -170,7 +170,7 @@
               <param name="Station" value="$Station" />
             </run_actions>
             <do_if value="$Ch != null">
-              <set_value name="$Reason" exact="'a charter is already active'" />
+              <set_value name="$Reason" exact="{477605,5105}" />
             </do_if>
             <do_else>
               <run_actions ref="md.FDN_Menu.Charter_Check" result="$Chk">
@@ -189,7 +189,7 @@
                   <do_if value="player.money lt $Before">
                     <transfer_money from="faction.ownerless" to="faction.player" amount="$Before - player.money" />
                   </do_if>
-                  <set_value name="$Reason" exact="'payment of %1 Cr was not taken (taken %2 Cr), nothing charged'.[$Fee.formatted.default, $Taken.formatted.default]" />
+                  <set_value name="$Reason" exact="{477605,5106}.[$Fee.formatted.default, $Taken.formatted.default]" />
                 </do_if>
                 <do_else>
                   <run_actions ref="md.FDN_Core.Charter_Set" result="$Set">
@@ -202,7 +202,7 @@
                   </run_actions>
                   <do_if value="not $Set">
                     <transfer_money from="faction.ownerless" to="faction.player" amount="$Taken" />
-                    <set_value name="$Reason" exact="'the charter could not be recorded, payment refunded'" />
+                    <set_value name="$Reason" exact="{477605,5107}" />
                   </do_if>
                   <do_else>
                     <set_value name="$FName" exact="(if $Info.$Faction then $Info.$Faction.knownname else '?')" />
@@ -213,8 +213,8 @@
                     <run_actions ref="md.FDN_Core.Logbook_Event">
                       <param name="Tier" value="'notice'" />
                       <param name="Category" value="'general'" />
-                      <param name="Title" value="'charter bought for %1'.[$Name]" />
-                      <param name="Text" value="'FDN charter bought for %1 for %2 Cr (standing %3 with %4, %5 pct discount). The station becomes a Distribution Centre on the next FDN pass.'.[$Name, $Taken.formatted.default, $Info.$Standing, $FName, $Info.$Discount]" />
+                      <param name="Title" value="{477605,5201}.[$Name]" />
+                      <param name="Text" value="{477605,5202}.[$Name, $Taken.formatted.default, $Info.$Standing, $FName, $Info.$Discount]" />
                       <param name="Money" value="$Taken" />
                       <param name="Object" value="$Station" />
                     </run_actions>
@@ -230,8 +230,8 @@
             </run_actions>
             <run_actions ref="md.FDN_Core.Logbook_Event">
               <param name="Tier" value="'problem'" />
-              <param name="Title" value="'charter refused at %1'.[$Name]" />
-              <param name="Text" value="'FDN charter not bought for %1: %2. Nothing was charged.'.[$Name, $Reason]" />
+              <param name="Title" value="{477605,5203}.[$Name]" />
+              <param name="Text" value="{477605,5204}.[$Name, $Reason]" />
               <param name="Object" value="(if $Station != null and $Station.exists then $Station else null)" />
             </run_actions>
           </do_if>
@@ -248,7 +248,7 @@
         <do_if value="md.FDN_Core.Init.$Defaults? and event.param.$object?">
           <set_value name="$Station" exact="event.param.$object" />
           <set_value name="$Done" exact="false" />
-          <set_value name="$Name" exact="'unknown station'" />
+          <set_value name="$Name" exact="{477605,1}" />
           <do_if value="$Station != null and $Station.exists">
             <set_value name="$Name" exact="$Station.knownname" />
             <run_actions ref="md.FDN_Core.Charter_End" result="$Done">
@@ -264,8 +264,8 @@
             </run_actions>
             <run_actions ref="md.FDN_Core.Logbook_Event">
               <param name="Tier" value="'problem'" />
-              <param name="Title" value="'charter not revoked at %1'.[$Name]" />
-              <param name="Text" value="'FDN charter for %1 not revoked: the station has no charter or is gone.'.[$Name]" />
+              <param name="Title" value="{477605,5205}.[$Name]" />
+              <param name="Text" value="{477605,5206}.[$Name]" />
             </run_actions>
           </do_if>
         </do_if>
@@ -282,7 +282,7 @@
           <set_value name="$Station" exact="event.param.$object" />
           <set_value name="$Key" exact="event.param.$echo" />
           <set_value name="$Ok" exact="false" />
-          <set_value name="$Name" exact="'unknown station'" />
+          <set_value name="$Name" exact="{477605,1}" />
           <do_if value="$Station != null and $Station.exists">
             <set_value name="$Name" exact="$Station.knownname" />
             <run_actions ref="md.FDN_Core.Station_Cfg_Get" result="$Cur">
@@ -306,15 +306,17 @@
             </run_actions>
           </do_if>
           <do_if value="$Ok">
-            <set_value name="$Word" exact="'OFF'" />
+            <set_value name="$LbTitle" exact="{477605,5302}.[$Key, $Name]" comment="card X4-23b: whole texts per state (was ON/OFF put in)" />
+            <set_value name="$LbText" exact="{477605,5304}.[$Key, $Name]" />
             <do_if value="$New == 1">
-              <set_value name="$Word" exact="'ON'" />
+              <set_value name="$LbTitle" exact="{477605,5301}.[$Key, $Name]" />
+              <set_value name="$LbText" exact="{477605,5303}.[$Key, $Name]" />
             </do_if>
             <run_actions ref="md.FDN_Core.Logbook_Event">
               <param name="Tier" value="'info'" />
               <param name="Category" value="'general'" />
-              <param name="Title" value="'%1 %2 at %3'.[$Key, $Word, $Name]" />
-              <param name="Text" value="'Station setting %1 at %2 turned %3 from the station menu.'.[$Key, $Name, $Word]" />
+              <param name="Title" value="$LbTitle" />
+              <param name="Text" value="$LbText" />
               <param name="Object" value="$Station" />
             </run_actions>
           </do_if>
@@ -325,8 +327,8 @@
             </run_actions>
             <run_actions ref="md.FDN_Core.Logbook_Event">
               <param name="Tier" value="'problem'" />
-              <param name="Title" value="'station setting not changed'" />
-              <param name="Text" value="'Station setting %1 at %2 could not be changed: the station is gone or the setting is not known.'.[$Key, $Name]" />
+              <param name="Title" value="{477605,5305}" />
+              <param name="Text" value="{477605,5306}.[$Key, $Name]" />
             </run_actions>
           </do_else>
         </do_if>
@@ -337,8 +339,8 @@
     <library name="Entry_List">
       <actions>
         <set_value name="$List" exact="[]" />
-        <append_to_list name="$List" exact="table[$Key = 'ResourcesFdnManaged', $Label = 'resource supply', $Mouseover = 'FDN delivers the resources this station needs and sets its resource stock levels (wares it makes itself are left to the game)']" />
-        <append_to_list name="$List" exact="table[$Key = 'ProductsFdnManaged', $Label = 'send products to DC', $Mouseover = 'The products of this station are moved to the nearest Distribution Centre. Surplus resources are collected too']" />
+        <append_to_list name="$List" exact="table[$Key = 'ResourcesFdnManaged', $Label = {477605,5015}, $Mouseover = {477605,5016}]" />
+        <append_to_list name="$List" exact="table[$Key = 'ProductsFdnManaged', $Label = {477605,5017}, $Mouseover = {477605,5018}]" />
       </actions>
     </library>
   </cues>

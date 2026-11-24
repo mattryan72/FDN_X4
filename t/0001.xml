@@ -2,14 +2,15 @@
 <!--
   LI Freight Distribution Network (FDN) text, page 477605. English.
   t/0001-l044.xml (English) and t/0001.xml (default for languages without their own file) are identical.
-  Card X4-23a: options page and the five Overview pages. Rules for this file:
+  Card X4-23a: options page and the five Overview pages. Card X4-23b: station menu, charter, logbook, tickers and reasons.
+  Rules for this file:
   - %1, %2 ... are filled in by the game (names, numbers). Keep every one of them; their order may change.
   - Write literal brackets as \( and \). A plain ( ... ) is a comment and is not shown.
   - "FDN" and "Cr" are not translated. No text starts or ends with a space; spaces around parts are added in md.
   - A text that gets %1 values never contains a plain % sign (a percent sign is added in md after formatting).
   - Check with: python tools/check_l10n.py
   Id blocks:
-    1-99  Common words (reserved for X4-23b)
+    1-99  Common words
     1000-1099  Options page: unit words (the space before them is added in md/fdn_options.xml)
     1100-1199  Options page: option names, in display order (1199 = Reset all)
     1200-1299  Options page: option mouseovers, same order (1299 = Reset all)
@@ -20,13 +21,16 @@
     3000-3499  FDN Alerts page
     3500-3999  FDN History page
     4000-4999  FDN Ware Rules page
-    5000-5999  Station right-click menu and charter (reserved for X4-23b)
-    6000-6999  Logbook titles and texts, ticker (reserved for X4-23b)
-    7000-7999  Reasons (reserved for X4-23b)
+    5000-5999  Station right-click menu and charter
+    6000-6999  Logbook titles and texts, ticker
+    7000-7999  Reasons (shown in the logbook, FDN Alerts and FDN History; fdn.log lines stay English)
     8000-8099  Kind names shown on FDN Alerts and FDN History (8001-8006 activity kinds, 8011-8019 skip kinds)
 -->
 <language>
   <page id="477605" title="LI Freight Distribution Network (FDN)" descr="0" voice="no">
+    <!-- 1-99 Common words -->
+    <t id="1">unknown station</t>
+    <t id="2">a destroyed station</t>
     <!-- 1000-1099 Options page: unit words (the space before them is added in md/fdn_options.xml) -->
     <t id="1001">jumps</t>
     <t id="1002">min</t>
@@ -253,6 +257,147 @@
     <t id="4017">Do not accept</t>
     <t id="4018">Click: next rule \(Stock, Keep %, Never send, Do not accept\). Right-click: previous rule</t>
     <t id="4019">Click: +10 \(after 100 back to 10\). Right-click: -10</t>
+    <!-- 5000-5099 Station right-click menu: entries and mouseovers -->
+    <t id="5001">FDN: not ready</t>
+    <t id="5002">FDN is not set up in this save yet. Save and reload, then try again</t>
+    <t id="5003">FDN: %1 ON</t>
+    <t id="5004">FDN: %1 OFF</t>
+    <t id="5005">%1. Click to turn it off for this station</t>
+    <t id="5006">%1. Click to turn it on for this station</t>
+    <t id="5007">FDN: charter active</t>
+    <t id="5008">This station has an FDN charter and is a Distribution Centre while it has a working dock or pier</t>
+    <t id="5009">FDN: revoke charter \(no refund\)</t>
+    <t id="5010">Click to end the FDN charter of this station at once. No confirmation and no refund. The station stops being a Distribution Centre</t>
+    <t id="5011">FDN: buy charter \(%1 Cr\)</t>
+    <t id="5012">Click to pay %1 Cr now for an FDN charter on this station. It becomes a Distribution Centre. No confirmation and no refund</t>
+    <t id="5013">FDN: charter blocked - %1</t>
+    <t id="5014">FDN charter not possible here: %1</t>
+    <t id="5015">resource supply</t>
+    <t id="5016">FDN delivers the resources this station needs and sets its resource stock levels \(wares it makes itself are left to the game\)</t>
+    <t id="5017">send products to DC</t>
+    <t id="5018">The products of this station are moved to the nearest Distribution Centre. Surplus resources are collected too</t>
+    <!-- 5100-5199 Charter: reasons a purchase is refused (shown in the menu and the logbook) -->
+    <t id="5101">no qualifying dock or pier</t>
+    <t id="5102">standing too low with %1 \(have %2, need %3\)</t>
+    <t id="5103">not enough money \(need %1 Cr, have %2 Cr\)</t>
+    <t id="5104">the station is gone or not yours</t>
+    <t id="5105">a charter is already active</t>
+    <t id="5106">payment of %1 Cr was not taken \(taken %2 Cr\), nothing charged</t>
+    <t id="5107">the charter could not be recorded, payment refunded</t>
+    <!-- 5200-5299 Charter: logbook titles and texts -->
+    <t id="5201">charter bought for %1</t>
+    <t id="5202">FDN charter bought for %1 for %2 Cr \(standing %3 with %4, %5 pct discount\). The station becomes a Distribution Centre on the next FDN pass.</t>
+    <t id="5203">charter refused at %1</t>
+    <t id="5204">FDN charter not bought for %1: %2. Nothing was charged.</t>
+    <t id="5205">charter not revoked at %1</t>
+    <t id="5206">FDN charter for %1 not revoked: the station has no charter or is gone.</t>
+    <t id="5207">charter revoked for %1</t>
+    <t id="5208">The FDN charter for %1 was revoked. No refund. The station is no longer a Distribution Centre.</t>
+    <t id="5209">charter ended for %1 \(%2\)</t>
+    <t id="5210">The FDN charter for %1 ended: %2. The station is no longer a Distribution Centre. A new charter has to be bought.</t>
+    <!-- 5300-5399 Station menu: logbook titles and texts for the on/off settings -->
+    <t id="5301">%1 ON at %2</t>
+    <t id="5302">%1 OFF at %2</t>
+    <t id="5303">Station setting %1 at %2 turned ON from the station menu.</t>
+    <t id="5304">Station setting %1 at %2 turned OFF from the station menu.</t>
+    <t id="5305">station setting not changed</t>
+    <t id="5306">Station setting %1 at %2 could not be changed: the station is gone or the setting is not known.</t>
+    <!-- 6000-6999 Logbook titles and texts, ticker -->
+    <t id="6001">FDN: %1</t>
+    <t id="6002">%1 \(ware cost %2, fee %3\)</t>
+    <t id="6011">DC %1 back online</t>
+    <t id="6012">Distribution Centre %1 is used by FDN again: %2.</t>
+    <t id="6013">DC %1 has no manager</t>
+    <t id="6014">Distribution Centre %1 has no station manager, so FDN does not use it: no supplies, returns, collection or DC links. Assign a manager and it comes back by itself at the next supply check.</t>
+    <t id="6021">DC low on stock at %1</t>
+    <t id="6022">DC %1 low on %2 for %3 min: usable %4, stations need %5</t>
+    <t id="6023">shortage at %1</t>
+    <t id="6024">%1 short of %2 for %3 min \(need %4\): %5</t>
+    <t id="6031">FDN storage levels not answered</t>
+    <t id="6032">FDN could not reach its UI helper to set storage levels. Make sure SirNuke Mod Support APIs is enabled. Saved original levels are kept.</t>
+    <t id="6041">no Distribution Centre</t>
+    <t id="6042">No station has an FDN charter and a working dock, so there is no Distribution Centre. Buy a charter from a station right-click menu.</t>
+    <t id="6043">DC network found</t>
+    <t id="6044">%1 DC\(s\) in %2 network\(s\): %3</t>
+    <t id="6045">DC network changed</t>
+    <t id="6046">Now %1 DC\(s\) in %2 network\(s\).</t>
+    <t id="6047">Now %1 DC\(s\) in %2 network\(s\). Added: %3.</t>
+    <t id="6048">Now %1 DC\(s\) in %2 network\(s\). Removed: %3.</t>
+    <t id="6049">Now %1 DC\(s\) in %2 network\(s\). Added: %3. Removed: %4.</t>
+    <t id="6051">supplied %1 to %2</t>
+    <t id="6052">network pull %1 to %2</t>
+    <t id="6053">%1 %2 from %3, %4 jumps, fee %5 paid by %6</t>
+    <t id="6054">%1 %2 from %3</t>
+    <t id="6055">%1 %2 from %3 \(network pull\)</t>
+    <t id="6056">supplied %1</t>
+    <t id="6057">%1. %2 DC\(s\) used, total fee %3</t>
+    <t id="6058">bought %1 for %2</t>
+    <t id="6059">%1 %2 from NPC %3, %4 jumps, unit %5, paid by %6</t>
+    <t id="6060">%1 %2 bought from %3 NPC seller\(s\), cost %4</t>
+    <t id="6061">%1 %2</t>
+    <t id="6062">%1 %2 \(to DC %3\)</t>
+    <t id="6063">returned %1 from %2</t>
+    <t id="6064">%1 %2 to DC %3, %4 jumps, fee %5 paid by the DC</t>
+    <t id="6065">returned from %1</t>
+    <t id="6066">To DC %1: %2. Total fee %3 paid by the DC</t>
+    <t id="6071">supply skipped at %1</t>
+    <t id="6072">pull skipped at %1</t>
+    <t id="6073">return skipped at %1</t>
+    <t id="6074">overstock skipped at %1</t>
+    <t id="6075">stock level skipped at %1</t>
+    <t id="6076">%1 skipped at %2</t>
+    <t id="6077">illegal ware blocked at %1</t>
+    <t id="6078">DC %1 running low on stock</t>
+    <t id="6079">fee fallback at %1</t>
+    <t id="6080">NPC buy skipped at %1, station buy price too low</t>
+    <t id="6081">NPC buy skipped at %1, DC cannot pay</t>
+    <t id="6082">NPC buy failed at %1</t>
+    <t id="6083">NPC stock short at %1</t>
+    <t id="6084">DC %1 is running low on %2: usable %3, stations need %4</t>
+    <t id="6085">%1 \(need %2\): %3</t>
+    <t id="6086">%1 \(stock %2\): %3</t>
+    <t id="6087">%1 skipped at %2, DC cannot pay</t>
+    <!-- 7000-7999 Reasons (shown in the logbook, FDN Alerts and FDN History) -->
+    <t id="7001">station destroyed</t>
+    <t id="7002">station no longer player owned</t>
+    <t id="7003">no working qualifying dock</t>
+    <t id="7004">unknown reason</t>
+    <t id="7011">a manager was assigned \(%1 stars\)</t>
+    <t id="7012">the manager rule was turned off</t>
+    <t id="7013">no manager: FDN does not use this DC until a manager is assigned</t>
+    <t id="7021">storage level could not be set, FDN retries</t>
+    <t id="7022">storage level could not be restored, FDN retries</t>
+    <t id="7031">DC holds %1 %2, illegal in %3 \(%4 police\); left in place, FDN brings no more in</t>
+    <t id="7032">no DC in range</t>
+    <t id="7033">illegal in the sector of this DC \(%1 police\); not brought in</t>
+    <t id="7034">no DC in range has spare stock</t>
+    <t id="7035">station has no free storage for it</t>
+    <t id="7036">DC %1 cannot pay the fee \(%2 needed, %3 in account\)</t>
+    <t id="7037">home DC %1 could not pay pull fee %2, source DC %3 paid full fee %4</t>
+    <t id="7038">transfer from %1 failed and was refunded</t>
+    <t id="7039">every DC in range holds it back by ware rule</t>
+    <t id="7040">partly supplied, %1</t>
+    <t id="7041">NPC offers start at %1, the DC buy price is %2 \(raise the buy price for %3 on %4 to allow NPC buying\)</t>
+    <t id="7042">NPC offers start at %1, the station buy price is %2 \(DC %4 has no buy price for %3; set one on the DC, or raise the station buy price, to allow NPC buying\)</t>
+    <t id="7043">home DC %1 cannot pay for NPC %2 \(one unit costs %3 plus fee, %4 in account\)</t>
+    <t id="7044">fee could not be taken</t>
+    <t id="7045">seller %1 gave only %2 of %3, put back</t>
+    <t id="7046">payment of %1 to %2 failed, stock put back</t>
+    <t id="7047">%1 took only %2 of %3, stock back to %4 and money refunded</t>
+    <t id="7048">NPC buy from %1 rolled back: %2</t>
+    <t id="7049">bought %1 of %2 from NPC stations, no more usable offers</t>
+    <t id="7050">delivery failed \(station gone or full\), cargo returned to DC and fee refunded</t>
+    <t id="7051">illegal in the sector of DC %1 \(%2 police\) and no other DC in range where it is legal and has room; kept at the station</t>
+    <t id="7052">no DC in range to take the product</t>
+    <t id="7053">DC %1 is full for it \(free %2\)</t>
+    <t id="7054">DC %1 cannot pay the return fee \(%2 needed, %3 in account\)</t>
+    <t id="7055">return fee could not be taken from DC %1, nothing moved</t>
+    <t id="7056">DC %1 took only %2, all put back at the station and fee refunded</t>
+    <t id="7057">usable %1, stations need %2</t>
+    <t id="7058">illegal in the sector of DC %1 \(%2 police\) and no other DC in range where it is legal and has room; not collected</t>
+    <t id="7059">DC storage full</t>
+    <t id="7060">DC %1 cannot pay the collect fee \(%2 needed, %3 in account\)</t>
+    <t id="7061">collect fee could not be taken from DC %1, nothing moved</t>
     <!-- 8000-8099 Kind names shown on FDN Alerts and FDN History (8001-8006 activity kinds, 8011-8019 skip kinds) -->
     <t id="8001">supply</t>
     <t id="8002">pull</t>

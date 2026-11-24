@@ -799,7 +799,7 @@
                 <param name="Station" value="$Station" />
                 <param name="Ware" value="$W" />
                 <param name="Need" value="$Op.$Amount" />
-                <param name="Reason" value="'storage level could not be ' + (if $Op.$Cmd == 'set' then 'set' else 'restored') + ', FDN retries'" />
+                <param name="Reason" value="(if $Op.$Cmd == 'set' then {477605,7021} else {477605,7022})" />
                 <param name="Kind" value="'stock level'" />
               </run_actions>
             </do_if>
@@ -939,8 +939,8 @@
             <set_value name="State.$LuaWarned" exact="1" />
             <run_actions ref="md.FDN_Core.Logbook_Event">
               <param name="Tier" value="'problem'" />
-              <param name="Title" value="'FDN storage levels not answered'" />
-              <param name="Text" value="'FDN could not reach its UI helper to set storage levels. Make sure SirNuke Mod Support APIs is enabled. Saved original levels are kept.'" />
+              <param name="Title" value="{477605,6031}" />
+              <param name="Text" value="{477605,6032}" />
             </run_actions>
           </do_if>
           <set_value name="State.$Token" exact="State.$Token + 1" />

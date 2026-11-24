@@ -282,8 +282,8 @@
             </run_actions>
             <run_actions ref="md.FDN_Core.Logbook_Event">
               <param name="Tier" value="'problem'" />
-              <param name="Title" value="'no Distribution Centre'" />
-              <param name="Text" value="'No station has an FDN charter and a working dock, so there is no Distribution Centre. Buy a charter from a station right-click menu.'" />
+              <param name="Title" value="{477605,6041}" />
+              <param name="Text" value="{477605,6042}" />
             </run_actions>
           </do_if>
         </do_if>
@@ -379,8 +379,8 @@
             <run_actions ref="md.FDN_Core.Logbook_Event">
               <param name="Tier" value="'info'" />
               <param name="Category" value="'general'" />
-              <param name="Title" value="'DC network found'" />
-              <param name="Text" value="'%1 DC(s) in %2 network(s): %3'.[$DCs.count, $NetCount, $Names]" />
+              <param name="Title" value="{477605,6043}" />
+              <param name="Text" value="{477605,6044}.[$DCs.count, $NetCount, $Names]" />
               <param name="Object" value="$DCs.{1}" />
             </run_actions>
           </do_if>
@@ -400,28 +400,38 @@
         <set_value name="$Removed" exact="''" />
         <do_for_each name="$D" in="$Old">
           <do_if value="not $DCs.indexof.{$D}">
-            <set_value name="$Removed" exact="$Removed + (if $Removed == '' then '' else ', ') + (if $D.exists then $D.knownname else 'a destroyed station')" comment="VERIFY: .exists is false (no error) for a destroyed station kept in a list" />
+            <set_value name="$Removed" exact="$Removed + (if $Removed == '' then '' else ', ') + (if $D.exists then $D.knownname else {477605,2})" comment="VERIFY: .exists is false (no error) for a destroyed station kept in a list" />
           </do_if>
         </do_for_each>
         <do_if value="$Added == '' and $Removed == '' and $NetCount == $Init.$DcWatch.{2}">
           <return />
         </do_if>
         <set_value name="$Init.$DcWatch" exact="[$DCs, $NetCount]" />
-        <set_value name="$Txt" exact="'Now %1 DC(s) in %2 network(s).'.[$DCs.count, $NetCount]" />
+        <set_value name="$TxtLog" exact="'Now %1 DC(s) in %2 network(s).'.[$DCs.count, $NetCount]" comment="card X4-23b: English for fdn.log" />
         <do_if value="$Added != ''">
-          <set_value name="$Txt" exact="$Txt + ' Added: ' + $Added + '.'" />
+          <set_value name="$TxtLog" exact="$TxtLog + ' Added: ' + $Added + '.'" />
         </do_if>
         <do_if value="$Removed != ''">
-          <set_value name="$Txt" exact="$Txt + ' Removed: ' + $Removed + '.'" />
+          <set_value name="$TxtLog" exact="$TxtLog + ' Removed: ' + $Removed + '.'" />
         </do_if>
+        <set_value name="$Txt" exact="{477605,6046}.[$DCs.count, $NetCount]" comment="card X4-23b: whole sentences for the logbook" />
+        <do_if value="$Added != '' and $Removed != ''">
+          <set_value name="$Txt" exact="{477605,6049}.[$DCs.count, $NetCount, $Added, $Removed]" />
+        </do_if>
+        <do_elseif value="$Added != ''">
+          <set_value name="$Txt" exact="{477605,6047}.[$DCs.count, $NetCount, $Added]" />
+        </do_elseif>
+        <do_elseif value="$Removed != ''">
+          <set_value name="$Txt" exact="{477605,6048}.[$DCs.count, $NetCount, $Removed]" />
+        </do_elseif>
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="3" />
-          <param name="Text" value="'DC network changed: ' + $Txt" />
+          <param name="Text" value="'DC network changed: ' + $TxtLog" />
         </run_actions>
         <run_actions ref="md.FDN_Core.Logbook_Event">
           <param name="Tier" value="'info'" />
           <param name="Category" value="'general'" />
-          <param name="Title" value="'DC network changed'" />
+          <param name="Title" value="{477605,6045}" />
           <param name="Text" value="$Txt" />
           <param name="Object" value="$First" />
         </run_actions>
@@ -592,7 +602,7 @@
                 <param name="Station" value="$DC" />
                 <param name="Ware" value="$W" />
                 <param name="Need" value="$DC.cargo.{$W}.count" />
-                <param name="Reason" value="'DC holds %1 %2, illegal in %3 (%4 police); left in place, FDN brings no more in'.[$DC.cargo.{$W}.count, $W.name, $DC.sector.knownname, $P.knownname]" />
+                <param name="Reason" value="{477605,7031}.[$DC.cargo.{$W}.count, $W.name, $DC.sector.knownname, $P.knownname]" />
                 <param name="Kind" value="'illegal'" />
               </run_actions>
             </do_if>
@@ -902,7 +912,7 @@
                   <param name="Ware" value="$Ware" />
                   <param name="Kind" value="'station'" />
                   <param name="Need" value="$Needs.{$Ware}.{1}" />
-                  <param name="Reason" value="'no DC in range'" />
+                  <param name="Reason" value="{477605,7032}" />
                 </run_actions>
               </do_if>
             </do_if>
@@ -982,7 +992,7 @@
                 <param name="Station" value="$Station" />
                 <param name="Ware" value="$Ware" />
                 <param name="Need" value="$Needs.{$Ware}.{1}" />
-                <param name="Reason" value="'illegal in the sector of this DC (%1 police); not brought in'.[$Blk.{2}.knownname]" />
+                <param name="Reason" value="{477605,7033}.[$Blk.{2}.knownname]" />
                 <param name="Kind" value="'illegal'" />
               </run_actions>
             </do_if>
@@ -1005,7 +1015,7 @@
               </do_else>
             </do_if>
             <set_value name="$Moved" exact="0" />
-            <set_value name="$Reason" exact="'no DC in range has spare stock'" />
+            <set_value name="$Reason" exact="{477605,7034}" />
             <set_value name="$NoRoom" exact="false" comment="card X4-23a: true while the last reason is 'station has no free storage for it' (replaces a text compare, so it works in every language)" />
             <set_value name="$Kind" exact="'supply'" />
             <set_value name="$NoMoney" exact="false" comment="card 09o: true when the last reason is a fee the DC cannot pay" />
@@ -1057,7 +1067,7 @@
                 <set_value name="$Free" exact="$Station.cargo.{$Ware}.free" comment="proven in game: per-ware free amount (used like this in vanilla aiscripts)" />
                 <set_value name="$Qty" exact="[$Left, $Avail, $Free].min" />
                 <do_if value="$Free le 0">
-                  <set_value name="$Reason" exact="'station has no free storage for it'" />
+                  <set_value name="$Reason" exact="{477605,7035}" />
                   <set_value name="$NoMoney" exact="false" />
                   <set_value name="$NoRoom" exact="true" />
                 </do_if>
@@ -1094,7 +1104,7 @@
                     </do_else>
                   </do_if>
                   <do_if value="$Payer.money lt $Fee">
-                    <set_value name="$Reason" exact="'DC %1 cannot pay the fee (%2 needed, %3 in account)'.[$Payer.knownname, $Fee.formatted.default + ' Cr', $Payer.money.formatted.default + ' Cr']" />
+                    <set_value name="$Reason" exact="{477605,7036}.[$Payer.knownname, $Fee.formatted.default + ' Cr', $Payer.money.formatted.default + ' Cr']" />
                     <set_value name="$NoMoney" exact="true" />
                     <set_value name="$NoRoom" exact="false" />
                   </do_if>
@@ -1113,15 +1123,15 @@
                     <do_if value="$Ok">
                       <set_value name="$Left" exact="$Left - $Qty" />
                       <set_value name="$Moved" exact="$Moved + $Qty" />
-                      <set_value name="$SumText" exact="$SumText + (if $SumText == '' then '' else '; ') + '%1 %2 from %3%4'.[$Ware.name, $Qty, $DC.knownname, (if $Kind == 'pull' then ' (network pull)' else '')]" comment="card 09o" />
+                      <set_value name="$SumText" exact="$SumText + (if $SumText == '' then '' else '; ') + (if $Kind == 'pull' then {477605,6055}.[$Ware.name, $Qty, $DC.knownname] else {477605,6054}.[$Ware.name, $Qty, $DC.knownname])" comment="card 09o" />
                       <set_value name="$SumFee" exact="$SumFee + $Fee" />
                       <do_if value="not $SumDCs.indexof.{$DC}">
                         <append_to_list name="$SumDCs" exact="$DC" />
                       </do_if>
                       <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09o: LogbookLevel 3 only">
                         <param name="Tier" value="'transfer'" />
-                        <param name="Title" value="'%1 %2 to %3'.[(if $Kind == 'pull' then 'network pull' else 'supplied'), $Ware.name, $Station.knownname]" />
-                        <param name="Text" value="'%1 %2 from %3, %4 jumps, fee %5 paid by %6'.[$Qty, $Ware.name, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr', $Payer.knownname]" />
+                        <param name="Title" value="(if $Kind == 'pull' then {477605,6052}.[$Ware.name, $Station.knownname] else {477605,6051}.[$Ware.name, $Station.knownname])" />
+                        <param name="Text" value="{477605,6053}.[$Qty, $Ware.name, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr', $Payer.knownname]" />
                         <param name="Money" value="$Fee" />
                         <param name="Object" value="$Station" />
                         <param name="ThrottleStation" value="$Station" />
@@ -1136,13 +1146,13 @@
                           <param name="Station" value="$Station" />
                           <param name="Ware" value="$Ware" />
                           <param name="Need" value="$Qty" />
-                          <param name="Reason" value="'home DC %1 could not pay pull fee %2, source DC %3 paid full fee %4'.[$Home.knownname, $PullFee.formatted.default + ' Cr', $DC.knownname, $FullFee.formatted.default + ' Cr']" />
+                          <param name="Reason" value="{477605,7037}.[$Home.knownname, $PullFee.formatted.default + ' Cr', $DC.knownname, $FullFee.formatted.default + ' Cr']" />
                           <param name="Kind" value="'pull-fallback'" />
                         </run_actions>
                       </do_if>
                     </do_if>
                     <do_else>
-                      <set_value name="$Reason" exact="'transfer from %1 failed and was refunded'.[$DC.knownname]" />
+                      <set_value name="$Reason" exact="{477605,7038}.[$DC.knownname]" />
                       <set_value name="$NoMoney" exact="false" />
                       <set_value name="$NoRoom" exact="false" />
                     </do_else>
@@ -1204,7 +1214,7 @@
                 <param name="Ware" value="$Ware" />
                 <param name="Kind" value="'station'" />
                 <param name="Need" value="$Left" />
-                <param name="Reason" value="if $RuleSkips gt 0 and $RuleSkips == $Cands.count then 'every DC in range holds it back by ware rule' else (if $Moved gt 0 then 'partly supplied, ' + $Reason else $Reason)" />
+                <param name="Reason" value="if $RuleSkips gt 0 and $RuleSkips == $Cands.count then {477605,7039} else (if $Moved gt 0 then {477605,7040}.[$Reason] else $Reason)" />
               </run_actions>
             </do_if>
           </do_if>
@@ -1218,8 +1228,8 @@
         <do_if value="$SumText != ''" comment="card 09o: one logbook summary per supply run (LogbookLevel 2)">
           <run_actions ref="md.FDN_Core.Logbook_Event">
             <param name="Tier" value="'summary'" />
-            <param name="Title" value="'supplied %1'.[$Station.knownname]" />
-            <param name="Text" value="$SumText + '. %1 DC(s) used, total fee %2'.[$SumDCs.count, $SumFee.formatted.default + ' Cr']" />
+            <param name="Title" value="{477605,6056}.[$Station.knownname]" />
+            <param name="Text" value="{477605,6057}.[$SumText, $SumDCs.count, $SumFee.formatted.default + ' Cr']" />
             <param name="Money" value="$SumFee" />
             <param name="Cost" value="if $SumCost gt 0Cr then $SumCost else null" comment="card 09p: NPC ware cost, shown with the fee" />
             <param name="Object" value="$Station" />
@@ -1298,7 +1308,7 @@
             <set_value name="$CapFromDC" exact="true" />
           </do_if>
         </do_if>
-        <set_value name="$CapText" exact="if $CapFromDC then 'the DC buy price is %1 (raise the buy price for %2 on %3 to allow NPC buying)'.[(if $Cap != null then $Cap.formatted.default + ' Cr' else '?'), $Ware.name, $Home.knownname] else 'the station buy price is %1 (DC %3 has no buy price for %2; set one on the DC, or raise the station buy price, to allow NPC buying)'.[(if $Cap != null then $Cap.formatted.default + ' Cr' else '?'), $Ware.name, (if $Home != null and $Home.exists then $Home.knownname else '?')]" comment="card X4-18e: skip text says which price was used" />
+        <set_value name="$CapStr" exact="if $Cap != null then $Cap.formatted.default + ' Cr' else '?'" comment="card X4-18e: skip text says which price was used; card X4-23b: one whole text per case, built at the npc-price return below" />
         <set_value name="$HomeName" exact="if $Home != null and $Home.exists then $Home.knownname else '?'" />
         <do_if value="$Limit">
           <find_sector_in_range name="$Sectors" object="$Station" maxdistance="$MaxJumps" multiple="true" />
@@ -1421,7 +1431,7 @@
             <param name="Text" value="'NPC CHECK: no usable offer for %1 at %2: %3 (blocked %4: player-owned %5, hostile %6, cannot-trade %8, restricted(info only) %7'.[$Ware.name, $Station.knownname, $Why, $NBlocked, $NPlayer, $NHostile, $NRestricted, $NCantrade] + '; out of range %1, empty %2, over cap %3, cap %4 from %5)'.[$NRange, $NEmpty, $NOver, (if $Cap != null then $Cap.formatted.default + ' Cr' else '?'), (if $CapFromDC then 'DC' else 'station')]" />
           </run_actions>
           <do_if value="$NOver gt 0 and $BestOver != null" comment="card 09p: at least one offer was rejected only by the cap">
-            <return value="[$Ranked, 'npc-price', 'NPC offers start at %1, '.[$BestOver.formatted.default + ' Cr'] + $CapText, $Cap]" />
+            <return value="[$Ranked, 'npc-price', (if $CapFromDC then {477605,7041}.[$BestOver.formatted.default + ' Cr', $CapStr, $Ware.name, $Home.knownname] else {477605,7042}.[$BestOver.formatted.default + ' Cr', $CapStr, $Ware.name, $HomeName]), $Cap]" />
           </do_if>
           <return value="[$Ranked, 'npc-none', 'no usable NPC offer: ' + $Why, $Cap]" />
         </do_if>
@@ -1579,7 +1589,7 @@
                     <param name="Station" value="$Station" />
                     <param name="Ware" value="$Ware" />
                     <param name="Need" value="$Left" />
-                    <param name="Reason" value="'home DC %1 cannot pay for NPC %2 (one unit costs %3 plus fee, %4 in account)'.[$Home.knownname, $Ware.name, $Unit.formatted.default + ' Cr', $Home.money.formatted.default + ' Cr']" />
+                    <param name="Reason" value="{477605,7043}.[$Home.knownname, $Ware.name, $Unit.formatted.default + ' Cr', $Home.money.formatted.default + ' Cr']" />
                     <param name="Kind" value="'npc-money'" />
                     <param name="NoMoney" value="true" />
                   </run_actions>
@@ -1602,7 +1612,7 @@
                 <param name="Fee" value="$Fee" />
               </run_actions>
               <do_if value="$Taken lt 0Cr">
-                <set_value name="$FailStep" exact="'fee could not be taken'" />
+                <set_value name="$FailStep" exact="{477605,7044}" />
               </do_if>
               <do_else>
                 <set_value name="$Fee" exact="$Taken" comment="what really left the account" />
@@ -1616,7 +1626,7 @@
                     <param name="DC" value="$Home" />
                     <param name="Fee" value="$Fee" />
                   </run_actions>
-                  <set_value name="$FailStep" exact="'seller %1 gave only %2 of %3, put back'.[$Seller.knownname, $Got, $Qty]" />
+                  <set_value name="$FailStep" exact="{477605,7045}.[$Seller.knownname, $Got, $Qty]" />
                 </do_if>
                 <do_else>
                   <!-- step 8: pay the seller station's account (VERIFY), fallback the seller's owner faction -->
@@ -1651,7 +1661,7 @@
                         <param name="DC" value="$Home" />
                         <param name="Fee" value="$Fee" />
                       </run_actions>
-                      <set_value name="$FailStep" exact="'payment of %1 to %2 failed, stock put back'.[$Cost.formatted.default + ' Cr', $Seller.knownname]" />
+                      <set_value name="$FailStep" exact="{477605,7046}.[$Cost.formatted.default + ' Cr', $Seller.knownname]" />
                     </do_else>
                   </do_else>
                   <do_if value="$PaidTo != null">
@@ -1678,7 +1688,7 @@
                         <param name="DC" value="$Home" />
                         <param name="Fee" value="$Fee" />
                       </run_actions>
-                      <set_value name="$FailStep" exact="'%1 took only %2 of %3, stock back to %4 and money refunded'.[$Station.knownname, $Added, $Qty, $Seller.knownname]" />
+                      <set_value name="$FailStep" exact="{477605,7047}.[$Station.knownname, $Added, $Qty, $Seller.knownname]" />
                     </do_if>
                     <do_else>
                       <!-- success -->
@@ -1711,8 +1721,8 @@
                       </run_actions>
                       <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09p: LogbookLevel 3 only, ware cost shown with the fee">
                         <param name="Tier" value="'transfer'" />
-                        <param name="Title" value="'bought %1 for %2'.[$Ware.name, $Station.knownname]" />
-                        <param name="Text" value="'%1 %2 from NPC %3, %4 jumps, unit %5, paid by %6'.[$Qty, $Ware.name, $Seller.knownname, $Jumps, $Unit.formatted.default + ' Cr', $Home.knownname]" />
+                        <param name="Title" value="{477605,6058}.[$Ware.name, $Station.knownname]" />
+                        <param name="Text" value="{477605,6059}.[$Qty, $Ware.name, $Seller.knownname, $Jumps, $Unit.formatted.default + ' Cr', $Home.knownname]" />
                         <param name="Money" value="$Fee" />
                         <param name="Cost" value="$Paid" />
                         <param name="Object" value="$Station" />
@@ -1729,7 +1739,7 @@
                   <param name="Station" value="$Station" />
                   <param name="Ware" value="$Ware" />
                   <param name="Need" value="$Qty" />
-                  <param name="Reason" value="'NPC buy from %1 rolled back: %2'.[$Seller.knownname, $FailStep]" />
+                  <param name="Reason" value="{477605,7048}.[$Seller.knownname, $FailStep]" />
                   <param name="Kind" value="'npc-failed'" />
                 </run_actions>
               </do_if>
@@ -1751,13 +1761,13 @@
             <param name="Station" value="$Station" />
             <param name="Ware" value="$Ware" />
             <param name="Need" value="$Need" />
-            <param name="Reason" value="'bought %1 of %2 from NPC stations, no more usable offers'.[$Bought, $Need]" />
+            <param name="Reason" value="{477605,7049}.[$Bought, $Need]" />
             <param name="Kind" value="'npc-none'" />
           </run_actions>
         </do_if>
         <set_value name="$Text" exact="''" />
         <do_if value="$Bought gt 0">
-          <set_value name="$Text" exact="'%1 %2 bought from %3 NPC seller(s), cost %4'.[$Ware.name, $Bought, $NSellers, $TotCost.formatted.default + ' Cr']" />
+          <set_value name="$Text" exact="{477605,6060}.[$Ware.name, $Bought, $NSellers, $TotCost.formatted.default + ' Cr']" />
         </do_if>
         <return value="[$Bought, $TotCost, $TotFee, $Text]" />
       </actions>
@@ -1902,7 +1912,7 @@
             <param name="Station" value="$Station" />
             <param name="Ware" value="$Ware" />
             <param name="Need" value="$Qty" />
-            <param name="Reason" value="'delivery failed (station gone or full), cargo returned to DC and fee refunded'" />
+            <param name="Reason" value="{477605,7050}" />
             <param name="Kind" value="if $Home != null then 'pull' else 'supply'" />
           </run_actions>
           <return value="false" />
@@ -2208,12 +2218,14 @@
         <param name="NeedTotal" default="0" comment="card X4-18j: lowstock only, stations need M (Need = usable N)" />
       </params>
       <actions>
+        <set_value name="$LowText" exact="''" comment="card X4-23b: lowstock text for the logbook and FDN Alerts ($LogText stays English for fdn.log)" />
         <set_value name="$QtyWord" exact="'need'" comment="card X4-18j: return/collect/illegal say stock; supply says need" />
         <do_if value="$Kind == 'return' or $Kind == 'overstock' or $Kind == 'illegal'">
           <set_value name="$QtyWord" exact="'stock'" />
         </do_if>
         <do_if value="$Kind == 'lowstock'" comment="card X4-18j">
           <set_value name="$LogText" exact="'DC %1 is running low on %2: usable %3, stations need %4'.[$Station.knownname, $Ware.name, $Need, $NeedTotal]" />
+          <set_value name="$LowText" exact="{477605,6084}.[$Station.knownname, $Ware.name, $Need, $NeedTotal]" />
         </do_if>
         <do_else>
           <set_value name="$LogText" exact="'SKIP: %1, %2 (%3 %4): %5'.[$Station.knownname, $Ware.name, $QtyWord, $Need, $Reason]" />
@@ -2254,7 +2266,7 @@
         <run_actions ref="md.FDN_Core.Attention_Set" comment="card X4-15e: always update Problems / Needs attention even when WARN is suppressed">
           <param name="Station" value="$Station" />
           <param name="Ware" value="$Ware" />
-          <param name="Reason" value="if $Kind == 'lowstock' then $LogText else $Reason" />
+          <param name="Reason" value="if $Kind == 'lowstock' then $LowText else $Reason" />
           <param name="Kind" value="$Kind" />
         </run_actions>
         <run_actions ref="md.FDN_Core.Activity_Add" comment="card X4-16b: skip into the Recent activity history, de-duplicated there (no Served, nothing cleared)">
@@ -2264,7 +2276,7 @@
           <param name="From" value="null" />
           <param name="To" value="$Station" />
           <param name="Fee" value="0Cr" />
-          <param name="Reason" value="if $Kind == 'lowstock' then $LogText else $Reason" />
+          <param name="Reason" value="if $Kind == 'lowstock' then $LowText else $Reason" />
           <param name="SkipKind" value="$Kind" />
         </run_actions>
         <do_if value="not $Init.$SkipWarn.{$Station}?">
@@ -2312,33 +2324,48 @@
         <do_if value="$Throttled">
           <return />
         </do_if>
-        <set_value name="$LbTitle" exact="'%1 skipped at %2'.[$Kind, $Station.knownname]" />
+        <set_value name="$LbTitle" exact="{477605,6076}.[$Kind, $Station.knownname]" comment="card X4-23b: other kinds, shown as stored" />
+        <do_if value="$Kind == 'supply'" comment="card X4-23b: one whole title per kind (was kind + ' skipped at ' + station)">
+          <set_value name="$LbTitle" exact="{477605,6071}.[$Station.knownname]" />
+        </do_if>
+        <do_elseif value="$Kind == 'pull'">
+          <set_value name="$LbTitle" exact="{477605,6072}.[$Station.knownname]" />
+        </do_elseif>
+        <do_elseif value="$Kind == 'return'">
+          <set_value name="$LbTitle" exact="{477605,6073}.[$Station.knownname]" />
+        </do_elseif>
+        <do_elseif value="$Kind == 'overstock'">
+          <set_value name="$LbTitle" exact="{477605,6074}.[$Station.knownname]" />
+        </do_elseif>
+        <do_elseif value="$Kind == 'stock level'">
+          <set_value name="$LbTitle" exact="{477605,6075}.[$Station.knownname]" />
+        </do_elseif>
         <do_if value="$Kind == 'illegal'" comment="card X4-18c">
-          <set_value name="$LbTitle" exact="'illegal ware blocked at %1'.[$Station.knownname]" />
+          <set_value name="$LbTitle" exact="{477605,6077}.[$Station.knownname]" />
         </do_if>
         <do_elseif value="$Kind == 'lowstock'" comment="card X4-18j">
-          <set_value name="$LbTitle" exact="'DC %1 running low on stock'.[$Station.knownname]" />
+          <set_value name="$LbTitle" exact="{477605,6078}.[$Station.knownname]" />
         </do_elseif>
         <do_elseif value="$Kind == 'pull-fallback'">
-          <set_value name="$LbTitle" exact="'fee fallback at %1'.[$Station.knownname]" />
+          <set_value name="$LbTitle" exact="{477605,6079}.[$Station.knownname]" />
         </do_elseif>
         <do_elseif value="$Kind == 'npc-price'" comment="card 09r: plain words instead of the internal kind">
-          <set_value name="$LbTitle" exact="'NPC buy skipped at %1, station buy price too low'.[$Station.knownname]" />
+          <set_value name="$LbTitle" exact="{477605,6080}.[$Station.knownname]" />
         </do_elseif>
         <do_elseif value="$Kind == 'npc-money'">
-          <set_value name="$LbTitle" exact="'NPC buy skipped at %1, DC cannot pay'.[$Station.knownname]" />
+          <set_value name="$LbTitle" exact="{477605,6081}.[$Station.knownname]" />
         </do_elseif>
         <do_elseif value="$Kind == 'npc-failed'">
-          <set_value name="$LbTitle" exact="'NPC buy failed at %1'.[$Station.knownname]" />
+          <set_value name="$LbTitle" exact="{477605,6082}.[$Station.knownname]" />
         </do_elseif>
         <do_elseif value="$Kind == 'npc-none'">
-          <set_value name="$LbTitle" exact="'NPC stock short at %1'.[$Station.knownname]" />
+          <set_value name="$LbTitle" exact="{477605,6083}.[$Station.knownname]" />
         </do_elseif>
         <do_if value="$Kind == 'lowstock'">
-          <set_value name="$LbText" exact="$LogText" />
+          <set_value name="$LbText" exact="$LowText" />
         </do_if>
         <do_else>
-          <set_value name="$LbText" exact="'%1 (%2 %3): %4'.[$Ware.name, $QtyWord, $Need, $Reason]" />
+          <set_value name="$LbText" exact="(if $QtyWord == 'stock' then {477605,6086}.[$Ware.name, $Need, $Reason] else {477605,6085}.[$Ware.name, $Need, $Reason])" />
         </do_else>
         <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09o: upkeep + alerts, highlighted, title prefix and source FDN">
           <param name="Tier" value="'problem'" />
@@ -2346,7 +2373,7 @@
           <param name="Text" value="$LbText" />
           <param name="Object" value="$Station" />
           <param name="Notify" value="$NoMoney" />
-          <param name="NotifyText" value="'%1 skipped at %2, DC cannot pay'.[$Ware.name, $Station.knownname]" />
+          <param name="NotifyText" value="{477605,6087}.[$Ware.name, $Station.knownname]" />
         </run_actions>
       </actions>
     </library>
@@ -2607,7 +2634,7 @@
                     <param name="Station" value="$Station" />
                     <param name="Ware" value="$Ware" />
                     <param name="Need" value="$Spare" />
-                    <param name="Reason" value="'illegal in the sector of DC %1 (%2 police) and no other DC in range where it is legal and has room; kept at the station'.[$DC.knownname, $Blk.{2}.knownname]" />
+                    <param name="Reason" value="{477605,7051}.[$DC.knownname, $Blk.{2}.knownname]" />
                     <param name="Kind" value="'illegal'" />
                   </run_actions>
                 </do_else>
@@ -2639,7 +2666,7 @@
                     <param name="Station" value="$Station" />
                     <param name="Ware" value="$Ware" />
                     <param name="Need" value="$Spare" />
-                    <param name="Reason" value="'no DC in range to take the product'" />
+                    <param name="Reason" value="{477605,7052}" />
                     <param name="Kind" value="'return'" />
                   </run_actions>
                 </do_else>
@@ -2652,7 +2679,7 @@
                     <param name="Station" value="$Station" />
                     <param name="Ware" value="$Ware" />
                     <param name="Need" value="$Spare" />
-                    <param name="Reason" value="'DC %1 is full for it (free %2)'.[$DC.knownname, $Free]" />
+                    <param name="Reason" value="{477605,7053}.[$DC.knownname, $Free]" />
                     <param name="Kind" value="'return'" />
                   </run_actions>
                 </do_if>
@@ -2671,7 +2698,7 @@
                       <param name="Station" value="$Station" />
                       <param name="Ware" value="$Ware" />
                       <param name="Need" value="$Qty" />
-                      <param name="Reason" value="'DC %1 cannot pay the return fee (%2 needed, %3 in account)'.[$DC.knownname, $Fee.formatted.default + ' Cr', $DC.money.formatted.default + ' Cr']" />
+                      <param name="Reason" value="{477605,7054}.[$DC.knownname, $Fee.formatted.default + ' Cr', $DC.money.formatted.default + ' Cr']" />
                       <param name="Kind" value="'return'" />
                       <param name="NoMoney" value="true" />
                     </run_actions>
@@ -2686,7 +2713,7 @@
                         <param name="Station" value="$Station" />
                         <param name="Ware" value="$Ware" />
                         <param name="Need" value="$Qty" />
-                        <param name="Reason" value="'return fee could not be taken from DC %1, nothing moved'.[$DC.knownname]" />
+                        <param name="Reason" value="{477605,7055}.[$DC.knownname]" />
                         <param name="Kind" value="'return'" />
                       </run_actions>
                     </do_if>
@@ -2721,7 +2748,7 @@
                             <param name="Station" value="$Station" />
                             <param name="Ware" value="$Ware" />
                             <param name="Need" value="$Qty" />
-                            <param name="Reason" value="'DC %1 took only %2, all put back at the station and fee refunded'.[$DC.knownname, $Added]" />
+                            <param name="Reason" value="{477605,7056}.[$DC.knownname, $Added]" />
                             <param name="Kind" value="'return'" />
                           </run_actions>
                         </do_if>
@@ -2750,12 +2777,12 @@
                             <param name="Fee" value="$Fee" />
                             <param name="Served" value="$Station" />
                           </run_actions>
-                          <set_value name="$RetText" exact="$RetText + (if $RetText == '' then '' else '; ') + '%1 %2'.[$Ware.name, $Qty] + (if $DC != $NearDC then ' (to DC ' + $DC.knownname + ')' else '')" comment="card 09o; card X4-18c names a fallback DC" />
+                          <set_value name="$RetText" exact="$RetText + (if $RetText == '' then '' else '; ') + (if $DC != $NearDC then {477605,6062}.[$Ware.name, $Qty, $DC.knownname] else {477605,6061}.[$Ware.name, $Qty])" comment="card 09o; card X4-18c names a fallback DC" />
                           <set_value name="$RetFee" exact="$RetFee + $Fee" />
                           <run_actions ref="md.FDN_Core.Logbook_Event" comment="card 09o: LogbookLevel 3 only">
                             <param name="Tier" value="'transfer'" />
-                            <param name="Title" value="'returned %1 from %2'.[$Ware.name, $Station.knownname]" />
-                            <param name="Text" value="'%1 %2 to DC %3, %4 jumps, fee %5 paid by the DC'.[$Qty, $Ware.name, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr']" />
+                            <param name="Title" value="{477605,6063}.[$Ware.name, $Station.knownname]" />
+                            <param name="Text" value="{477605,6064}.[$Qty, $Ware.name, $DC.knownname, $Jumps, $Fee.formatted.default + ' Cr']" />
                             <param name="Money" value="$Fee" />
                             <param name="Object" value="$Station" />
                             <param name="ThrottleStation" value="$Station" />
@@ -2773,8 +2800,8 @@
         <do_if value="$RetText != ''" comment="card 09o: one logbook summary per return run (LogbookLevel 2)">
           <run_actions ref="md.FDN_Core.Logbook_Event">
             <param name="Tier" value="'summary'" />
-            <param name="Title" value="'returned from %1'.[$Station.knownname]" />
-            <param name="Text" value="'To DC %1: %2. Total fee %3 paid by the DC'.[$NearDC.knownname, $RetText, $RetFee.formatted.default + ' Cr']" />
+            <param name="Title" value="{477605,6065}.[$Station.knownname]" />
+            <param name="Text" value="{477605,6066}.[$NearDC.knownname, $RetText, $RetFee.formatted.default + ' Cr']" />
             <param name="Money" value="$RetFee" />
             <param name="Object" value="$Station" />
           </run_actions>
@@ -2879,7 +2906,7 @@
                 <param name="Ware" value="$Ware" />
                 <param name="Need" value="$Avail" />
                 <param name="NeedTotal" value="$NeedSum" />
-                <param name="Reason" value="'usable %1, stations need %2'.[$Avail, $NeedSum]" />
+                <param name="Reason" value="{477605,7057}.[$Avail, $NeedSum]" />
                 <param name="Kind" value="'lowstock'" />
               </run_actions>
               <run_actions ref="md.FDN_Core.Shortage_Track" comment="card X4-22d: same detection, alert after ShortageAlertMinutes">
@@ -2888,7 +2915,7 @@
                 <param name="Kind" value="'lowstock'" />
                 <param name="Need" value="$Avail" />
                 <param name="NeedTotal" value="$NeedSum" />
-                <param name="Reason" value="'usable %1, stations need %2'.[$Avail, $NeedSum]" />
+                <param name="Reason" value="{477605,7057}.[$Avail, $NeedSum]" />
               </run_actions>
             </do_if>
             <do_else comment="card X4-18j: clear fingerprint when usable catches up so a later dip WARNs again">
@@ -3149,7 +3176,7 @@
                   <param name="Station" value="$Station" />
                   <param name="Ware" value="$Ware" />
                   <param name="Need" value="$Spare" />
-                  <param name="Reason" value="'illegal in the sector of DC %1 (%2 police) and no other DC in range where it is legal and has room; not collected'.[$DC.knownname, $Blk.{2}.knownname]" />
+                  <param name="Reason" value="{477605,7058}.[$DC.knownname, $Blk.{2}.knownname]" />
                   <param name="Kind" value="'illegal'" />
                 </run_actions>
               </do_else>
@@ -3174,7 +3201,7 @@
               <param name="Station" value="$Station" />
               <param name="Ware" value="$Ware" />
               <param name="Need" value="$Spare" />
-              <param name="Reason" value="'DC storage full'" />
+              <param name="Reason" value="{477605,7059}" />
               <param name="Kind" value="'overstock'" />
             </run_actions>
             <continue />
@@ -3193,7 +3220,7 @@
               <param name="Station" value="$Station" />
               <param name="Ware" value="$Ware" />
               <param name="Need" value="$Qty" />
-              <param name="Reason" value="'DC %1 cannot pay the collect fee (%2 needed, %3 in account)'.[$DC.knownname, $Fee.formatted.default + ' Cr', $DC.money.formatted.default + ' Cr']" />
+              <param name="Reason" value="{477605,7060}.[$DC.knownname, $Fee.formatted.default + ' Cr', $DC.money.formatted.default + ' Cr']" />
               <param name="Kind" value="'overstock'" />
               <param name="NoMoney" value="true" />
             </run_actions>
@@ -3209,7 +3236,7 @@
               <param name="Station" value="$Station" />
               <param name="Ware" value="$Ware" />
               <param name="Need" value="$Qty" />
-              <param name="Reason" value="'collect fee could not be taken from DC %1, nothing moved'.[$DC.knownname]" />
+              <param name="Reason" value="{477605,7061}.[$DC.knownname]" />
               <param name="Kind" value="'overstock'" />
             </run_actions>
             <continue />
@@ -3244,7 +3271,7 @@
               <param name="Station" value="$Station" />
               <param name="Ware" value="$Ware" />
               <param name="Need" value="$Qty" />
-              <param name="Reason" value="'DC %1 took only %2, all put back at the station and fee refunded'.[$DC.knownname, $Added]" />
+              <param name="Reason" value="{477605,7056}.[$DC.knownname, $Added]" />
               <param name="Kind" value="'overstock'" />
             </run_actions>
             <continue />
