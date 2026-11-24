@@ -2,6 +2,31 @@
 
 All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations will be listed here.
 
+## [1.03] – BETA – 2026-11-24
+
+### Added
+
+- **Localisation.** All player-facing FDN text now comes from the game's text files (text page **477605**): the settings page, the five Overview pages (FDN Overview, FDN DCs, FDN Alerts, FDN History, FDN Ware Rules), the station right-click menu, the charter, logbook entries, tickers, reasons and the kind names on FDN Alerts and FDN History. FDN follows the game language.
+  - **English** is the source text (`t/0001-l044.xml`). `t/0001.xml` is an identical copy used for any language without its own file.
+  - **12 draft translations:** German, French, Spanish, Italian, Russian, Polish, Czech, Brazilian Portuguese, Japanese, Korean, Simplified Chinese and Traditional Chinese (`t/0001-l007.xml` … `t/0001-l088.xml`). They are **machine-drafted** and marked as drafts; corrections from native speakers are welcome on the forum or GitHub. Game terms (station, ware, sector, logbook, station manager and so on) follow the game's own wording for each language where it exists.
+  - Sentences that were built from pieces are now whole texts with numbered slots (`%1`, `%2` …), so translators can change the word order. English reads as before.
+  - "FDN" and "Cr" are not translated. Station, sector and ware names come from the game in the current language.
+  - content.xml has a translated extension description for each of the 12 languages; the extension name stays in English.
+- **TRANSLATING.md** – how to correct or add a language.
+- **tools/check_l10n.py** – checks the text files: every id used in md/ exists, slots match, no unescaped brackets, no English text left in md/, and every translation has exactly the English ids with the same `%n` slots.
+
+### Changed
+
+- The shortage check no longer compares the reason text ("station has no free storage for it"). It now uses an internal flag, so full stations do not raise false shortage alerts when the reasons are shown in another language. In English nothing changes.
+
+### Notes
+
+- `fdn.log` stays in **English** in every language, so log lines in bug reports read the same for everyone.
+- Text already stored in a save (History, Alerts and logbook entries written before 1.03 or before a language switch) stays in the language it was written in. New entries use the current language. After switching language there can be one extra History entry or log line per station and ware before it settles.
+- Longer languages (for example German and Russian) can make some labels wider; please report text that does not fit.
+- Saves from 1.00–1.02 load as before. No settings were added or renamed, and nothing new is saved.
+- content.xml `version` = `103` (the game shows 1.03). Dependency (SirNukes Mod Support APIs, `ws_2042901274`) and install path are unchanged. The new `t\` folder must be part of the install (manual installs: delete the old `extensions\fdn_x4` folder first, then extract the new zip).
+
 ## [1.02] – BETA – 2026-11-19
 
 ### Changed

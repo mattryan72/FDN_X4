@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FDN text check (cards X4-23a, X4-23b). Run from anywhere: python tools/check_l10n.py
+"""FDN text check (cards X4-23a, X4-23b, X4-23c). Run from anywhere: python tools/check_l10n.py
 
 Checks the FDN text page 477605 against the md scripts:
   - t/0001-l044.xml and t/0001.xml exist, parse, are identical and hold page 477605
@@ -12,6 +12,11 @@ Checks the FDN text page 477605 against the md scripts:
     ids, keys and the fdn.log lines, which stay English on purpose. Lines inside a
     md.FDN_Core.Log or md.FDN_Supply.Rule_Log call and debug_text lines are fdn.log text and are
     skipped; the few other English literals kept for fdn.log are listed in LITERAL_OK with the reason
+  - card X4-23c: every translation t/0001-lNNN.xml (the languages in LANGS, all required, plus any other
+    0001-lNNN.xml found) parses, has <language id="NNN"> and page 477605, has exactly the English ids
+    (none missing, none extra, no duplicates), the same %n slots per id as English, no empty text, no
+    text starting or ending with a space, no unescaped ( or ), no { or }, and no plain % sign in a text
+    that gets values
 Exit code 0 = pass, 1 = fail. Uses only the Python standard library.
 """
 import os, re, sys
@@ -20,6 +25,10 @@ import xml.etree.ElementTree as ET
 PAGE = 477605
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TFILES = ['t/0001-l044.xml', 't/0001.xml']
+# card X4-23c: translations (X4 language ids, the same as the vanilla t/0001-lNNN.xml files)
+LANGS = {7: 'Russian', 33: 'French', 34: 'Spanish', 39: 'Italian', 42: 'Czech', 48: 'Polish',
+         49: 'German', 55: 'Brazilian Portuguese', 81: 'Japanese', 82: 'Korean',
+         86: 'Simplified Chinese', 88: 'Traditional Chinese'}
 CONVERTED = None  # card X4-23b: every md/*.xml file (filled in below)
 
 # Literals in the converted files that are not shown text. Each entry: (regex on the text before the
@@ -217,6 +226,66 @@ for p in CONVERTED:
         left += 1
         err('%s:%d: English text not moved to page %d: %r' % (p, n, PAGE, lit))
 
+# ---------- translations (card X4-23c) ----------
+def tokens(s):
+    return sorted(re.findall(r'%\d+', s))
+
+lang_files = {}
+for n in LANGS:
+    lang_files[n] = 't/0001-l%03d.xml' % n
+for f in sorted(os.listdir(os.path.join(ROOT, 't'))):
+    m = re.match(r'^0001-l(\d{3})\.xml$', f)
+    if m and int(m.group(1)) != 44 and int(m.group(1)) not in lang_files:
+        lang_files[int(m.group(1))] = 't/' + f
+lang_result = {}
+for n in sorted(lang_files):
+    p = lang_files[n]
+    before = len(errors)
+    full = os.path.join(ROOT, p)
+    name = LANGS.get(n, 'language %d' % n)
+    if not os.path.exists(full):
+        err('%s (%s): missing' % (p, name)); lang_result[n] = (name, 0, False); continue
+    data = open(full, 'rb').read()
+    if data.startswith(b'\xef\xbb\xbf'):
+        err('%s: starts with a BOM (save as UTF-8 without BOM)' % p)
+    try:
+        root = ET.fromstring(data)
+    except ET.ParseError as e:
+        err('%s: XML error %s' % (p, e)); lang_result[n] = (name, 0, False); continue
+    if root.tag != 'language' or root.get('id') != str(n):
+        err('%s: root must be <language id="%d">, found <%s id=%r>' % (p, n, root.tag, root.get('id')))
+    pages = [pg for pg in root.iter('page') if pg.get('id') == str(PAGE)]
+    if len(pages) != 1:
+        err('%s: expected one page id %d, found %d' % (p, PAGE, len(pages))); lang_result[n] = (name, 0, False); continue
+    T = {}
+    for t in pages[0].iter('t'):
+        i = t.get('id')
+        if i is None or not i.isdigit():
+            err('%s: <t> with bad id %r' % (p, i)); continue
+        i = int(i)
+        if i in T:
+            err('%s: duplicate id %d' % (p, i))
+        T[i] = t.text or ''
+    for i in sorted(set(E) - set(T)):
+        err('%s: id %d missing (English: %r)' % (p, i, E[i]))
+    for i in sorted(set(T) - set(E)):
+        err('%s: id %d is not in the English file (extra id)' % (p, i))
+    for i in sorted(set(T) & set(E)):
+        s, where = T[i], '%s id %d' % (p, i)
+        if s.strip() == '':
+            err('%s: empty text' % where); continue
+        if s != s.strip():
+            err('%s: starts or ends with a space: %r' % (where, s))
+        if re.search(r'(?<!\\)[()]', s):
+            err('%s: unescaped bracket (write \\( and \\)): %r' % (where, s))
+        if '{' in s or '}' in s:
+            err('%s: contains { or }: %r' % (where, s))
+        if tokens(s) != tokens(E[i]):
+            err('%s: slots %s do not match English %s: %r' % (where, ' '.join(tokens(s)) or 'none', ' '.join(tokens(E[i])) or 'none', s))
+        if tokens(E[i]) and re.search(r'%(?!\d)', s):
+            err('%s: plain %% sign in a text that gets values: %r' % (where, s))
+    lang_result[n] = (name, len(T), len(errors) == before)
+
 # ---------- report ----------
 def ranges(ids):
     out, start, prev = [], None, None
@@ -239,9 +308,13 @@ print('  references : %d in md/ (%d ids used)' % (sum(len(v) for v in used.value
 print('  converted  : %s' % ', '.join(CONVERTED))
 print('  English left in md (not fdn.log, not an id): %d' % left)
 print('  literals kept on purpose (ids, keys, fdn.log text outside Log calls): %d' % len(kept))
+print('  translations: %d file(s), checked against English' % len(lang_result))
+for n in sorted(lang_result):
+    name, cnt, ok = lang_result[n]
+    print('    %s  %-20s %3d ids  %s' % (lang_files[n], name, cnt, 'OK' if ok else 'FAIL'))
 if errors:
     print('FAIL: %d problem(s)' % len(errors))
     for e in errors:
         print('  ' + e)
     sys.exit(1)
-print('PASS: no missing, unused or duplicate ids, no unescaped brackets, slots match, no English left in md/')
+print('PASS: no missing, unused or duplicate ids, no unescaped brackets, slots match, no English left in md/, all %d translations match English' % len(lang_result))

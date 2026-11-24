@@ -1,6 +1,6 @@
 # LI Freight Distribution Network (FDN) for X4: Foundations
 
-**Version:** 1.02 **BETA**
+**Version:** 1.03 **BETA**
 **Author:** Logain Abler (Logain Industries)
 **Game:** X4: Foundations **9.00**
 **Extension id / folder:** `fdn_x4`
@@ -136,11 +136,24 @@ Reason: FDN sets real station storage levels (and, when Set trade buy limits is 
 3. Keep FDN and Mod Support APIs enabled until saved levels and buy limits have been restored: check **RESTORED** (or already-original) messages and **SOLO** for managed stations losing service; fdn.log also shows `trade limits:` RESTORED lines at Debug log detail 3. Resolve restore/helper failures and inspect original manual/automatic levels. If transfer delay was on, let queued deliveries finish before removing FDN. Per-station switches override global settings.
 4. Save to a new slot, disable FDN, load.
 
+## Languages
+
+FDN's menus, Overview pages, station menu, charter, logbook entries, tickers and reasons use the game's text system (text page **477605**), so FDN follows the language set for the game.
+
+- **English** is the original text (`t/0001-l044.xml`). `t/0001.xml` is an identical copy that the game uses for any language without its own file.
+- **Draft translations (1.03):** German, French, Spanish, Italian, Russian, Polish, Czech, Brazilian Portuguese, Japanese, Korean, Simplified Chinese and Traditional Chinese. These are **machine-drafted** and not yet checked by native speakers, so some wording will be off. Corrections are very welcome.
+- `fdn.log` always stays in English, so log lines in bug reports read the same for everyone.
+- "FDN" and "Cr" are not translated. Station, sector and ware names come from the game in your language.
+- Text already stored in a save (History, Alerts and logbook entries written earlier) stays in the language it was written in. New entries use the current language.
+- To change the game language on Steam: right-click X4: Foundations > **Properties** > **General** > **Language**, pick a language, then start the game (Steam may download a small language update first).
+
+Want to fix or add a language? See [TRANSLATING.md](TRANSLATING.md). Post corrections in the forum thread or open a pull request on GitHub.
+
 ## Bug reports
 
 Please report on the Egosoft forum thread (https://forum.egosoft.com/viewtopic.php?t=477605) and include:
 
-- X4 version, DLC, FDN v1.02, and whether you use the Workshop or GitHub install
+- X4 version, DLC, FDN v1.03, game language, and whether you use the Workshop or GitHub install
 - What you did and what went wrong
 - `fdn.log` from `Documents\Egosoft\X4\<id>\fdn.log`, with **log level 4**, then reproduce the issue
 

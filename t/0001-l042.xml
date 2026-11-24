@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LI Freight Distribution Network (FDN) text, page 477605. Czech (Čeština), language id 42.
+  MACHINE-DRAFTED TRANSLATION (FDN 1.03), not yet checked by a native speaker.
+  Strojový koncept překladu. Opravy jsou vítány na fóru Egosoft nebo na GitHubu.
+  Corrections are welcome: post in the FDN thread on the Egosoft forum
+  (https://forum.egosoft.com/viewtopic.php?t=477605) or open an issue or pull request on GitHub
+  (https://github.com/mattryan72/FDN_X4).
+  Keep the ids, the %1, %2 ... slots and the \( \) escapes exactly as in t/0001-l044.xml (English).
+  "FDN" and "Cr" are not translated. See TRANSLATING.md. Check with: python tools/check_l10n.py
+  The section comments below are kept in English to match the English file.
+-->
+<language id="42">
+  <page id="477605" title="LI Freight Distribution Network (FDN)" descr="0" voice="no">
+    <!-- 1-99 Common words -->
+    <t id="1">neznámá stanice</t>
+    <t id="2">zničená stanice</t>
+    <!-- 1000-1099 Options page: unit words (the space before them is added in md/fdn_options.xml) -->
+    <t id="1001">skoků</t>
+    <t id="1002">min</t>
+    <t id="1003">proc.</t>
+    <t id="1004">s</t>
+    <!-- 1100-1199 Options page: option names, in display order (1199 = Reset all) -->
+    <t id="1101">Nákup od NPC jako záloha</t>
+    <t id="1102">Podrobnost palubního deníku</t>
+    <t id="1103">Upozornit, když DC nemůže platit</t>
+    <t id="1104">Opakovat záznamy o přeskočení po</t>
+    <t id="1105">Upozornění na nedostatek</t>
+    <t id="1106">Upozornění na nedostatek po</t>
+    <t id="1107">Opakovat upozornění na nedostatek po</t>
+    <t id="1108">Interval kontroly zásobování</t>
+    <t id="1109">Stanic na jedno kolo zásobování</t>
+    <t id="1110">Minimální odstup kontrol</t>
+    <t id="1111">Pokrýt výrobních cyklů</t>
+    <t id="1112">Zásobovat stanice surovinami</t>
+    <t id="1113">Nastavit nákupní limity</t>
+    <t id="1114">Posílat výrobky do DC</t>
+    <t id="1115">Práh přebytku</t>
+    <t id="1116">Ponechat cyklů výrobku</t>
+    <t id="1117">Nejmenší dávka výrobku</t>
+    <t id="1118">Dosah sítě DC</t>
+    <t id="1119">Rezerva DC</t>
+    <t id="1120">Velikost knihy záznamů DC</t>
+    <t id="1121">Omezit dosah zásobování</t>
+    <t id="1122">Maximální dosah zásobování</t>
+    <t id="1123">Zkušenost správce určuje dosah a poplatky</t>
+    <t id="1124">Zpozdit přesuny podle vzdálenosti</t>
+    <t id="1125">Zpoždění na skok</t>
+    <t id="1126">Poplatek za přesun</t>
+    <t id="1127">Nárůst poplatku za skok</t>
+    <t id="1128">Faktor poplatku za objem</t>
+    <t id="1129">Faktor poplatku za typ zboží</t>
+    <t id="1130">Poplatek za vrácení</t>
+    <t id="1131">Poplatek DC do DC</t>
+    <t id="1132">Poplatek za licenci</t>
+    <t id="1133">Minimální poplatek za licenci</t>
+    <t id="1134">Maximální poplatek za licenci</t>
+    <t id="1135">Minimální pověst pro licenci</t>
+    <t id="1136">Sleva na licenci 1 od pověsti</t>
+    <t id="1137">Sleva na licenci 1</t>
+    <t id="1138">Sleva na licenci 2 od pověsti</t>
+    <t id="1139">Sleva na licenci 2</t>
+    <t id="1140">Sleva na licenci 3 od pověsti</t>
+    <t id="1141">Sleva na licenci 3</t>
+    <t id="1142">Zapisovat ladicí log FDN</t>
+    <t id="1143">Podrobnost ladicího logu</t>
+    <t id="1199">Obnovit všechna nastavení FDN</t>
+    <!-- 1200-1299 Options page: option mouseovers, same order (1299 = Reset all) -->
+    <t id="1201">Dokupovat chybějící zboží od stanic NPC, když ho žádné DC nemůže dodat</t>
+    <t id="1202">0 = vypnuto, 1 = jen problémy, 2 = problémy a jedno shrnutí za kolo zásobování, 3 = problémy a každý přesun</t>
+    <t id="1203">Zobrazit zprávu na obrazovce, když je přesun přeskočen, protože DC nemůže zaplatit poplatek</t>
+    <t id="1204">Sekundy, než se stejná přeskočená stanice a zboží znovu zapíšou do palubního deníku</t>
+    <t id="1205">Zpráva na obrazovce a záznam v palubním deníku, když stanici dlouho chybí zboží, které FDN nemůže dodat, nebo DC dlouho dochází zásoby</t>
+    <t id="1206">Herní minuty, které musí nedostatek trvat před prvním upozorněním</t>
+    <t id="1207">Minimum herních minut mezi dvěma upozorněními pro stejnou stanici nebo DC a zboží</t>
+    <t id="1208">Sekundy mezi koly zásobování FDN</t>
+    <t id="1209">Kolik stanic zkontroluje každé kolo zásobování</t>
+    <t id="1210">Minimum sekund mezi dvěma kontrolami dokončené výroby u stejné stanice</t>
+    <t id="1211">Na kolik výrobních cyklů dopředu FDN zásobuje stanice surovinami. Nastavuje také úrovně skladu surovin, které stanice sama nevyrábí \(zboží, které vyrábí, zůstává na hře\)</t>
+    <t id="1212">FDN dodává suroviny, které vaše výrobní stanice potřebují, a nastavuje jejich úrovně skladu surovin \(zboží, které si stanice vyrábí sama, zůstává na hře\)</t>
+    <t id="1213">FDN také nastaví nákupní limit každé suroviny, které nastavuje úroveň skladu, na stejnou hodnotu a zapne nákup. Vypnuto vrátí vaše vlastní nákupní limity</t>
+    <t id="1214">Výrobky stanice se přesouvají do nejbližšího distribučního centra. Přebytečné suroviny se také odvážejí</t>
+    <t id="1215">Odvážet jen tehdy, když jsou zásoby o tolik procent nad ponechávaným množstvím \(0 = jakýkoli přebytek\). U surovin, které stanice také vyrábí, je to potřeba FDN pro pokryté cykly; u ostatních úroveň skladu stanice. Přebytek se přesune podle volného místa v DC</t>
+    <t id="1216">Kolik cyklů každého výrobku si stanice ponechá, než zbytek pošle do DC. 0 = poslat vše, jakmile se nashromáždí nejmenší dávka</t>
+    <t id="1217">Nejmenší množství výrobku poslané do DC najednou</t>
+    <t id="1218">Maximum skoků branami mezi dvěma DC, aby sdílely zásoby</t>
+    <t id="1219">Podíl každého zboží, který si DC vždy ponechá</t>
+    <t id="1220">Maximum záznamů v knize záznamů na DC</t>
+    <t id="1221">Zásobovat jen stanice v maximálním dosahu níže</t>
+    <t id="1222">Maximum skoků branami mezi DC a stanicí, kterou zásobuje</t>
+    <t id="1223">Každý správce DC určuje dosah DC \(3 až 5 skoků\), dosah propojení DC \(6 až 10 skoků\) a slevu z poplatků \(10% za hvězdu\). DC bez správce je odpojené. Vypnuto = pevné dosahy a poplatky</t>
+    <t id="1224">Přesuny trvají určitou dobu za každý skok místo okamžitého doručení</t>
+    <t id="1225">Sekundy zpoždění na skok branou při zpožděných přesunech</t>
+    <t id="1226">Poplatek jako procento hodnoty přesouvaného zboží \(0,0 až 10,0 po 0,5\)</t>
+    <t id="1227">Poplatek roste o tento podíl základního poplatku za každý skok \(0,2 = +20% za skok\)</t>
+    <t id="1228">Násobitel poplatku podle objemu zboží \(1,0 = beze změny\)</t>
+    <t id="1229">Násobitel poplatku podle typu zboží \(1,0 = beze změny\)</t>
+    <t id="1230">Poplatek za výrobky vrácené do DC jako násobek běžného poplatku \(0,5 = polovina\). Platí DC</t>
+    <t id="1231">Poplatek za zásoby přetažené mezi DC jako násobek běžného poplatku. 0 = přetažení zdarma</t>
+    <t id="1232">Poplatek za licenci jako podíl ceny nejdražšího vhodného doku stanice</t>
+    <t id="1233">Nejnižší poplatek za licenci před slevou za pověst</t>
+    <t id="1234">Nejvyšší poplatek za licenci před slevou za pověst</t>
+    <t id="1235">Pověst u vlastníka sektoru \(nebo vaší nejlepší hlavní frakce\) potřebná ke koupi licence. -30 = bez omezení</t>
+    <t id="1236">Pověst pro první slevu na licenci</t>
+    <t id="1237">Procento slevy na licenci na prvním stupni pověsti</t>
+    <t id="1238">Pověst pro druhou slevu na licenci</t>
+    <t id="1239">Procento slevy na licenci na druhém stupni pověsti</t>
+    <t id="1240">Pověst pro třetí slevu na licenci</t>
+    <t id="1241">Procento slevy na licenci na třetím stupni pověsti</t>
+    <t id="1242">Zapisovat řádky FDN do ladicího logu hry \(fdn.log\)</t>
+    <t id="1243">1 = chyby, 2 = a varování, 3 = a informace, 4 = a ladicí podrobnosti</t>
+    <t id="1299">Klikněte pro vrácení všech nastavení FDN na výchozí hodnoty. Nové hodnoty uvidíte po novém otevření stránky</t>
+    <!-- 2000-2009 Overview pages: page titles -->
+    <t id="2001">Přehled FDN</t>
+    <t id="2002">DC FDN</t>
+    <t id="2003">Upozornění FDN</t>
+    <t id="2004">Historie FDN</t>
+    <t id="2005">Pravidla zboží FDN</t>
+    <!-- 2010-2099 Overview pages: text shared by several pages -->
+    <t id="2010">Obnovit</t>
+    <t id="2011">Znovu načíst čísla. Stránka se sama neaktualizuje</t>
+    <t id="2012">Žádná nákladní distribuční centra. Kupte licenci FDN v kontextové nabídce stanice a vytvořte ho</t>
+    <t id="2013">Nezobrazeno vše: stránka pojme nejvýše 160 řádků. Uvedeno DC: %1 z %2</t>
+    <t id="2014">Nezobrazeno vše: stránka pojme nejvýše 160 řádků. Uvedeno zboží: %1 z %2</t>
+    <t id="2015">Nezobrazeno vše: stránka pojme nejvýše 160 řádků. Uvedeno záznamů: %1 z %2</t>
+    <t id="2016">Dalších nezobrazeno: %1</t>
+    <t id="2017">Zboží</t>
+    <t id="2018">Zásoba</t>
+    <t id="2019">před %1 min, %2</t>
+    <t id="2023">poplatek %1</t>
+    <t id="2024">Novější</t>
+    <t id="2025">Zobrazit předchozích \(novějších\) 10 záznamů</t>
+    <t id="2026">Starší</t>
+    <t id="2027">Zobrazit dalších \(starších\) 10 záznamů</t>
+    <t id="2028">strana %1 z %2</t>
+    <t id="2030">zásobování %1 / %2 / %3 | vrácení %4 / %5 / %6 | odvoz %7 / %8 / %9</t>
+    <t id="2031">přeskočeno</t>
+    <t id="2032">přeskočeno %1</t>
+    <t id="2033">na %1</t>
+    <t id="2034">na %1: %2</t>
+    <t id="2035">z %1 do %2</t>
+    <!-- 2100-2199 FDN Overview page -->
+    <t id="2101">DC FDN: všechny podrobnosti o každém DC</t>
+    <t id="2102">Upozornění FDN: nedostatky, vyžaduje pozornost a problémy</t>
+    <t id="2103">Historie FDN: posledních 24 hodin a nedávná činnost</t>
+    <t id="2104">Nákladní distribuční síť, jen pro čtení. Součty od koupě licence</t>
+    <t id="2105">DC připojeno: %1</t>
+    <t id="2106">Součty: odesláno %1, vráceno %2, jednotek %3, poplatky %4</t>
+    <t id="2107">Poplatky sítě \(poslední 1h / 6h / 24h\): %1 / %2 / %3</t>
+    <t id="2109">Vyžaduje pozornost: %1 \(viz Upozornění FDN\)</t>
+    <t id="2110">Vyžaduje pozornost: nic</t>
+    <t id="2111">DC</t>
+    <t id="2112">Stav</t>
+    <t id="2113">Celková zásoba v procentech skladových cílů zboží na skladě, které má cíl</t>
+    <t id="2114">Poplatky 24h</t>
+    <t id="2115">připojeno</t>
+    <t id="2116">bez správce, odpojeno</t>
+    <t id="2117">žádný funkční dok</t>
+    <!-- 2200-2299 FDN DCs page -->
+    <t id="2201">Další DC \(%1 z %2\)</t>
+    <t id="2202">Zobrazit další DC \(podle názvu\)</t>
+    <t id="2203">DC 1 z 1</t>
+    <t id="2204">\(žádný funkční dok, licence brzy skončí, pokud se žádný nevrátí\)</t>
+    <t id="2205">Pravidla zboží FDN pro toto DC \(nastaveno: %1\)</t>
+    <t id="2206">Zásoba, Ponechat %, Nikdy neposílat, Nepřijímat</t>
+    <t id="2207">Síť: nic v dosahu</t>
+    <t id="2208">Síť: %1</t>
+    <t id="2209">%1 \(skoků: %2\)</t>
+    <t id="2210">%1 \(skoků: %2\)</t>
+    <t id="2211">+%1 další</t>
+    <t id="2212">Správce: hvězd %1 \(zkušenost %2\). Dosah zásobování %3 skoků, propojení DC %4 skoků, sleva z poplatků %5</t>
+    <t id="2213">Správce: žádný. FDN toto DC nepoužívá, dokud není přidělen správce</t>
+    <t id="2214">Součty: odesláno dodávek %1, přijato vrácení %2, přesunuto jednotek %3, zaplaceno poplatků %4</t>
+    <t id="2215">Poplatky \(poslední 1h / 6h / 24h\): %1 / %2 / %3</t>
+    <t id="2216">Cíl</t>
+    <t id="2217">% cíle</t>
+    <t id="2218">Žádné zboží na skladě</t>
+    <t id="2219">ponechat %1</t>
+    <t id="2220">nikdy neposílat</t>
+    <t id="2221">nepřijímat</t>
+    <!-- 3000-3499 FDN Alerts page -->
+    <t id="3001">Stanice a DC, které FDN nemohla obsloužit, nejnovější první</t>
+    <t id="3002">Nedostatky \(aktivní: %1\)</t>
+    <t id="3003">Stanice, kterým chybí zboží, jež FDN nemohla dodat, a DC s nízkými zásobami. Upozornění se zobrazí, jakmile nedostatek trvá tak dlouho jako nastavení Upozornění na nedostatek po</t>
+    <t id="3004">Žádné nedostatky</t>
+    <t id="3005">Stanice / DC</t>
+    <t id="3006">Chybí, potřeba, důvod</t>
+    <t id="3007">DC málo: použitelné %1, stanice potřebují %2</t>
+    <t id="3008">potřeba %1: %2</t>
+    <t id="3009">%1 min, %2</t>
+    <t id="3010">Vyžaduje pozornost</t>
+    <t id="3011">Neexistuje žádné DC, takže FDN nic nedodává a stanice obchodují normálně</t>
+    <t id="3012">Nic nevyžaduje pozornost</t>
+    <t id="3013">Stanice</t>
+    <t id="3014">Důvod, naposledy viděno</t>
+    <t id="3015">%1, před %2 min</t>
+    <t id="3016">Problémy \(žádné z %1 uložených záznamů činnosti\)</t>
+    <t id="3017">Problémy \(strana %1 z %2, záznamy %3-%4 z %5\)</t>
+    <t id="3018">Žádné zaznamenané problémy</t>
+    <!-- 3500-3999 FDN History page -->
+    <t id="3501">Všechna DC</t>
+    <t id="3502">Zobrazeno: %1</t>
+    <t id="3503">Zobrazit další DC \(podle názvu\), pak znovu všechna DC</t>
+    <t id="3504">Posledních 24 hodin po hodinách. Dodávky, vrácení, odvozy a jednotky se počítají od FDN 1.02; poplatky sahají až 24 hodin zpět.</t>
+    <t id="3505">Hodina</t>
+    <t id="3506">Dodávky</t>
+    <t id="3507">Vrácení</t>
+    <t id="3508">Odvozy</t>
+    <t id="3509">Jednotky</t>
+    <t id="3510">Poplatky</t>
+    <t id="3511">tato hodina</t>
+    <t id="3512">před %1 h</t>
+    <t id="3513">Posl. 24h</t>
+    <t id="3514">Vše</t>
+    <t id="3515">Dodávky</t>
+    <t id="3516">Vrácení</t>
+    <t id="3517">NPC</t>
+    <t id="3518">Problémy</t>
+    <t id="3519">Nedávná činnost, celá síť \(%1: %2 z %3 uložených záznamů\)</t>
+    <t id="3520">Zobrazit: %1</t>
+    <t id="3521">Změnit, co zobrazuje Nedávná činnost: Vše, Dodávky, Vrácení \(vč. odvozu\), NPC, Problémy</t>
+    <t id="3522">Zatím žádné dodávky ani vrácení</t>
+    <t id="3523">Žádné záznamy: %1</t>
+    <!-- 4000-4999 FDN Ware Rules page -->
+    <t id="4001">Toto DC už neexistuje nebo nemá licenci. Vraťte se do DC FDN a otevřete pravidla jiného DC</t>
+    <t id="4002">Vše zpět na Zásobu \(nastaveno: %1\)</t>
+    <t id="4003">Klikněte znovu pro vrácení pravidel na Zásobu: %1</t>
+    <t id="4004">Vrátit veškeré zboží tohoto DC na Zásobu \(normální chování\). Vyžaduje druhé kliknutí</t>
+    <t id="4005">Veškeré zboží na Zásobě</t>
+    <t id="4006">Pravidla zboží: %1, %2</t>
+    <t id="4007">Zásoba: normální. Ponechat %: ponechá tento podíl svého skladového cíle a dodává jen nad ním. Nikdy neposílat: nikdy ho nedodává stanicím, stále přijímá vrácení a odvozy.</t>
+    <t id="4008">Ponechat % používá skladový cíl, nebo aktuální zásobu, když zboží cíl nemá. Globální rezerva DC stále platí; vyhrává větší rezerva</t>
+    <t id="4009">Nepřijímat: nepřijímá vrácení ani odvezený přebytek tohoto zboží a nikdy není zvoleno jako cíl, stále dodává, co má. Klikněte na tlačítko pro další hodnotu, pravým tlačítkem pro předchozí.</t>
+    <t id="4010">Pravidlo</t>
+    <t id="4011">Ponechat %</t>
+    <t id="4012">Zásoba / cíl</t>
+    <t id="4013">Žádné zboží na skladě ani k obchodu zde</t>
+    <t id="4014">Zásoba</t>
+    <t id="4015">Ponechat %</t>
+    <t id="4016">Nikdy neposílat</t>
+    <t id="4017">Nepřijímat</t>
+    <t id="4018">Klik: další pravidlo \(Zásoba, Ponechat %, Nikdy neposílat, Nepřijímat\). Pravý klik: předchozí pravidlo</t>
+    <t id="4019">Klik: +10 \(po 100 zpět na 10\). Pravý klik: -10</t>
+    <!-- 5000-5099 Station right-click menu: entries and mouseovers -->
+    <t id="5001">FDN: nepřipraveno</t>
+    <t id="5002">FDN v této uložené hře ještě není nastavena. Uložte a znovu načtěte hru, pak to zkuste znovu</t>
+    <t id="5003">FDN: %1 ZAP</t>
+    <t id="5004">FDN: %1 VYP</t>
+    <t id="5005">%1. Klikněte pro vypnutí pro tuto stanici</t>
+    <t id="5006">%1. Klikněte pro zapnutí pro tuto stanici</t>
+    <t id="5007">FDN: licence aktivní</t>
+    <t id="5008">Tato stanice má licenci FDN a je distribučním centrem, dokud má funkční dok nebo molo</t>
+    <t id="5009">FDN: zrušit licenci \(bez náhrady\)</t>
+    <t id="5010">Klikněte pro okamžité ukončení licence FDN této stanice. Bez potvrzení a bez náhrady. Stanice přestane být distribučním centrem</t>
+    <t id="5011">FDN: koupit licenci \(%1 Cr\)</t>
+    <t id="5012">Klikněte a zaplaťte nyní %1 Cr za licenci FDN pro tuto stanici. Stane se distribučním centrem. Bez potvrzení a bez náhrady</t>
+    <t id="5013">FDN: licence blokována - %1</t>
+    <t id="5014">Licence FDN zde není možná: %1</t>
+    <t id="5015">zásobování surovinami</t>
+    <t id="5016">FDN dodává suroviny, které tato stanice potřebuje, a nastavuje její úrovně skladu surovin \(zboží, které vyrábí sama, zůstává na hře\)</t>
+    <t id="5017">posílat výrobky do DC</t>
+    <t id="5018">Výrobky této stanice se přesouvají do nejbližšího distribučního centra. Přebytečné suroviny se také odvážejí</t>
+    <!-- 5100-5199 Charter: reasons a purchase is refused (shown in the menu and the logbook) -->
+    <t id="5101">žádný vhodný dok ani molo</t>
+    <t id="5102">příliš nízká pověst u %1 \(máte %2, potřeba %3\)</t>
+    <t id="5103">nedostatek peněz \(potřeba %1 Cr, máte %2 Cr\)</t>
+    <t id="5104">stanice už neexistuje nebo není vaše</t>
+    <t id="5105">licence je již aktivní</t>
+    <t id="5106">platba %1 Cr nebyla stržena \(strženo %2 Cr\), nic nebylo účtováno</t>
+    <t id="5107">licenci nebylo možné zaznamenat, platba vrácena</t>
+    <!-- 5200-5299 Charter: logbook titles and texts -->
+    <t id="5201">licence koupena pro %1</t>
+    <t id="5202">Licence FDN koupena pro %1 za %2 Cr \(pověst %3 u %4, sleva %5 procent\). Stanice se stane distribučním centrem při dalším kole FDN.</t>
+    <t id="5203">licence odmítnuta: %1</t>
+    <t id="5204">Licence FDN pro %1 nebyla koupena: %2. Nic nebylo účtováno.</t>
+    <t id="5205">licence nezrušena: %1</t>
+    <t id="5206">Licence FDN pro %1 nebyla zrušena: stanice nemá licenci nebo už neexistuje.</t>
+    <t id="5207">licence zrušena pro %1</t>
+    <t id="5208">Licence FDN pro %1 byla zrušena. Bez náhrady. Stanice už není distribučním centrem.</t>
+    <t id="5209">licence skončila pro %1 \(%2\)</t>
+    <t id="5210">Licence FDN pro %1 skončila: %2. Stanice už není distribučním centrem. Je třeba koupit novou licenci.</t>
+    <!-- 5300-5399 Station menu: logbook titles and texts for the on/off settings -->
+    <t id="5301">%1 ZAP na %2</t>
+    <t id="5302">%1 VYP na %2</t>
+    <t id="5303">Nastavení stanice %1 na %2 zapnuto z nabídky stanice.</t>
+    <t id="5304">Nastavení stanice %1 na %2 vypnuto z nabídky stanice.</t>
+    <t id="5305">nastavení stanice nezměněno</t>
+    <t id="5306">Nastavení stanice %1 na %2 nebylo možné změnit: stanice už neexistuje nebo nastavení není známé.</t>
+    <!-- 6000-6999 Logbook titles and texts, ticker -->
+    <t id="6001">FDN: %1</t>
+    <t id="6002">%1 \(cena zboží %2, poplatek %3\)</t>
+    <t id="6011">DC %1 opět připojeno</t>
+    <t id="6012">Distribuční centrum %1 opět používá FDN: %2.</t>
+    <t id="6013">DC %1 nemá správce</t>
+    <t id="6014">Distribuční centrum %1 nemá správce stanice, proto ho FDN nepoužívá: žádné dodávky, vrácení, odvozy ani propojení DC. Přidělte správce a centrum se samo vrátí při další kontrole zásobování.</t>
+    <t id="6021">DC má málo zásob: %1</t>
+    <t id="6022">DC %1 má málo %2 již %3 min: použitelné %4, stanice potřebují %5</t>
+    <t id="6023">nedostatek: %1</t>
+    <t id="6024">%1: chybí %2 již %3 min \(potřeba %4\): %5</t>
+    <t id="6031">Úrovně skladu FDN bez odpovědi</t>
+    <t id="6032">FDN se nepodařilo spojit se svým pomocníkem rozhraní pro nastavení úrovní skladu. Ověřte, že je zapnuto SirNuke Mod Support APIs. Uložené původní úrovně zůstávají.</t>
+    <t id="6041">žádné distribuční centrum</t>
+    <t id="6042">Žádná stanice nemá licenci FDN a funkční dok, takže neexistuje distribuční centrum. Kupte licenci v kontextové nabídce stanice.</t>
+    <t id="6043">Síť DC nalezena</t>
+    <t id="6044">DC: %1, sítí: %2: %3</t>
+    <t id="6045">Síť DC změněna</t>
+    <t id="6046">Nyní DC: %1, sítí: %2.</t>
+    <t id="6047">Nyní DC: %1, sítí: %2. Přidáno: %3.</t>
+    <t id="6048">Nyní DC: %1, sítí: %2. Odebráno: %3.</t>
+    <t id="6049">Nyní DC: %1, sítí: %2. Přidáno: %3. Odebráno: %4.</t>
+    <t id="6051">%1 dodáno na %2</t>
+    <t id="6052">přetažení v síti %1 na %2</t>
+    <t id="6053">%1 %2 z %3, skoků %4, poplatek %5 zaplatil %6</t>
+    <t id="6054">%1 %2 z %3</t>
+    <t id="6055">%1 %2 z %3 \(přetažení v síti\)</t>
+    <t id="6056">dodáno: %1</t>
+    <t id="6057">%1. Použito DC: %2, celkový poplatek %3</t>
+    <t id="6058">%1 koupeno pro %2</t>
+    <t id="6059">%1 %2 od NPC %3, skoků %4, za kus %5, zaplatil %6</t>
+    <t id="6060">%1 %2 koupeno od prodejců NPC: %3, cena %4</t>
+    <t id="6061">%1 %2</t>
+    <t id="6062">%1 %2 \(do DC %3\)</t>
+    <t id="6063">%1 vráceno z %2</t>
+    <t id="6064">%1 %2 do DC %3, skoků %4, poplatek %5 zaplatilo DC</t>
+    <t id="6065">vráceno z %1</t>
+    <t id="6066">Do DC %1: %2. Celkový poplatek %3 zaplatilo DC</t>
+    <t id="6071">zásobování přeskočeno: %1</t>
+    <t id="6072">přetažení přeskočeno: %1</t>
+    <t id="6073">vrácení přeskočeno: %1</t>
+    <t id="6074">přebytek přeskočen: %1</t>
+    <t id="6075">úroveň skladu přeskočena: %1</t>
+    <t id="6076">%1 přeskočeno: %2</t>
+    <t id="6077">nelegální zboží blokováno: %1</t>
+    <t id="6078">DC %1 má málo zásob</t>
+    <t id="6079">záložní poplatek: %1</t>
+    <t id="6080">nákup od NPC přeskočen: %1, nákupní cena stanice je příliš nízká</t>
+    <t id="6081">nákup od NPC přeskočen: %1, DC nemůže platit</t>
+    <t id="6082">nákup od NPC selhal: %1</t>
+    <t id="6083">NPC mají málo zásob: %1</t>
+    <t id="6084">DC %1 dochází %2: použitelné %3, stanice potřebují %4</t>
+    <t id="6085">%1 \(potřeba %2\): %3</t>
+    <t id="6086">%1 \(zásoba %2\): %3</t>
+    <t id="6087">%1 přeskočeno: %2, DC nemůže platit</t>
+    <!-- 7000-7999 Reasons (shown in the logbook, FDN Alerts and FDN History) -->
+    <t id="7001">stanice zničena</t>
+    <t id="7002">stanice už nepatří hráči</t>
+    <t id="7003">žádný funkční vhodný dok</t>
+    <t id="7004">neznámý důvod</t>
+    <t id="7011">byl přidělen správce \(hvězd: %1\)</t>
+    <t id="7012">pravidlo správce bylo vypnuto</t>
+    <t id="7013">bez správce: FDN toto DC nepoužívá, dokud není přidělen správce</t>
+    <t id="7021">úroveň skladu se nepodařilo nastavit, FDN to zkusí znovu</t>
+    <t id="7022">úroveň skladu se nepodařilo obnovit, FDN to zkusí znovu</t>
+    <t id="7031">DC drží %1 %2, nelegální v %3 \(policie: %4\); ponecháno, FDN už nic nepřiveze</t>
+    <t id="7032">žádné DC v dosahu</t>
+    <t id="7033">nelegální v sektoru tohoto DC \(policie: %1\); nepřivezeno</t>
+    <t id="7034">žádné DC v dosahu nemá volné zásoby</t>
+    <t id="7035">stanice pro to nemá volné místo</t>
+    <t id="7036">DC %1 nemůže zaplatit poplatek \(potřeba %2, na účtu %3\)</t>
+    <t id="7037">domovské DC %1 nemohlo zaplatit poplatek za přetažení %2, zdrojové DC %3 zaplatilo celý poplatek %4</t>
+    <t id="7038">přesun z %1 selhal a byl vrácen</t>
+    <t id="7039">každé DC v dosahu ho zadržuje pravidlem zboží</t>
+    <t id="7040">částečně dodáno, %1</t>
+    <t id="7041">nabídky NPC od %1, nákupní cena DC je %2 \(zvyšte nákupní cenu %3 na %4, aby šlo nakupovat od NPC\)</t>
+    <t id="7042">nabídky NPC od %1, nákupní cena stanice je %2 \(DC %4 nemá nákupní cenu pro %3; nastavte ji na DC nebo zvyšte nákupní cenu stanice, aby šlo nakupovat od NPC\)</t>
+    <t id="7043">domovské DC %1 nemůže zaplatit %2 od NPC \(jednotka stojí %3 plus poplatek, na účtu %4\)</t>
+    <t id="7044">poplatek nešlo strhnout</t>
+    <t id="7045">prodejce %1 dal jen %2 z %3, vráceno</t>
+    <t id="7046">platba %1 pro %2 selhala, zásoba vrácena</t>
+    <t id="7047">%1 vzala jen %2 z %3, zásoba vrácena do %4 a peníze vráceny</t>
+    <t id="7048">nákup od NPC u %1 vrácen zpět: %2</t>
+    <t id="7049">koupeno %1 z %2 od stanic NPC, žádné další použitelné nabídky</t>
+    <t id="7050">doručení selhalo \(stanice zmizela nebo je plná\), náklad vrácen do DC a poplatek vrácen</t>
+    <t id="7051">nelegální v sektoru DC %1 \(policie: %2\) a žádné jiné DC v dosahu, kde je legální a má místo; zůstává na stanici</t>
+    <t id="7052">žádné DC v dosahu nepřijme výrobek</t>
+    <t id="7053">DC %1 je pro to plné \(volno %2\)</t>
+    <t id="7054">DC %1 nemůže zaplatit poplatek za vrácení \(potřeba %2, na účtu %3\)</t>
+    <t id="7055">poplatek za vrácení nešlo strhnout z DC %1, nic nepřesunuto</t>
+    <t id="7056">DC %1 vzalo jen %2, vše vráceno na stanici a poplatek vrácen</t>
+    <t id="7057">použitelné %1, stanice potřebují %2</t>
+    <t id="7058">nelegální v sektoru DC %1 \(policie: %2\) a žádné jiné DC v dosahu, kde je legální a má místo; neodvezeno</t>
+    <t id="7059">sklad DC plný</t>
+    <t id="7060">DC %1 nemůže zaplatit poplatek za odvoz \(potřeba %2, na účtu %3\)</t>
+    <t id="7061">poplatek za odvoz nešlo strhnout z DC %1, nic nepřesunuto</t>
+    <!-- 8000-8099 Kind names shown on FDN Alerts and FDN History (8001-8006 activity kinds, 8011-8019 skip kinds) -->
+    <t id="8001">zásobování</t>
+    <t id="8002">přetažení</t>
+    <t id="8003">nákup NPC</t>
+    <t id="8004">vrácení</t>
+    <t id="8005">odvoz</t>
+    <t id="8006">přeskočeno</t>
+    <t id="8011">přebytek</t>
+    <t id="8012">nelegální</t>
+    <t id="8013">málo zásob</t>
+    <t id="8014">přetažení-záloha</t>
+    <t id="8015">NPC-cena</t>
+    <t id="8016">NPC-peníze</t>
+    <t id="8017">NPC-selhání</t>
+    <t id="8018">NPC-žádné</t>
+    <t id="8019">úroveň skladu</t>
+  </page>
+</language>

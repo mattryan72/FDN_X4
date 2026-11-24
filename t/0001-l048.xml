@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LI Freight Distribution Network (FDN) text, page 477605. Polish (Polski), language id 48.
+  MACHINE-DRAFTED TRANSLATION (FDN 1.03), not yet checked by a native speaker.
+  Maszynowy szkic tłumaczenia. Poprawki mile widziane na forum Egosoft lub na GitHubie.
+  Corrections are welcome: post in the FDN thread on the Egosoft forum
+  (https://forum.egosoft.com/viewtopic.php?t=477605) or open an issue or pull request on GitHub
+  (https://github.com/mattryan72/FDN_X4).
+  Keep the ids, the %1, %2 ... slots and the \( \) escapes exactly as in t/0001-l044.xml (English).
+  "FDN" and "Cr" are not translated. See TRANSLATING.md. Check with: python tools/check_l10n.py
+  The section comments below are kept in English to match the English file.
+-->
+<language id="48">
+  <page id="477605" title="LI Freight Distribution Network (FDN)" descr="0" voice="no">
+    <!-- 1-99 Common words -->
+    <t id="1">nieznana stacja</t>
+    <t id="2">zniszczona stacja</t>
+    <!-- 1000-1099 Options page: unit words (the space before them is added in md/fdn_options.xml) -->
+    <t id="1001">skoków</t>
+    <t id="1002">min</t>
+    <t id="1003">proc.</t>
+    <t id="1004">s</t>
+    <!-- 1100-1199 Options page: option names, in display order (1199 = Reset all) -->
+    <t id="1101">Zakup od NPC jako rezerwa</t>
+    <t id="1102">Szczegółowość dziennika</t>
+    <t id="1103">Powiadom, gdy DC nie może zapłacić</t>
+    <t id="1104">Powtarzaj wpisy o pominięciu po</t>
+    <t id="1105">Alerty o niedoborach</t>
+    <t id="1106">Alert o niedoborze po</t>
+    <t id="1107">Powtórz alert o niedoborze po</t>
+    <t id="1108">Odstęp kontroli zaopatrzenia</t>
+    <t id="1109">Stacje na przebieg zaopatrzenia</t>
+    <t id="1110">Minimalny odstęp między kontrolami</t>
+    <t id="1111">Cykle produkcji do pokrycia</t>
+    <t id="1112">Zaopatruj stacje w surowce</t>
+    <t id="1113">Ustaw limity zakupu</t>
+    <t id="1114">Wysyłaj produkty do DC</t>
+    <t id="1115">Próg nadwyżki</t>
+    <t id="1116">Cykle produktu do zachowania</t>
+    <t id="1117">Najmniejsza partia produktu</t>
+    <t id="1118">Zasięg sieci DC</t>
+    <t id="1119">Rezerwa DC</t>
+    <t id="1120">Rozmiar księgi DC</t>
+    <t id="1121">Ogranicz zasięg zaopatrzenia</t>
+    <t id="1122">Maksymalny zasięg zaopatrzenia</t>
+    <t id="1123">Umiejętność menedżera ustala zasięg i opłaty</t>
+    <t id="1124">Opóźniaj transfery wg odległości</t>
+    <t id="1125">Opóźnienie na skok</t>
+    <t id="1126">Opłata za transfer</t>
+    <t id="1127">Wzrost opłaty na skok</t>
+    <t id="1128">Mnożnik opłaty za objętość</t>
+    <t id="1129">Mnożnik opłaty za typ towaru</t>
+    <t id="1130">Opłata za zwrot</t>
+    <t id="1131">Opłata DC do DC</t>
+    <t id="1132">Opłata licencyjna</t>
+    <t id="1133">Minimalna opłata licencyjna</t>
+    <t id="1134">Maksymalna opłata licencyjna</t>
+    <t id="1135">Minimalna reputacja dla licencji</t>
+    <t id="1136">Zniżka licencji 1 od reputacji</t>
+    <t id="1137">Zniżka licencji 1</t>
+    <t id="1138">Zniżka licencji 2 od reputacji</t>
+    <t id="1139">Zniżka licencji 2</t>
+    <t id="1140">Zniżka licencji 3 od reputacji</t>
+    <t id="1141">Zniżka licencji 3</t>
+    <t id="1142">Zapisuj dziennik debugowania FDN</t>
+    <t id="1143">Poziom debugowania</t>
+    <t id="1199">Zresetuj wszystkie ustawienia FDN</t>
+    <!-- 1200-1299 Options page: option mouseovers, same order (1299 = Reset all) -->
+    <t id="1201">Kupuj braki od stacji NPC, gdy żadne DC nie może ich dostarczyć</t>
+    <t id="1202">0 = wył., 1 = tylko problemy, 2 = problemy i jedno podsumowanie na przebieg, 3 = problemy i każdy transfer</t>
+    <t id="1203">Pokaż komunikat na ekranie, gdy transfer zostanie pominięty, bo DC nie może zapłacić opłaty</t>
+    <t id="1204">Sekundy, po których ta sama pominięta stacja i towar zostaną ponownie wpisane do dziennika</t>
+    <t id="1205">Komunikat na ekranie i wpis w dzienniku, gdy stacji długo brakuje towaru, którego FDN nie może dostarczyć, lub DC długo ma mało zapasów</t>
+    <t id="1206">Minuty gry, przez które musi trwać niedobór przed pierwszym alertem</t>
+    <t id="1207">Minimalna liczba minut gry między dwoma alertami dla tej samej stacji lub DC i towaru</t>
+    <t id="1208">Sekundy między przebiegami zaopatrzenia FDN</t>
+    <t id="1209">Ile stacji sprawdza każdy przebieg zaopatrzenia</t>
+    <t id="1210">Minimalna liczba sekund między dwiema kontrolami zakończonej produkcji tej samej stacji</t>
+    <t id="1211">Na ile cykli produkcji FDN z wyprzedzeniem zaopatruje stacje w surowce. Ustala też poziomy magazynu surowców, których stacja sama nie wytwarza \(własne wyroby zostają w gestii gry\)</t>
+    <t id="1212">FDN dostarcza surowce potrzebne twoim stacjom produkcyjnym i ustala ich poziomy magazynu surowców \(towary wytwarzane przez stację zostają w gestii gry\)</t>
+    <t id="1213">FDN ustawia też limit zakupu każdego surowca, dla którego ustala poziom magazynu, na ten sam poziom i włącza kupowanie. Wyłączenie przywraca twoje własne limity zakupu</t>
+    <t id="1214">Produkty stacji są przewożone do najbliższego centrum dystrybucji. Nadwyżki surowców też są odbierane</t>
+    <t id="1215">Odbieraj tylko, gdy zapas przekracza ilość do zachowania o tyle procent \(0 = każda nadwyżka\). Dla surowców, które stacja też wytwarza, to zapotrzebowanie FDN na cykle do pokrycia; dla pozostałych to poziom magazynu stacji. Nadwyżka jest przewożona w granicach wolnego miejsca w DC</t>
+    <t id="1216">Ile cykli każdego produktu stacja zachowuje przed wysłaniem reszty do DC. 0 = wyślij wszystko, gdy zbierze się najmniejsza partia</t>
+    <t id="1217">Najmniejsza ilość produktu wysyłana do DC za jednym razem</t>
+    <t id="1218">Maksymalna liczba skoków przez bramy między dwoma DC, by dzieliły zapasy</t>
+    <t id="1219">Część każdego towaru, którą DC zawsze zatrzymuje dla siebie</t>
+    <t id="1220">Maksymalna liczba wpisów w księdze na DC</t>
+    <t id="1221">Zaopatruj tylko stacje w maksymalnym zasięgu poniżej</t>
+    <t id="1222">Maksymalna liczba skoków przez bramy między DC a zaopatrywaną stacją</t>
+    <t id="1223">Każdy menedżer DC ustala zasięg DC \(3 do 5 skoków\), zasięg połączeń DC \(6 do 10 skoków\) i zniżkę opłat \(10% za gwiazdkę\). DC bez menedżera jest offline. Wył. = stałe zasięgi i opłaty</t>
+    <t id="1224">Transfery trwają określony czas na każdy skok zamiast docierać od razu</t>
+    <t id="1225">Sekundy opóźnienia na skok przez bramę, gdy transfery są opóźniane</t>
+    <t id="1226">Opłata jako procent wartości przewożonych towarów \(0,0 do 10,0 co 0,5\)</t>
+    <t id="1227">Opłata rośnie o tę część opłaty podstawowej na każdy skok \(0,2 = +20% na skok\)</t>
+    <t id="1228">Mnożnik opłaty za objętość towaru \(1,0 = bez zmian\)</t>
+    <t id="1229">Mnożnik opłaty za typ towaru \(1,0 = bez zmian\)</t>
+    <t id="1230">Opłata za produkty zwracane do DC jako mnożnik zwykłej opłaty \(0,5 = połowa\). Płaci DC</t>
+    <t id="1231">Opłata za zapasy przenoszone między DC jako mnożnik zwykłej opłaty. 0 = przeniesienia za darmo</t>
+    <t id="1232">Opłata licencyjna jako część ceny najdroższego kwalifikującego się doku stacji</t>
+    <t id="1233">Najniższa opłata licencyjna przed zniżką za reputację</t>
+    <t id="1234">Najwyższa opłata licencyjna przed zniżką za reputację</t>
+    <t id="1235">Reputacja u właściciela sektora \(lub twojej najlepszej głównej frakcji\) potrzebna do zakupu licencji. -30 = bez limitu</t>
+    <t id="1236">Reputacja dająca pierwszą zniżkę licencji</t>
+    <t id="1237">Procent zniżki licencji na pierwszym progu reputacji</t>
+    <t id="1238">Reputacja dająca drugą zniżkę licencji</t>
+    <t id="1239">Procent zniżki licencji na drugim progu reputacji</t>
+    <t id="1240">Reputacja dająca trzecią zniżkę licencji</t>
+    <t id="1241">Procent zniżki licencji na trzecim progu reputacji</t>
+    <t id="1242">Zapisuj wiersze FDN w dzienniku debugowania gry \(fdn.log\)</t>
+    <t id="1243">1 = błędy, 2 = i ostrzeżenia, 3 = i informacje, 4 = i szczegóły debugowania</t>
+    <t id="1299">Kliknij, aby przywrócić domyślne wartości wszystkich ustawień FDN. Otwórz tę stronę ponownie, aby zobaczyć nowe wartości</t>
+    <!-- 2000-2009 Overview pages: page titles -->
+    <t id="2001">Przegląd FDN</t>
+    <t id="2002">DC FDN</t>
+    <t id="2003">Alerty FDN</t>
+    <t id="2004">Historia FDN</t>
+    <t id="2005">Zasady towarów FDN</t>
+    <!-- 2010-2099 Overview pages: text shared by several pages -->
+    <t id="2010">Odśwież</t>
+    <t id="2011">Wczytaj liczby ponownie. Strona nie odświeża się sama</t>
+    <t id="2012">Brak centrów dystrybucji towarów. Kup licencję FDN w menu kontekstowym stacji, aby je utworzyć</t>
+    <t id="2013">Nie wszystko pokazano: strona mieści najwyżej 160 wierszy. Wymieniono DC: %1 z %2</t>
+    <t id="2014">Nie wszystko pokazano: strona mieści najwyżej 160 wierszy. Wymieniono towarów: %1 z %2</t>
+    <t id="2015">Nie wszystko pokazano: strona mieści najwyżej 160 wierszy. Wymieniono wpisów: %1 z %2</t>
+    <t id="2016">Nie pokazano jeszcze: %1</t>
+    <t id="2017">Towar</t>
+    <t id="2018">Zapas</t>
+    <t id="2019">%1 min temu, %2</t>
+    <t id="2023">opłata %1</t>
+    <t id="2024">Nowsze</t>
+    <t id="2025">Pokaż poprzednie \(nowsze\) 10 wpisów</t>
+    <t id="2026">Starsze</t>
+    <t id="2027">Pokaż następne \(starsze\) 10 wpisów</t>
+    <t id="2028">strona %1 z %2</t>
+    <t id="2030">zaopatrzenie %1 / %2 / %3 | zwrot %4 / %5 / %6 | odbiór %7 / %8 / %9</t>
+    <t id="2031">pominięto</t>
+    <t id="2032">pominięto %1</t>
+    <t id="2033">w %1</t>
+    <t id="2034">w %1: %2</t>
+    <t id="2035">z %1 do %2</t>
+    <!-- 2100-2199 FDN Overview page -->
+    <t id="2101">DC FDN: pełne szczegóły każdego DC</t>
+    <t id="2102">Alerty FDN: niedobory, wymaga uwagi i problemy</t>
+    <t id="2103">Historia FDN: ostatnie 24 godziny i ostatnia aktywność</t>
+    <t id="2104">Sieć dystrybucji towarów, tylko odczyt. Sumy od zakupu licencji</t>
+    <t id="2105">DC online: %1</t>
+    <t id="2106">Sumy: wysłano %1, zwrócono %2, jednostek %3, opłat %4</t>
+    <t id="2107">Opłaty sieci \(ostatnia 1h / 6h / 24h\): %1 / %2 / %3</t>
+    <t id="2109">Wymaga uwagi: %1 \(zob. Alerty FDN\)</t>
+    <t id="2110">Wymaga uwagi: nic</t>
+    <t id="2111">DC</t>
+    <t id="2112">Status</t>
+    <t id="2113">Łączny zapas jako procent celów magazynowych towarów na stanie, które mają cel</t>
+    <t id="2114">Opłaty 24h</t>
+    <t id="2115">online</t>
+    <t id="2116">brak menedżera, offline</t>
+    <t id="2117">brak działającego doku</t>
+    <!-- 2200-2299 FDN DCs page -->
+    <t id="2201">Następne DC \(%1 z %2\)</t>
+    <t id="2202">Pokaż następne DC \(wg nazwy\)</t>
+    <t id="2203">DC 1 z 1</t>
+    <t id="2204">\(brak działającego doku, licencja wkrótce wygaśnie, jeśli żaden nie wróci\)</t>
+    <t id="2205">Zasady towarów FDN dla tego DC \(ustawiono: %1\)</t>
+    <t id="2206">Zapas, Zachowaj %, Nigdy nie wysyłaj, Nie przyjmuj</t>
+    <t id="2207">Sieć: brak w zasięgu</t>
+    <t id="2208">Sieć: %1</t>
+    <t id="2209">%1 \(skoki: %2\)</t>
+    <t id="2210">%1 \(skoki: %2\)</t>
+    <t id="2211">+%1 więcej</t>
+    <t id="2212">Menedżer: gwiazdki %1 \(umiejętność %2\). Zasięg zaopatrzenia %3 skoków, połączenia DC %4 skoków, zniżka opłat %5</t>
+    <t id="2213">Menedżer: brak. FDN nie używa tego DC, dopóki nie zostanie przydzielony menedżer</t>
+    <t id="2214">Sumy: wysłane dostawy %1, przyjęte zwroty %2, przewiezione jednostki %3, zapłacone opłaty %4</t>
+    <t id="2215">Opłaty \(ostatnia 1h / 6h / 24h\): %1 / %2 / %3</t>
+    <t id="2216">Cel</t>
+    <t id="2217">% celu</t>
+    <t id="2218">Brak towarów na stanie</t>
+    <t id="2219">zachowaj %1</t>
+    <t id="2220">nigdy nie wysyłaj</t>
+    <t id="2221">nie przyjmuj</t>
+    <!-- 3000-3499 FDN Alerts page -->
+    <t id="3001">Stacje i DC, których FDN nie mogła obsłużyć, najnowsze najpierw</t>
+    <t id="3002">Niedobory \(aktywne: %1\)</t>
+    <t id="3003">Stacje, którym brakuje towaru, którego FDN nie mogła dostarczyć, oraz DC z niskim zapasem. Alert pojawia się, gdy niedobór trwa tak długo, jak ustawienie Alert o niedoborze po</t>
+    <t id="3004">Brak niedoborów</t>
+    <t id="3005">Stacja / DC</t>
+    <t id="3006">Brakuje, potrzeba, powód</t>
+    <t id="3007">DC mało: dostępne %1, stacje potrzebują %2</t>
+    <t id="3008">potrzeba %1: %2</t>
+    <t id="3009">%1 min, %2</t>
+    <t id="3010">Wymaga uwagi</t>
+    <t id="3011">Nie ma żadnego DC, więc FDN niczego nie dostarcza, a stacje handlują normalnie</t>
+    <t id="3012">Nic nie wymaga uwagi</t>
+    <t id="3013">Stacja</t>
+    <t id="3014">Powód, ostatnio widziano</t>
+    <t id="3015">%1, %2 min temu</t>
+    <t id="3016">Problemy \(żadnych wśród %1 zapisanych wpisów aktywności\)</t>
+    <t id="3017">Problemy \(strona %1 z %2, wpisy %3-%4 z %5\)</t>
+    <t id="3018">Brak zapisanych problemów</t>
+    <!-- 3500-3999 FDN History page -->
+    <t id="3501">Wszystkie DC</t>
+    <t id="3502">Pokazano: %1</t>
+    <t id="3503">Pokaż następne DC \(wg nazwy\), potem znowu wszystkie DC</t>
+    <t id="3504">Ostatnie 24 godziny w przedziałach 1-godzinnych. Dostawy, zwroty, odbiory i jednostki są liczone od FDN 1.02; opłaty sięgają do 24 godzin wstecz.</t>
+    <t id="3505">Godzina</t>
+    <t id="3506">Dostawy</t>
+    <t id="3507">Zwroty</t>
+    <t id="3508">Odbiory</t>
+    <t id="3509">Jednostki</t>
+    <t id="3510">Opłaty</t>
+    <t id="3511">ta godzina</t>
+    <t id="3512">%1 h temu</t>
+    <t id="3513">Ostatnie 24h</t>
+    <t id="3514">Wszystko</t>
+    <t id="3515">Dostawy</t>
+    <t id="3516">Zwroty</t>
+    <t id="3517">NPC</t>
+    <t id="3518">Problemy</t>
+    <t id="3519">Ostatnia aktywność, cała sieć \(%1: %2 z %3 zapisanych wpisów\)</t>
+    <t id="3520">Pokaż: %1</t>
+    <t id="3521">Zmień, co pokazuje Ostatnia aktywność: Wszystko, Dostawy, Zwroty \(z odbiorami\), NPC, Problemy</t>
+    <t id="3522">Nie zapisano jeszcze dostaw ani zwrotów</t>
+    <t id="3523">Brak wpisów: %1</t>
+    <!-- 4000-4999 FDN Ware Rules page -->
+    <t id="4001">To DC już nie istnieje lub nie ma licencji. Wróć do DC FDN i otwórz zasady innego DC</t>
+    <t id="4002">Przywróć wszystko na Zapas \(ustawiono: %1\)</t>
+    <t id="4003">Kliknij ponownie, aby przywrócić zasady na Zapas: %1</t>
+    <t id="4004">Przywróć każdy towar tego DC na Zapas \(normalne działanie\). Wymaga drugiego kliknięcia</t>
+    <t id="4005">Wszystkie towary na Zapas</t>
+    <t id="4006">Zasady towarów: %1, %2</t>
+    <t id="4007">Zapas: normalnie. Zachowaj %: zachowuje tę część celu magazynowego i zaopatruje tylko powyżej niej. Nigdy nie wysyłaj: nigdy nie dostarcza towaru stacjom, nadal przyjmuje zwroty i odbiory.</t>
+    <t id="4008">Zachowaj % używa celu magazynowego lub bieżącego zapasu, gdy towar nie ma celu. Globalna rezerwa DC nadal obowiązuje; wygrywa większa rezerwa</t>
+    <t id="4009">Nie przyjmuj: nie przyjmuje zwrotów ani odebranych nadwyżek tego towaru i nigdy nie jest wybierane jako cel, nadal dostarcza to, co ma. Kliknij przycisk, aby wybrać następną wartość, prawym przyciskiem poprzednią.</t>
+    <t id="4010">Zasada</t>
+    <t id="4011">Zachowaj %</t>
+    <t id="4012">Zapas / cel</t>
+    <t id="4013">Brak towarów na stanie lub do handlu tutaj</t>
+    <t id="4014">Zapas</t>
+    <t id="4015">Zachowaj %</t>
+    <t id="4016">Nigdy nie wysyłaj</t>
+    <t id="4017">Nie przyjmuj</t>
+    <t id="4018">Klik: następna zasada \(Zapas, Zachowaj %, Nigdy nie wysyłaj, Nie przyjmuj\). Prawy klik: poprzednia zasada</t>
+    <t id="4019">Klik: +10 \(po 100 z powrotem 10\). Prawy klik: -10</t>
+    <!-- 5000-5099 Station right-click menu: entries and mouseovers -->
+    <t id="5001">FDN: niegotowe</t>
+    <t id="5002">FDN nie jest jeszcze skonfigurowana w tym zapisie. Zapisz i wczytaj grę, potem spróbuj ponownie</t>
+    <t id="5003">FDN: %1 WŁ.</t>
+    <t id="5004">FDN: %1 WYŁ.</t>
+    <t id="5005">%1. Kliknij, aby wyłączyć dla tej stacji</t>
+    <t id="5006">%1. Kliknij, aby włączyć dla tej stacji</t>
+    <t id="5007">FDN: licencja aktywna</t>
+    <t id="5008">Ta stacja ma licencję FDN i jest centrum dystrybucji, dopóki ma działający dok lub molo</t>
+    <t id="5009">FDN: cofnij licencję \(bez zwrotu\)</t>
+    <t id="5010">Kliknij, aby natychmiast zakończyć licencję FDN tej stacji. Bez potwierdzenia i bez zwrotu pieniędzy. Stacja przestaje być centrum dystrybucji</t>
+    <t id="5011">FDN: kup licencję \(%1 Cr\)</t>
+    <t id="5012">Kliknij, aby zapłacić teraz %1 Cr za licencję FDN dla tej stacji. Stanie się centrum dystrybucji. Bez potwierdzenia i bez zwrotu pieniędzy</t>
+    <t id="5013">FDN: licencja zablokowana - %1</t>
+    <t id="5014">Licencja FDN niemożliwa tutaj: %1</t>
+    <t id="5015">zaopatrzenie w surowce</t>
+    <t id="5016">FDN dostarcza surowce potrzebne tej stacji i ustala jej poziomy magazynu surowców \(towary wytwarzane przez nią samą zostają w gestii gry\)</t>
+    <t id="5017">wysyłka produktów do DC</t>
+    <t id="5018">Produkty tej stacji są przewożone do najbliższego centrum dystrybucji. Nadwyżki surowców też są odbierane</t>
+    <!-- 5100-5199 Charter: reasons a purchase is refused (shown in the menu and the logbook) -->
+    <t id="5101">brak kwalifikującego się doku lub mola</t>
+    <t id="5102">zbyt niska reputacja u %1 \(masz %2, potrzeba %3\)</t>
+    <t id="5103">za mało pieniędzy \(potrzeba %1 Cr, masz %2 Cr\)</t>
+    <t id="5104">stacja nie istnieje lub nie należy do ciebie</t>
+    <t id="5105">licencja jest już aktywna</t>
+    <t id="5106">płatność %1 Cr nie została pobrana \(pobrano %2 Cr\), nic nie naliczono</t>
+    <t id="5107">nie udało się zapisać licencji, płatność zwrócona</t>
+    <!-- 5200-5299 Charter: logbook titles and texts -->
+    <t id="5201">kupiono licencję dla %1</t>
+    <t id="5202">Kupiono licencję FDN dla %1 za %2 Cr \(reputacja %3 u %4, zniżka %5 proc.\). Stacja stanie się centrum dystrybucji przy następnym przebiegu FDN.</t>
+    <t id="5203">odmowa licencji: %1</t>
+    <t id="5204">Nie kupiono licencji FDN dla %1: %2. Nic nie naliczono.</t>
+    <t id="5205">licencja niecofnięta: %1</t>
+    <t id="5206">Licencja FDN dla %1 nie została cofnięta: stacja nie ma licencji lub nie istnieje.</t>
+    <t id="5207">licencja cofnięta dla %1</t>
+    <t id="5208">Licencja FDN dla %1 została cofnięta. Bez zwrotu pieniędzy. Stacja nie jest już centrum dystrybucji.</t>
+    <t id="5209">licencja wygasła dla %1 \(%2\)</t>
+    <t id="5210">Licencja FDN dla %1 wygasła: %2. Stacja nie jest już centrum dystrybucji. Trzeba kupić nową licencję.</t>
+    <!-- 5300-5399 Station menu: logbook titles and texts for the on/off settings -->
+    <t id="5301">%1 WŁ. w %2</t>
+    <t id="5302">%1 WYŁ. w %2</t>
+    <t id="5303">Ustawienie stacji %1 w %2 włączone z menu stacji.</t>
+    <t id="5304">Ustawienie stacji %1 w %2 wyłączone z menu stacji.</t>
+    <t id="5305">ustawienie stacji niezmienione</t>
+    <t id="5306">Nie udało się zmienić ustawienia stacji %1 w %2: stacja nie istnieje lub ustawienie jest nieznane.</t>
+    <!-- 6000-6999 Logbook titles and texts, ticker -->
+    <t id="6001">FDN: %1</t>
+    <t id="6002">%1 \(koszt towaru %2, opłata %3\)</t>
+    <t id="6011">DC %1 znów online</t>
+    <t id="6012">FDN znów używa centrum dystrybucji %1: %2.</t>
+    <t id="6013">DC %1 nie ma menedżera</t>
+    <t id="6014">Centrum dystrybucji %1 nie ma menedżera stacji, więc FDN go nie używa: brak dostaw, zwrotów, odbiorów i połączeń DC. Przydziel menedżera, a samo wróci przy następnej kontroli zaopatrzenia.</t>
+    <t id="6021">DC ma mało zapasów: %1</t>
+    <t id="6022">DC %1 ma mało %2 od %3 min: dostępne %4, stacje potrzebują %5</t>
+    <t id="6023">niedobór: %1</t>
+    <t id="6024">%1: brak %2 od %3 min \(potrzeba %4\): %5</t>
+    <t id="6031">Poziomy magazynu FDN bez odpowiedzi</t>
+    <t id="6032">FDN nie mogła połączyć się ze swoim pomocnikiem interfejsu, aby ustawić poziomy magazynu. Upewnij się, że SirNuke Mod Support APIs jest włączone. Zapisane pierwotne poziomy zostają zachowane.</t>
+    <t id="6041">brak centrum dystrybucji</t>
+    <t id="6042">Żadna stacja nie ma licencji FDN i działającego doku, więc nie ma centrum dystrybucji. Kup licencję w menu kontekstowym stacji.</t>
+    <t id="6043">Znaleziono sieć DC</t>
+    <t id="6044">DC: %1, sieci: %2: %3</t>
+    <t id="6045">Sieć DC zmieniona</t>
+    <t id="6046">Teraz DC: %1, sieci: %2.</t>
+    <t id="6047">Teraz DC: %1, sieci: %2. Dodano: %3.</t>
+    <t id="6048">Teraz DC: %1, sieci: %2. Usunięto: %3.</t>
+    <t id="6049">Teraz DC: %1, sieci: %2. Dodano: %3. Usunięto: %4.</t>
+    <t id="6051">dostarczono %1 do %2</t>
+    <t id="6052">przeniesienie w sieci %1 do %2</t>
+    <t id="6053">%1 %2 z %3, skoki: %4, opłata %5 zapłacona przez %6</t>
+    <t id="6054">%1 %2 z %3</t>
+    <t id="6055">%1 %2 z %3 \(przeniesienie w sieci\)</t>
+    <t id="6056">dostarczono %1</t>
+    <t id="6057">%1. Użyte DC: %2, łączna opłata %3</t>
+    <t id="6058">kupiono %1 dla %2</t>
+    <t id="6059">%1 %2 od NPC %3, skoki: %4, cena jedn. %5, zapłacił %6</t>
+    <t id="6060">%1 %2 kupiono od sprzedawców NPC: %3, koszt %4</t>
+    <t id="6061">%1 %2</t>
+    <t id="6062">%1 %2 \(do DC %3\)</t>
+    <t id="6063">zwrócono %1 z %2</t>
+    <t id="6064">%1 %2 do DC %3, skoki: %4, opłata %5 zapłacona przez DC</t>
+    <t id="6065">zwrócono z %1</t>
+    <t id="6066">Do DC %1: %2. Łączna opłata %3 zapłacona przez DC</t>
+    <t id="6071">pominięto zaopatrzenie w %1</t>
+    <t id="6072">pominięto przeniesienie w %1</t>
+    <t id="6073">pominięto zwrot w %1</t>
+    <t id="6074">pominięto nadwyżkę w %1</t>
+    <t id="6075">pominięto poziom zapasu w %1</t>
+    <t id="6076">%1 pominięto w %2</t>
+    <t id="6077">zablokowano nielegalny towar w %1</t>
+    <t id="6078">DC %1 ma mało zapasów</t>
+    <t id="6079">opłata rezerwowa w %1</t>
+    <t id="6080">pominięto zakup od NPC w %1, cena zakupu stacji za niska</t>
+    <t id="6081">pominięto zakup od NPC w %1, DC nie może zapłacić</t>
+    <t id="6082">zakup od NPC nieudany w %1</t>
+    <t id="6083">mało zapasów u NPC w %1</t>
+    <t id="6084">DC %1 kończy się %2: dostępne %3, stacje potrzebują %4</t>
+    <t id="6085">%1 \(potrzeba %2\): %3</t>
+    <t id="6086">%1 \(zapas %2\): %3</t>
+    <t id="6087">%1 pominięto w %2, DC nie może zapłacić</t>
+    <!-- 7000-7999 Reasons (shown in the logbook, FDN Alerts and FDN History) -->
+    <t id="7001">stacja zniszczona</t>
+    <t id="7002">stacja nie należy już do gracza</t>
+    <t id="7003">brak działającego kwalifikującego się doku</t>
+    <t id="7004">nieznany powód</t>
+    <t id="7011">przydzielono menedżera \(gwiazdki: %1\)</t>
+    <t id="7012">zasada menedżera została wyłączona</t>
+    <t id="7013">brak menedżera: FDN nie używa tego DC, dopóki nie zostanie przydzielony menedżer</t>
+    <t id="7021">nie udało się ustawić poziomu magazynu, FDN spróbuje ponownie</t>
+    <t id="7022">nie udało się przywrócić poziomu magazynu, FDN spróbuje ponownie</t>
+    <t id="7031">DC ma %1 %2, nielegalne w %3 \(policja: %4\); zostaje na miejscu, FDN nie przywozi więcej</t>
+    <t id="7032">brak DC w zasięgu</t>
+    <t id="7033">nielegalne w sektorze tego DC \(policja: %1\); nie przywieziono</t>
+    <t id="7034">żadne DC w zasięgu nie ma wolnych zapasów</t>
+    <t id="7035">stacja nie ma na to wolnego miejsca</t>
+    <t id="7036">DC %1 nie może zapłacić opłaty \(potrzeba %2, na koncie %3\)</t>
+    <t id="7037">macierzyste DC %1 nie mogło zapłacić opłaty za przeniesienie %2, źródłowe DC %3 zapłaciło pełną opłatę %4</t>
+    <t id="7038">transfer z %1 nieudany, zwrócono pieniądze</t>
+    <t id="7039">każde DC w zasięgu wstrzymuje go zasadą towaru</t>
+    <t id="7040">dostarczono częściowo, %1</t>
+    <t id="7041">oferty NPC od %1, cena zakupu DC to %2 \(podnieś cenę zakupu %3 w %4, aby pozwolić na zakup od NPC\)</t>
+    <t id="7042">oferty NPC od %1, cena zakupu stacji to %2 \(DC %4 nie ma ceny zakupu dla %3; ustaw ją w DC lub podnieś cenę zakupu stacji, aby pozwolić na zakup od NPC\)</t>
+    <t id="7043">macierzyste DC %1 nie może zapłacić za %2 od NPC \(jednostka kosztuje %3 plus opłata, na koncie %4\)</t>
+    <t id="7044">nie udało się pobrać opłaty</t>
+    <t id="7045">sprzedawca %1 dał tylko %2 z %3, odłożono</t>
+    <t id="7046">płatność %1 dla %2 nieudana, zapas odłożony</t>
+    <t id="7047">%1 przyjęła tylko %2 z %3, zapas wrócił do %4, pieniądze zwrócono</t>
+    <t id="7048">zakup od NPC w %1 wycofany: %2</t>
+    <t id="7049">kupiono %1 z %2 od stacji NPC, brak dalszych użytecznych ofert</t>
+    <t id="7050">dostawa nieudana \(stacji nie ma lub jest pełna\), ładunek wrócił do DC, opłata zwrócona</t>
+    <t id="7051">nielegalne w sektorze DC %1 \(policja: %2\) i brak innego DC w zasięgu, gdzie jest legalne i jest miejsce; zostaje na stacji</t>
+    <t id="7052">brak DC w zasięgu, które przyjmie produkt</t>
+    <t id="7053">DC %1 jest na to pełne \(wolne %2\)</t>
+    <t id="7054">DC %1 nie może zapłacić opłaty za zwrot \(potrzeba %2, na koncie %3\)</t>
+    <t id="7055">nie udało się pobrać opłaty za zwrot od DC %1, nic nie przeniesiono</t>
+    <t id="7056">DC %1 przyjęło tylko %2, wszystko wróciło na stację, opłata zwrócona</t>
+    <t id="7057">dostępne %1, stacje potrzebują %2</t>
+    <t id="7058">nielegalne w sektorze DC %1 \(policja: %2\) i brak innego DC w zasięgu, gdzie jest legalne i jest miejsce; nie odebrano</t>
+    <t id="7059">magazyn DC pełny</t>
+    <t id="7060">DC %1 nie może zapłacić opłaty za odbiór \(potrzeba %2, na koncie %3\)</t>
+    <t id="7061">nie udało się pobrać opłaty za odbiór od DC %1, nic nie przeniesiono</t>
+    <!-- 8000-8099 Kind names shown on FDN Alerts and FDN History (8001-8006 activity kinds, 8011-8019 skip kinds) -->
+    <t id="8001">zaopatrzenie</t>
+    <t id="8002">przeniesienie</t>
+    <t id="8003">zakup NPC</t>
+    <t id="8004">zwrot</t>
+    <t id="8005">odbiór</t>
+    <t id="8006">pominięcie</t>
+    <t id="8011">nadwyżka</t>
+    <t id="8012">nielegalne</t>
+    <t id="8013">mało zapasów</t>
+    <t id="8014">przeniesienie-rezerwa</t>
+    <t id="8015">NPC-cena</t>
+    <t id="8016">NPC-pieniądze</t>
+    <t id="8017">NPC-błąd</t>
+    <t id="8018">NPC-brak</t>
+    <t id="8019">poziom zapasu</t>
+  </page>
+</language>

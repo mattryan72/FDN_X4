@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LI Freight Distribution Network (FDN) text, page 477605. Italian (Italiano), language id 39.
+  MACHINE-DRAFTED TRANSLATION (FDN 1.03), not yet checked by a native speaker.
+  Bozza di traduzione automatica. Le correzioni sono benvenute sul forum Egosoft o su GitHub.
+  Corrections are welcome: post in the FDN thread on the Egosoft forum
+  (https://forum.egosoft.com/viewtopic.php?t=477605) or open an issue or pull request on GitHub
+  (https://github.com/mattryan72/FDN_X4).
+  Keep the ids, the %1, %2 ... slots and the \( \) escapes exactly as in t/0001-l044.xml (English).
+  "FDN" and "Cr" are not translated. See TRANSLATING.md. Check with: python tools/check_l10n.py
+  The section comments below are kept in English to match the English file.
+-->
+<language id="39">
+  <page id="477605" title="LI Freight Distribution Network (FDN)" descr="0" voice="no">
+    <!-- 1-99 Common words -->
+    <t id="1">stazione sconosciuta</t>
+    <t id="2">una stazione distrutta</t>
+    <!-- 1000-1099 Options page: unit words (the space before them is added in md/fdn_options.xml) -->
+    <t id="1001">salti</t>
+    <t id="1002">min</t>
+    <t id="1003">pct</t>
+    <t id="1004">s</t>
+    <!-- 1100-1199 Options page: option names, in display order (1199 = Reset all) -->
+    <t id="1101">Acquisto da PNG come riserva</t>
+    <t id="1102">Dettaglio registro attività</t>
+    <t id="1103">Avvisa se un DC non può pagare</t>
+    <t id="1104">Ripeti voci saltate dopo</t>
+    <t id="1105">Avvisi di carenza</t>
+    <t id="1106">Avviso di carenza dopo</t>
+    <t id="1107">Ripeti avviso di carenza dopo</t>
+    <t id="1108">Intervallo controllo rifornimenti</t>
+    <t id="1109">Stazioni per passaggio di rifornimento</t>
+    <t id="1110">Pausa minima tra i controlli</t>
+    <t id="1111">Cicli di produzione da coprire</t>
+    <t id="1112">Rifornisci risorse alle stazioni</t>
+    <t id="1113">Imposta limiti di acquisto</t>
+    <t id="1114">Invia prodotti al DC</t>
+    <t id="1115">Soglia di eccedenza</t>
+    <t id="1116">Cicli di prodotto da tenere</t>
+    <t id="1117">Lotto minimo di prodotto</t>
+    <t id="1118">Raggio della rete DC</t>
+    <t id="1119">Riserva del DC</t>
+    <t id="1120">Dimensione registro del DC</t>
+    <t id="1121">Limita raggio di rifornimento</t>
+    <t id="1122">Raggio massimo di rifornimento</t>
+    <t id="1123">L'abilità del manager fissa raggio e tariffe</t>
+    <t id="1124">Ritarda i trasferimenti in base alla distanza</t>
+    <t id="1125">Ritardo per salto</t>
+    <t id="1126">Tariffa di trasferimento</t>
+    <t id="1127">Aumento tariffa per salto</t>
+    <t id="1128">Fattore tariffa volume</t>
+    <t id="1129">Fattore tariffa tipo di merce</t>
+    <t id="1130">Tariffa di reso</t>
+    <t id="1131">Tariffa da DC a DC</t>
+    <t id="1132">Tariffa concessione</t>
+    <t id="1133">Tariffa concessione minima</t>
+    <t id="1134">Tariffa concessione massima</t>
+    <t id="1135">Reputazione minima per la concessione</t>
+    <t id="1136">Sconto concessione 1 a reputazione</t>
+    <t id="1137">Sconto concessione 1</t>
+    <t id="1138">Sconto concessione 2 a reputazione</t>
+    <t id="1139">Sconto concessione 2</t>
+    <t id="1140">Sconto concessione 3 a reputazione</t>
+    <t id="1141">Sconto concessione 3</t>
+    <t id="1142">Scrivi registro di debug FDN</t>
+    <t id="1143">Dettaglio registro di debug</t>
+    <t id="1199">Ripristina tutte le impostazioni FDN</t>
+    <!-- 1200-1299 Options page: option mouseovers, same order (1299 = Reset all) -->
+    <t id="1201">Acquista le mancanze da stazioni PNG quando nessun DC può fornirle</t>
+    <t id="1202">0 = disattivato, 1 = solo problemi, 2 = problemi e un riepilogo per passaggio, 3 = problemi e ogni trasferimento</t>
+    <t id="1203">Mostra un messaggio a schermo quando un trasferimento viene saltato perché il DC non può pagare la tariffa</t>
+    <t id="1204">Secondi prima che la stessa stazione e merce saltate vengano di nuovo scritte nel registro attività</t>
+    <t id="1205">Messaggio a schermo e voce nel registro attività quando una stazione resta senza una merce che FDN non può fornire, o un DC resta a corto di scorte</t>
+    <t id="1206">Minuti di gioco che una carenza deve durare prima del primo avviso</t>
+    <t id="1207">Minuti di gioco minimi tra due avvisi per la stessa stazione o lo stesso DC e merce</t>
+    <t id="1208">Secondi tra un passaggio di rifornimento FDN e l'altro</t>
+    <t id="1209">Quante stazioni esamina ogni passaggio di rifornimento</t>
+    <t id="1210">Secondi minimi tra due controlli di fine produzione della stessa stazione</t>
+    <t id="1211">Per quanti cicli di produzione FDN rifornisce in anticipo le stazioni di risorse. Imposta anche i livelli di magazzino delle risorse che la stazione non produce \(quelle che produce sono lasciate al gioco\)</t>
+    <t id="1212">FDN consegna le risorse necessarie alle tue stazioni di produzione e ne imposta i livelli di magazzino \(le merci che una stazione produce sono lasciate al gioco\)</t>
+    <t id="1213">FDN imposta anche il limite di acquisto di ogni risorsa di cui imposta il livello di magazzino allo stesso valore, e attiva l'acquisto. Disattivato ripristina i tuoi limiti di acquisto</t>
+    <t id="1214">I prodotti della stazione vengono spostati al centro di distribuzione più vicino. Anche le risorse in eccesso vengono raccolte</t>
+    <t id="1215">Raccogli solo quando le scorte superano di questa percentuale la quantità da tenere \(0 = qualsiasi eccedenza\). Per le risorse che la stazione produce anche, è il fabbisogno FDN dei cicli da coprire; per le altre è il livello di magazzino della stazione. L'eccedenza viene spostata, nei limiti dello spazio libero del DC</t>
+    <t id="1216">Cicli di ogni prodotto che una stazione tiene prima di inviare il resto al DC. 0 = invia tutto appena si raggiunge il lotto minimo</t>
+    <t id="1217">Quantità minima di un prodotto inviata al DC in una volta</t>
+    <t id="1218">Salti di portale massimi tra due DC perché condividano le scorte</t>
+    <t id="1219">Quota di ogni merce che un DC tiene sempre per sé</t>
+    <t id="1220">Voci di registro massime conservate per DC</t>
+    <t id="1221">Rifornisci solo le stazioni entro il raggio massimo qui sotto</t>
+    <t id="1222">Salti di portale massimi tra un DC e la stazione che rifornisce</t>
+    <t id="1223">Ogni manager di DC fissa il raggio del DC \(da 3 a 5 salti\), il raggio dei collegamenti DC \(da 6 a 10 salti\) e lo sconto sulle tariffe \(10% per stella\). Un DC senza manager è offline. Disattivato = raggi e tariffe fissi</t>
+    <t id="1224">I trasferimenti richiedono tempo per ogni salto invece di arrivare subito</t>
+    <t id="1225">Secondi di ritardo per salto di portale quando i trasferimenti sono ritardati</t>
+    <t id="1226">Tariffa come percentuale del valore delle merci spostate \(da 0,0 a 10,0 a passi di 0,5\)</t>
+    <t id="1227">La tariffa aumenta di questa quota della tariffa base per ogni salto \(0,2 = +20% per salto\)</t>
+    <t id="1228">Moltiplicatore della tariffa per il volume della merce \(1,0 = nessuna modifica\)</t>
+    <t id="1229">Moltiplicatore della tariffa per il tipo di merce \(1,0 = nessuna modifica\)</t>
+    <t id="1230">Tariffa per i prodotti resi a un DC, come multiplo della tariffa normale \(0,5 = metà\). Paga il DC</t>
+    <t id="1231">Tariffa per le scorte prelevate tra DC, come multiplo della tariffa normale. 0 rende gratuiti i prelievi</t>
+    <t id="1232">Tariffa della concessione come quota del prezzo dell'attracco idoneo più costoso della stazione</t>
+    <t id="1233">Tariffa della concessione più bassa prima dello sconto reputazione</t>
+    <t id="1234">Tariffa della concessione più alta prima dello sconto reputazione</t>
+    <t id="1235">Reputazione richiesta con il proprietario del settore \(o la tua migliore fazione principale\) per acquistare una concessione. -30 = nessun limite</t>
+    <t id="1236">Reputazione che dà il primo sconto sulla concessione</t>
+    <t id="1237">Percentuale di sconto sulla concessione al primo livello di reputazione</t>
+    <t id="1238">Reputazione che dà il secondo sconto sulla concessione</t>
+    <t id="1239">Percentuale di sconto sulla concessione al secondo livello di reputazione</t>
+    <t id="1240">Reputazione che dà il terzo sconto sulla concessione</t>
+    <t id="1241">Percentuale di sconto sulla concessione al terzo livello di reputazione</t>
+    <t id="1242">Scrivi le righe FDN nel registro di debug del gioco \(fdn.log\)</t>
+    <t id="1243">1 = errori, 2 = e avvisi, 3 = e info, 4 = e dettagli di debug</t>
+    <t id="1299">Clicca per riportare ogni impostazione FDN al valore predefinito. Riapri questa pagina per vedere i nuovi valori</t>
+    <!-- 2000-2009 Overview pages: page titles -->
+    <t id="2001">Panoramica FDN</t>
+    <t id="2002">DC FDN</t>
+    <t id="2003">Allarmi FDN</t>
+    <t id="2004">Cronologia FDN</t>
+    <t id="2005">Regole merci FDN</t>
+    <!-- 2010-2099 Overview pages: text shared by several pages -->
+    <t id="2010">Aggiorna</t>
+    <t id="2011">Ricarica i dati. La pagina non si aggiorna da sola</t>
+    <t id="2012">Nessun centro di distribuzione merci. Acquista una concessione FDN dal menu clic destro di una stazione per crearne uno</t>
+    <t id="2013">Elenco incompleto: la pagina contiene al massimo 160 righe. %1 DC su %2 elencati</t>
+    <t id="2014">Elenco incompleto: la pagina contiene al massimo 160 righe. %1 merci su %2 elencate</t>
+    <t id="2015">Elenco incompleto: la pagina contiene al massimo 160 righe. %1 voci su %2 elencate</t>
+    <t id="2016">altri %1 non mostrati</t>
+    <t id="2017">Merce</t>
+    <t id="2018">Scorte</t>
+    <t id="2019">%1 min fa, %2</t>
+    <t id="2023">tariffa %1</t>
+    <t id="2024">Più recenti</t>
+    <t id="2025">Mostra le 10 voci precedenti \(più recenti\)</t>
+    <t id="2026">Meno recenti</t>
+    <t id="2027">Mostra le 10 voci successive \(meno recenti\)</t>
+    <t id="2028">pagina %1 di %2</t>
+    <t id="2030">rifornimento %1 / %2 / %3 | reso %4 / %5 / %6 | raccolta %7 / %8 / %9</t>
+    <t id="2031">saltato</t>
+    <t id="2032">saltato %1</t>
+    <t id="2033">a %1</t>
+    <t id="2034">a %1: %2</t>
+    <t id="2035">da %1 a %2</t>
+    <!-- 2100-2199 FDN Overview page -->
+    <t id="2101">DC FDN: dettaglio completo di ogni DC</t>
+    <t id="2102">Allarmi FDN: carenze, attenzione richiesta e problemi</t>
+    <t id="2103">Cronologia FDN: ultime 24 ore e attività recente</t>
+    <t id="2104">Rete di distribuzione merci, sola lettura. Totali dall'acquisto della concessione</t>
+    <t id="2105">DC online: %1</t>
+    <t id="2106">Totali: %1 inviati, %2 resi, %3 unità, %4 di tariffe</t>
+    <t id="2107">Tariffe della rete \(ultima 1h / 6h / 24h\): %1 / %2 / %3</t>
+    <t id="2109">Attenzione richiesta: %1 \(vedi Allarmi FDN\)</t>
+    <t id="2110">Attenzione richiesta: nulla</t>
+    <t id="2111">DC</t>
+    <t id="2112">Stato</t>
+    <t id="2113">Scorte totali in percentuale degli obiettivi di magazzino delle merci in scorta che hanno un obiettivo</t>
+    <t id="2114">Tariffe 24h</t>
+    <t id="2115">online</t>
+    <t id="2116">nessun manager, offline</t>
+    <t id="2117">nessun attracco funzionante</t>
+    <!-- 2200-2299 FDN DCs page -->
+    <t id="2201">DC successivo \(%1 di %2\)</t>
+    <t id="2202">Mostra il DC successivo \(per nome\)</t>
+    <t id="2203">DC 1 di 1</t>
+    <t id="2204">\(nessun attracco funzionante, la concessione termina presto se non ne torna uno\)</t>
+    <t id="2205">Regole merci FDN per questo DC \(%1 impostate\)</t>
+    <t id="2206">Scorte, Tieni %, Mai inviare, Non accettare</t>
+    <t id="2207">Rete: nessuno in raggio</t>
+    <t id="2208">Rete: %1</t>
+    <t id="2209">%1 \(%2 salto\)</t>
+    <t id="2210">%1 \(%2 salti\)</t>
+    <t id="2211">+%1 altri</t>
+    <t id="2212">Manager: %1 stelle \(abilità %2\). Raggio di rifornimento %3 salti, collegamenti DC %4 salti, sconto tariffe %5</t>
+    <t id="2213">Manager: nessuno. FDN non usa questo DC finché non viene assegnato un manager</t>
+    <t id="2214">Totali: %1 rifornimenti inviati, %2 resi ricevuti, %3 unità spostate, tariffe pagate %4</t>
+    <t id="2215">Tariffe \(ultima 1h / 6h / 24h\): %1 / %2 / %3</t>
+    <t id="2216">Obiettivo</t>
+    <t id="2217">% dell'obiettivo</t>
+    <t id="2218">Nessuna merce in scorta</t>
+    <t id="2219">tieni %1</t>
+    <t id="2220">mai inviare</t>
+    <t id="2221">non accettare</t>
+    <!-- 3000-3499 FDN Alerts page -->
+    <t id="3001">Stazioni e DC che FDN non ha potuto servire, dai più recenti</t>
+    <t id="3002">Carenze \(%1 attive\)</t>
+    <t id="3003">Stazioni a cui manca una merce che FDN non ha potuto fornire, e DC a corto di scorte. Un allarme compare quando una carenza dura quanto l'impostazione Avviso di carenza dopo</t>
+    <t id="3004">Nessuna carenza</t>
+    <t id="3005">Stazione / DC</t>
+    <t id="3006">Manca, fabbisogno, motivo</t>
+    <t id="3007">DC basso: utilizzabile %1, le stazioni richiedono %2</t>
+    <t id="3008">fabbisogno %1: %2</t>
+    <t id="3009">%1 min, %2</t>
+    <t id="3010">Attenzione richiesta</t>
+    <t id="3011">Non esiste alcun DC, quindi FDN non fornisce nulla e le stazioni commerciano normalmente</t>
+    <t id="3012">Nessuna attenzione richiesta</t>
+    <t id="3013">Stazione</t>
+    <t id="3014">Motivo, ultima volta</t>
+    <t id="3015">%1, %2 min fa</t>
+    <t id="3016">Problemi \(nessuno su %1 voci di attività salvate\)</t>
+    <t id="3017">Problemi \(pagina %1 di %2, voci %3-%4 di %5\)</t>
+    <t id="3018">Nessun problema registrato</t>
+    <!-- 3500-3999 FDN History page -->
+    <t id="3501">Tutti i DC</t>
+    <t id="3502">Mostra: %1</t>
+    <t id="3503">Mostra il DC successivo \(per nome\), poi di nuovo tutti i DC</t>
+    <t id="3504">Ultime 24 ore in blocchi di 1 ora. Rifornimenti, resi, raccolte e unità sono contati da FDN 1.02; le tariffe risalgono fino a 24 ore.</t>
+    <t id="3505">Ora</t>
+    <t id="3506">Rifornimenti</t>
+    <t id="3507">Resi</t>
+    <t id="3508">Raccolte</t>
+    <t id="3509">Unità</t>
+    <t id="3510">Tariffe</t>
+    <t id="3511">quest'ora</t>
+    <t id="3512">%1 h fa</t>
+    <t id="3513">Ultime 24h</t>
+    <t id="3514">Tutto</t>
+    <t id="3515">Rifornimenti</t>
+    <t id="3516">Resi</t>
+    <t id="3517">PNG</t>
+    <t id="3518">Problemi</t>
+    <t id="3519">Attività recente, tutta la rete \(%1: %2 di %3 voci salvate\)</t>
+    <t id="3520">Mostra: %1</t>
+    <t id="3521">Cambia ciò che mostra Attività recente: Tutto, Rifornimenti, Resi \(incl. raccolte\), PNG, Problemi</t>
+    <t id="3522">Nessun rifornimento o reso ancora registrato</t>
+    <t id="3523">Nessuna voce %1</t>
+    <!-- 4000-4999 FDN Ware Rules page -->
+    <t id="4001">Questo DC non esiste più o non ha una concessione. Torna a DC FDN e apri le regole di un altro DC</t>
+    <t id="4002">Riporta tutto a Scorte \(%1 impostate\)</t>
+    <t id="4003">Clicca di nuovo per riportare %1 regole a Scorte</t>
+    <t id="4004">Riporta ogni merce di questo DC a Scorte \(comportamento normale\). Richiede un secondo clic</t>
+    <t id="4005">Tutte le merci su Scorte</t>
+    <t id="4006">Regole merci a %1, %2</t>
+    <t id="4007">Scorte: normale. Tieni %: tiene quella quota del suo obiettivo di magazzino e rifornisce solo sopra. Mai inviare: non la fornisce mai alle stazioni, accetta ancora resi e raccolte.</t>
+    <t id="4008">Tieni % usa l'obiettivo di magazzino, o le scorte attuali se la merce non ha un obiettivo. La riserva globale del DC vale ancora; vince la riserva maggiore</t>
+    <t id="4009">Non accettare: non accetta resi né eccedenze raccolte di questa merce e non viene mai scelto come destinazione, rifornisce ancora ciò che ha. Clic su un pulsante per il valore successivo, clic destro per il precedente.</t>
+    <t id="4010">Regola</t>
+    <t id="4011">Tieni %</t>
+    <t id="4012">Scorte / obiettivo</t>
+    <t id="4013">Nessuna merce in scorta o impostata per il commercio qui</t>
+    <t id="4014">Scorte</t>
+    <t id="4015">Tieni %</t>
+    <t id="4016">Mai inviare</t>
+    <t id="4017">Non accettare</t>
+    <t id="4018">Clic: regola successiva \(Scorte, Tieni %, Mai inviare, Non accettare\). Clic destro: regola precedente</t>
+    <t id="4019">Clic: +10 \(dopo 100 torna a 10\). Clic destro: -10</t>
+    <!-- 5000-5099 Station right-click menu: entries and mouseovers -->
+    <t id="5001">FDN: non pronto</t>
+    <t id="5002">FDN non è ancora configurato in questo salvataggio. Salva e ricarica, poi riprova</t>
+    <t id="5003">FDN: %1 ATTIVO</t>
+    <t id="5004">FDN: %1 DISATTIVO</t>
+    <t id="5005">%1. Clicca per disattivarlo per questa stazione</t>
+    <t id="5006">%1. Clicca per attivarlo per questa stazione</t>
+    <t id="5007">FDN: concessione attiva</t>
+    <t id="5008">Questa stazione ha una concessione FDN ed è un centro di distribuzione finché ha un attracco o un molo funzionante</t>
+    <t id="5009">FDN: revoca concessione \(nessun rimborso\)</t>
+    <t id="5010">Clicca per terminare subito la concessione FDN di questa stazione. Nessuna conferma e nessun rimborso. La stazione smette di essere un centro di distribuzione</t>
+    <t id="5011">FDN: acquista concessione \(%1 Cr\)</t>
+    <t id="5012">Clicca per pagare ora %1 Cr per una concessione FDN su questa stazione. Diventa un centro di distribuzione. Nessuna conferma e nessun rimborso</t>
+    <t id="5013">FDN: concessione bloccata - %1</t>
+    <t id="5014">Concessione FDN non possibile qui: %1</t>
+    <t id="5015">rifornimento risorse</t>
+    <t id="5016">FDN consegna le risorse di cui questa stazione ha bisogno e ne imposta i livelli di magazzino \(le merci che produce da sé sono lasciate al gioco\)</t>
+    <t id="5017">invia prodotti al DC</t>
+    <t id="5018">I prodotti di questa stazione vengono spostati al centro di distribuzione più vicino. Anche le risorse in eccesso vengono raccolte</t>
+    <!-- 5100-5199 Charter: reasons a purchase is refused (shown in the menu and the logbook) -->
+    <t id="5101">nessun attracco o molo idoneo</t>
+    <t id="5102">reputazione troppo bassa con %1 \(hai %2, serve %3\)</t>
+    <t id="5103">denaro insufficiente \(servono %1 Cr, hai %2 Cr\)</t>
+    <t id="5104">la stazione non esiste più o non è tua</t>
+    <t id="5105">una concessione è già attiva</t>
+    <t id="5106">il pagamento di %1 Cr non è stato prelevato \(prelevati %2 Cr\), nessun addebito</t>
+    <t id="5107">impossibile registrare la concessione, pagamento rimborsato</t>
+    <!-- 5200-5299 Charter: logbook titles and texts -->
+    <t id="5201">concessione acquistata per %1</t>
+    <t id="5202">Concessione FDN acquistata per %1 per %2 Cr \(reputazione %3 con %4, sconto del %5 per cento\). La stazione diventa un centro di distribuzione al prossimo passaggio FDN.</t>
+    <t id="5203">concessione rifiutata a %1</t>
+    <t id="5204">Concessione FDN non acquistata per %1: %2. Nessun addebito.</t>
+    <t id="5205">concessione non revocata a %1</t>
+    <t id="5206">Concessione FDN per %1 non revocata: la stazione non ha una concessione o non esiste più.</t>
+    <t id="5207">concessione revocata per %1</t>
+    <t id="5208">La concessione FDN per %1 è stata revocata. Nessun rimborso. La stazione non è più un centro di distribuzione.</t>
+    <t id="5209">concessione terminata per %1 \(%2\)</t>
+    <t id="5210">La concessione FDN per %1 è terminata: %2. La stazione non è più un centro di distribuzione. Occorre acquistare una nuova concessione.</t>
+    <!-- 5300-5399 Station menu: logbook titles and texts for the on/off settings -->
+    <t id="5301">%1 ATTIVO a %2</t>
+    <t id="5302">%1 DISATTIVO a %2</t>
+    <t id="5303">Impostazione stazione %1 a %2 attivata dal menu della stazione.</t>
+    <t id="5304">Impostazione stazione %1 a %2 disattivata dal menu della stazione.</t>
+    <t id="5305">impostazione stazione non modificata</t>
+    <t id="5306">Impossibile modificare l'impostazione stazione %1 a %2: la stazione non esiste più o l'impostazione è sconosciuta.</t>
+    <!-- 6000-6999 Logbook titles and texts, ticker -->
+    <t id="6001">FDN: %1</t>
+    <t id="6002">%1 \(costo merce %2, tariffa %3\)</t>
+    <t id="6011">DC %1 di nuovo online</t>
+    <t id="6012">Il centro di distribuzione %1 è di nuovo usato da FDN: %2.</t>
+    <t id="6013">DC %1 senza manager</t>
+    <t id="6014">Il centro di distribuzione %1 non ha un manager della stazione, quindi FDN non lo usa: niente rifornimenti, resi, raccolte o collegamenti DC. Assegna un manager e tornerà da solo al prossimo controllo dei rifornimenti.</t>
+    <t id="6021">DC a corto di scorte a %1</t>
+    <t id="6022">DC %1 a corto di %2 da %3 min: utilizzabile %4, le stazioni richiedono %5</t>
+    <t id="6023">carenza a %1</t>
+    <t id="6024">A %1 manca %2 da %3 min \(fabbisogno %4\): %5</t>
+    <t id="6031">Livelli di magazzino FDN senza risposta</t>
+    <t id="6032">FDN non è riuscito a raggiungere il suo assistente di interfaccia per impostare i livelli di magazzino. Assicurati che SirNuke Mod Support APIs sia attivo. I livelli originali salvati vengono mantenuti.</t>
+    <t id="6041">nessun centro di distribuzione</t>
+    <t id="6042">Nessuna stazione ha una concessione FDN e un attracco funzionante, quindi non c'è un centro di distribuzione. Acquista una concessione dal menu clic destro di una stazione.</t>
+    <t id="6043">Rete DC trovata</t>
+    <t id="6044">%1 DC in %2 rete/i: %3</t>
+    <t id="6045">Rete DC modificata</t>
+    <t id="6046">Ora %1 DC in %2 rete/i.</t>
+    <t id="6047">Ora %1 DC in %2 rete/i. Aggiunti: %3.</t>
+    <t id="6048">Ora %1 DC in %2 rete/i. Rimossi: %3.</t>
+    <t id="6049">Ora %1 DC in %2 rete/i. Aggiunti: %3. Rimossi: %4.</t>
+    <t id="6051">%1 fornito a %2</t>
+    <t id="6052">prelievo di rete %1 verso %2</t>
+    <t id="6053">%1 %2 da %3, %4 salti, tariffa %5 pagata da %6</t>
+    <t id="6054">%1 %2 da %3</t>
+    <t id="6055">%1 %2 da %3 \(prelievo di rete\)</t>
+    <t id="6056">%1 fornito</t>
+    <t id="6057">%1. %2 DC usati, tariffa totale %3</t>
+    <t id="6058">%1 acquistato per %2</t>
+    <t id="6059">%1 %2 dal PNG %3, %4 salti, prezzo unitario %5, pagato da %6</t>
+    <t id="6060">%1 %2 acquistati da %3 venditori PNG, costo %4</t>
+    <t id="6061">%1 %2</t>
+    <t id="6062">%1 %2 \(al DC %3\)</t>
+    <t id="6063">%1 reso da %2</t>
+    <t id="6064">%1 %2 al DC %3, %4 salti, tariffa %5 pagata dal DC</t>
+    <t id="6065">reso da %1</t>
+    <t id="6066">Al DC %1: %2. Tariffa totale %3 pagata dal DC</t>
+    <t id="6071">rifornimento saltato a %1</t>
+    <t id="6072">prelievo saltato a %1</t>
+    <t id="6073">reso saltato a %1</t>
+    <t id="6074">eccedenza saltata a %1</t>
+    <t id="6075">livello scorte saltato a %1</t>
+    <t id="6076">%1 saltato a %2</t>
+    <t id="6077">merce illegale bloccata a %1</t>
+    <t id="6078">DC %1 a corto di scorte</t>
+    <t id="6079">tariffa di riserva a %1</t>
+    <t id="6080">acquisto da PNG saltato a %1, prezzo di acquisto della stazione troppo basso</t>
+    <t id="6081">acquisto da PNG saltato a %1, il DC non può pagare</t>
+    <t id="6082">acquisto da PNG fallito a %1</t>
+    <t id="6083">scorte PNG insufficienti a %1</t>
+    <t id="6084">Il DC %1 sta finendo %2: utilizzabile %3, le stazioni richiedono %4</t>
+    <t id="6085">%1 \(fabbisogno %2\): %3</t>
+    <t id="6086">%1 \(scorte %2\): %3</t>
+    <t id="6087">%1 saltato a %2, il DC non può pagare</t>
+    <!-- 7000-7999 Reasons (shown in the logbook, FDN Alerts and FDN History) -->
+    <t id="7001">stazione distrutta</t>
+    <t id="7002">la stazione non è più del giocatore</t>
+    <t id="7003">nessun attracco idoneo funzionante</t>
+    <t id="7004">motivo sconosciuto</t>
+    <t id="7011">è stato assegnato un manager \(%1 stelle\)</t>
+    <t id="7012">la regola del manager è stata disattivata</t>
+    <t id="7013">nessun manager: FDN non usa questo DC finché non viene assegnato un manager</t>
+    <t id="7021">impossibile impostare il livello di magazzino, FDN riprova</t>
+    <t id="7022">impossibile ripristinare il livello di magazzino, FDN riprova</t>
+    <t id="7031">il DC contiene %1 %2, illegale in %3 \(polizia: %4\); lasciato lì, FDN non ne porta altra</t>
+    <t id="7032">nessun DC in raggio</t>
+    <t id="7033">illegale nel settore di questo DC \(polizia: %1\); non portata</t>
+    <t id="7034">nessun DC in raggio ha scorte disponibili</t>
+    <t id="7035">la stazione non ha spazio libero per questa merce</t>
+    <t id="7036">il DC %1 non può pagare la tariffa \(%2 necessari, %3 sul conto\)</t>
+    <t id="7037">il DC base %1 non ha potuto pagare la tariffa di prelievo %2, il DC di origine %3 ha pagato la tariffa intera %4</t>
+    <t id="7038">trasferimento da %1 fallito e rimborsato</t>
+    <t id="7039">ogni DC in raggio la trattiene per regola merci</t>
+    <t id="7040">rifornimento parziale, %1</t>
+    <t id="7041">le offerte PNG partono da %1, il prezzo di acquisto del DC è %2 \(alza il prezzo di acquisto di %3 su %4 per consentire acquisti da PNG\)</t>
+    <t id="7042">le offerte PNG partono da %1, il prezzo di acquisto della stazione è %2 \(il DC %4 non ha un prezzo di acquisto per %3; impostane uno sul DC o alza il prezzo di acquisto della stazione per consentire acquisti da PNG\)</t>
+    <t id="7043">il DC base %1 non può pagare %2 dai PNG \(un'unità costa %3 più tariffa, %4 sul conto\)</t>
+    <t id="7044">impossibile prelevare la tariffa</t>
+    <t id="7045">il venditore %1 ha dato solo %2 di %3, rimesso a posto</t>
+    <t id="7046">pagamento di %1 a %2 fallito, scorte rimesse a posto</t>
+    <t id="7047">%1 ha preso solo %2 di %3, scorte restituite a %4 e denaro rimborsato</t>
+    <t id="7048">acquisto da PNG presso %1 annullato: %2</t>
+    <t id="7049">acquistati %1 di %2 da stazioni PNG, nessun'altra offerta utile</t>
+    <t id="7050">consegna fallita \(stazione scomparsa o piena\), carico restituito al DC e tariffa rimborsata</t>
+    <t id="7051">illegale nel settore del DC %1 \(polizia: %2\) e nessun altro DC in raggio dove sia legale e abbia spazio; resta alla stazione</t>
+    <t id="7052">nessun DC in raggio accetta il prodotto</t>
+    <t id="7053">il DC %1 è pieno per questa merce \(libero %2\)</t>
+    <t id="7054">il DC %1 non può pagare la tariffa di reso \(%2 necessari, %3 sul conto\)</t>
+    <t id="7055">impossibile prelevare la tariffa di reso dal DC %1, nulla spostato</t>
+    <t id="7056">il DC %1 ha preso solo %2, tutto rimesso alla stazione e tariffa rimborsata</t>
+    <t id="7057">utilizzabile %1, le stazioni richiedono %2</t>
+    <t id="7058">illegale nel settore del DC %1 \(polizia: %2\) e nessun altro DC in raggio dove sia legale e abbia spazio; non raccolta</t>
+    <t id="7059">magazzino del DC pieno</t>
+    <t id="7060">il DC %1 non può pagare la tariffa di raccolta \(%2 necessari, %3 sul conto\)</t>
+    <t id="7061">impossibile prelevare la tariffa di raccolta dal DC %1, nulla spostato</t>
+    <!-- 8000-8099 Kind names shown on FDN Alerts and FDN History (8001-8006 activity kinds, 8011-8019 skip kinds) -->
+    <t id="8001">rifornimento</t>
+    <t id="8002">prelievo</t>
+    <t id="8003">acquisto PNG</t>
+    <t id="8004">reso</t>
+    <t id="8005">raccolta</t>
+    <t id="8006">saltato</t>
+    <t id="8011">eccedenza</t>
+    <t id="8012">illegale</t>
+    <t id="8013">scorte basse</t>
+    <t id="8014">prelievo-riserva</t>
+    <t id="8015">prezzo-PNG</t>
+    <t id="8016">denaro-PNG</t>
+    <t id="8017">errore-PNG</t>
+    <t id="8018">nessun-PNG</t>
+    <t id="8019">livello scorte</t>
+  </page>
+</language>

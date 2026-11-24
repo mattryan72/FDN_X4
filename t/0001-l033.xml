@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LI Freight Distribution Network (FDN) text, page 477605. French (Français), language id 33.
+  MACHINE-DRAFTED TRANSLATION (FDN 1.03), not yet checked by a native speaker.
+  Brouillon de traduction automatique. Les corrections sont les bienvenues sur le forum Egosoft ou sur GitHub.
+  Corrections are welcome: post in the FDN thread on the Egosoft forum
+  (https://forum.egosoft.com/viewtopic.php?t=477605) or open an issue or pull request on GitHub
+  (https://github.com/mattryan72/FDN_X4).
+  Keep the ids, the %1, %2 ... slots and the \( \) escapes exactly as in t/0001-l044.xml (English).
+  "FDN" and "Cr" are not translated. See TRANSLATING.md. Check with: python tools/check_l10n.py
+  The section comments below are kept in English to match the English file.
+-->
+<language id="33">
+  <page id="477605" title="LI Freight Distribution Network (FDN)" descr="0" voice="no">
+    <!-- 1-99 Common words -->
+    <t id="1">station inconnue</t>
+    <t id="2">une station détruite</t>
+    <!-- 1000-1099 Options page: unit words (the space before them is added in md/fdn_options.xml) -->
+    <t id="1001">sauts</t>
+    <t id="1002">min</t>
+    <t id="1003">pct</t>
+    <t id="1004">s</t>
+    <!-- 1100-1199 Options page: option names, in display order (1199 = Reset all) -->
+    <t id="1101">Achat PNJ en secours</t>
+    <t id="1102">Détail du journal de bord</t>
+    <t id="1103">Avertir si un DC ne peut pas payer</t>
+    <t id="1104">Répéter les entrées ignorées après</t>
+    <t id="1105">Alertes de pénurie</t>
+    <t id="1106">Alerte de pénurie après</t>
+    <t id="1107">Répéter l'alerte de pénurie après</t>
+    <t id="1108">Intervalle de vérification</t>
+    <t id="1109">Stations par passe d'approvisionnement</t>
+    <t id="1110">Écart minimal entre vérifications</t>
+    <t id="1111">Cycles de production à couvrir</t>
+    <t id="1112">Approvisionner les ressources</t>
+    <t id="1113">Fixer les limites d'achat</t>
+    <t id="1114">Envoyer les produits au DC</t>
+    <t id="1115">Seuil de surstock</t>
+    <t id="1116">Cycles de produit à garder</t>
+    <t id="1117">Plus petit lot de produit</t>
+    <t id="1118">Portée du réseau de DC</t>
+    <t id="1119">Réserve du DC</t>
+    <t id="1120">Taille du registre du DC</t>
+    <t id="1121">Limiter la portée d'approvisionnement</t>
+    <t id="1122">Portée d'approvisionnement maximale</t>
+    <t id="1123">Compétence du gestionnaire : portée et frais</t>
+    <t id="1124">Retarder les transferts selon la distance</t>
+    <t id="1125">Délai par saut</t>
+    <t id="1126">Frais de transfert</t>
+    <t id="1127">Hausse des frais par saut</t>
+    <t id="1128">Facteur de frais volume</t>
+    <t id="1129">Facteur de frais type de marchandise</t>
+    <t id="1130">Frais de retour</t>
+    <t id="1131">Frais DC à DC</t>
+    <t id="1132">Frais de charte</t>
+    <t id="1133">Frais de charte minimum</t>
+    <t id="1134">Frais de charte maximum</t>
+    <t id="1135">Réputation minimale pour la charte</t>
+    <t id="1136">Remise de charte 1 à la réputation</t>
+    <t id="1137">Remise de charte 1</t>
+    <t id="1138">Remise de charte 2 à la réputation</t>
+    <t id="1139">Remise de charte 2</t>
+    <t id="1140">Remise de charte 3 à la réputation</t>
+    <t id="1141">Remise de charte 3</t>
+    <t id="1142">Écrire le journal de débogage FDN</t>
+    <t id="1143">Détail du journal de débogage</t>
+    <t id="1199">Réinitialiser tous les paramètres FDN</t>
+    <!-- 1200-1299 Options page: option mouseovers, same order (1299 = Reset all) -->
+    <t id="1201">Acheter les manques aux stations PNJ quand aucun DC ne peut les fournir</t>
+    <t id="1202">0 = désactivé, 1 = problèmes seulement, 2 = problèmes et un résumé par passe, 3 = problèmes et chaque transfert</t>
+    <t id="1203">Afficher un message à l'écran quand un transfert est ignoré parce que le DC ne peut pas payer les frais</t>
+    <t id="1204">Secondes avant que la même station et la même marchandise ignorées soient de nouveau inscrites au journal de bord</t>
+    <t id="1205">Message à l'écran et entrée au journal de bord quand une station reste à court d'une marchandise que le FDN ne peut pas fournir, ou qu'un DC reste à court de stock</t>
+    <t id="1206">Minutes de jeu que doit durer une pénurie avant la première alerte</t>
+    <t id="1207">Minutes de jeu minimales entre deux alertes pour la même station ou le même DC et la même marchandise</t>
+    <t id="1208">Secondes entre deux passes d'approvisionnement FDN</t>
+    <t id="1209">Nombre de stations examinées à chaque passe d'approvisionnement</t>
+    <t id="1210">Secondes minimales entre deux vérifications de fin de production pour une même station</t>
+    <t id="1211">Nombre de cycles de production de ressources que le FDN garde d'avance dans les stations. Fixe aussi les niveaux de stockage des ressources que la station ne fabrique pas elle-même \(celles qu'elle fabrique sont laissées au jeu\)</t>
+    <t id="1212">Le FDN livre les ressources dont vos stations de production ont besoin et fixe leurs niveaux de stockage de ressources \(les marchandises qu'une station fabrique elle-même sont laissées au jeu\)</t>
+    <t id="1213">Le FDN fixe aussi la limite d'achat de chaque ressource dont il fixe le niveau de stockage à ce même niveau, et active l'achat. Désactivé rétablit vos propres limites d'achat</t>
+    <t id="1214">Les produits de la station sont envoyés au centre de distribution le plus proche. Les ressources en surplus sont aussi collectées</t>
+    <t id="1215">Ne collecter que si le stock dépasse de ce pourcentage la quantité à garder \(0 = tout surplus\). Pour les ressources que la station fabrique aussi, la quantité à garder est le besoin FDN des cycles à couvrir ; pour les autres, c'est le niveau de stockage de la station. Le surplus est déplacé, dans la limite de l'espace libre du DC</t>
+    <t id="1216">Cycles de chaque produit qu'une station garde avant d'envoyer le reste au DC. 0 = tout envoyer dès que le plus petit lot est atteint</t>
+    <t id="1217">Plus petite quantité d'un produit envoyée au DC en une fois</t>
+    <t id="1218">Nombre maximal de sauts de portail entre deux DC pour qu'ils partagent leurs stocks</t>
+    <t id="1219">Part de chaque marchandise qu'un DC garde toujours pour lui</t>
+    <t id="1220">Nombre maximal d'entrées de registre conservées par DC</t>
+    <t id="1221">N'approvisionner que les stations dans la portée maximale ci-dessous</t>
+    <t id="1222">Nombre maximal de sauts de portail entre un DC et la station qu'il approvisionne</t>
+    <t id="1223">Chaque gestionnaire de DC fixe la portée du DC \(3 à 5 sauts\), la portée des liaisons entre DC \(6 à 10 sauts\) et la remise sur les frais \(10% par étoile\). Un DC sans gestionnaire est hors ligne. Désactivé = portées et frais fixes</t>
+    <t id="1224">Les transferts prennent du temps à chaque saut au lieu d'arriver instantanément</t>
+    <t id="1225">Secondes de délai par saut de portail quand les transferts sont retardés</t>
+    <t id="1226">Frais en pourcentage de la valeur des marchandises déplacées \(0,0 à 10,0 par pas de 0,5\)</t>
+    <t id="1227">Les frais augmentent de cette part des frais de base à chaque saut \(0,2 = +20% par saut\)</t>
+    <t id="1228">Multiplicateur des frais selon le volume de la marchandise \(1,0 = aucun changement\)</t>
+    <t id="1229">Multiplicateur des frais selon le type de marchandise \(1,0 = aucun changement\)</t>
+    <t id="1230">Frais pour les produits renvoyés à un DC, en multiple des frais normaux \(0,5 = moitié\). Le DC paie</t>
+    <t id="1231">Frais pour le stock tiré entre DC, en multiple des frais normaux. 0 rend les tirages gratuits</t>
+    <t id="1232">Frais de charte en part du prix du quai qualifiant le plus cher de la station</t>
+    <t id="1233">Frais de charte les plus bas avant la remise de réputation</t>
+    <t id="1234">Frais de charte les plus hauts avant la remise de réputation</t>
+    <t id="1235">Réputation requise auprès du propriétaire du secteur \(ou de votre meilleure faction principale\) pour acheter une charte. -30 = aucune limite</t>
+    <t id="1236">Réputation donnant la première remise de charte</t>
+    <t id="1237">Pourcentage de remise sur les frais de charte au premier palier de réputation</t>
+    <t id="1238">Réputation donnant la deuxième remise de charte</t>
+    <t id="1239">Pourcentage de remise sur les frais de charte au deuxième palier de réputation</t>
+    <t id="1240">Réputation donnant la troisième remise de charte</t>
+    <t id="1241">Pourcentage de remise sur les frais de charte au troisième palier de réputation</t>
+    <t id="1242">Écrire les lignes FDN dans le journal de débogage du jeu \(fdn.log\)</t>
+    <t id="1243">1 = erreurs, 2 = et avertissements, 3 = et infos, 4 = et détails de débogage</t>
+    <t id="1299">Cliquer pour remettre chaque paramètre FDN à sa valeur par défaut. Rouvrez cette page pour voir les nouvelles valeurs</t>
+    <!-- 2000-2009 Overview pages: page titles -->
+    <t id="2001">Vue d'ensemble FDN</t>
+    <t id="2002">DC FDN</t>
+    <t id="2003">Alertes FDN</t>
+    <t id="2004">Historique FDN</t>
+    <t id="2005">Règles de marchandises FDN</t>
+    <!-- 2010-2099 Overview pages: text shared by several pages -->
+    <t id="2010">Rafraîchir</t>
+    <t id="2011">Recharger les chiffres. La page ne se met pas à jour toute seule</t>
+    <t id="2012">Aucun centre de distribution de fret. Achetez une charte FDN dans le menu clic droit d'une station pour en créer un</t>
+    <t id="2013">Liste incomplète : la page contient au plus 160 lignes. %1 DC sur %2 affichés</t>
+    <t id="2014">Liste incomplète : la page contient au plus 160 lignes. %1 marchandises sur %2 affichées</t>
+    <t id="2015">Liste incomplète : la page contient au plus 160 lignes. %1 entrées sur %2 affichées</t>
+    <t id="2016">%1 de plus non affichés</t>
+    <t id="2017">Marchandise</t>
+    <t id="2018">Stock</t>
+    <t id="2019">il y a %1 min, %2</t>
+    <t id="2023">frais %1</t>
+    <t id="2024">Plus récent</t>
+    <t id="2025">Afficher les 10 entrées précédentes \(plus récentes\)</t>
+    <t id="2026">Plus ancien</t>
+    <t id="2027">Afficher les 10 entrées suivantes \(plus anciennes\)</t>
+    <t id="2028">page %1 sur %2</t>
+    <t id="2030">approv. %1 / %2 / %3 | retour %4 / %5 / %6 | collecte %7 / %8 / %9</t>
+    <t id="2031">ignoré</t>
+    <t id="2032">ignoré %1</t>
+    <t id="2033">à %1</t>
+    <t id="2034">à %1 : %2</t>
+    <t id="2035">de %1 à %2</t>
+    <!-- 2100-2199 FDN Overview page -->
+    <t id="2101">DC FDN : détail complet de chaque DC</t>
+    <t id="2102">Alertes FDN : pénuries, points d'attention et problèmes</t>
+    <t id="2103">Historique FDN : dernières 24 heures et activité récente</t>
+    <t id="2104">Réseau de distribution de fret, lecture seule. Totaux depuis l'achat de la charte</t>
+    <t id="2105">DC en ligne : %1</t>
+    <t id="2106">Totaux : %1 envoyés, %2 renvoyés, %3 unités, %4 de frais</t>
+    <t id="2107">Frais du réseau \(dernières 1h / 6h / 24h\) : %1 / %2 / %3</t>
+    <t id="2109">À surveiller : %1 \(voir Alertes FDN\)</t>
+    <t id="2110">À surveiller : rien</t>
+    <t id="2111">DC</t>
+    <t id="2112">Statut</t>
+    <t id="2113">Stock total en pourcentage des objectifs de stockage des marchandises en stock qui ont un objectif</t>
+    <t id="2114">Frais 24h</t>
+    <t id="2115">en ligne</t>
+    <t id="2116">pas de gestionnaire, hors ligne</t>
+    <t id="2117">aucun quai fonctionnel</t>
+    <!-- 2200-2299 FDN DCs page -->
+    <t id="2201">DC suivant \(%1 sur %2\)</t>
+    <t id="2202">Afficher le DC suivant \(par nom\)</t>
+    <t id="2203">DC 1 sur 1</t>
+    <t id="2204">\(aucun quai fonctionnel, la charte prendra bientôt fin si aucun ne revient\)</t>
+    <t id="2205">Règles de marchandises FDN pour ce DC \(%1 définies\)</t>
+    <t id="2206">Stock, Garder %, Ne jamais envoyer, Ne pas accepter</t>
+    <t id="2207">Réseau : aucun à portée</t>
+    <t id="2208">Réseau : %1</t>
+    <t id="2209">%1 \(%2 saut\)</t>
+    <t id="2210">%1 \(%2 sauts\)</t>
+    <t id="2211">+%1 de plus</t>
+    <t id="2212">Gestionnaire : %1 étoiles \(compétence %2\). Portée d'approvisionnement %3 sauts, liaisons DC %4 sauts, remise sur les frais %5</t>
+    <t id="2213">Gestionnaire : aucun. Le FDN n'utilise pas ce DC tant qu'aucun gestionnaire n'est affecté</t>
+    <t id="2214">Totaux : %1 livraisons envoyées, %2 retours reçus, %3 unités déplacées, frais payés %4</t>
+    <t id="2215">Frais \(dernières 1h / 6h / 24h\) : %1 / %2 / %3</t>
+    <t id="2216">Objectif</t>
+    <t id="2217">% de l'objectif</t>
+    <t id="2218">Aucune marchandise en stock</t>
+    <t id="2219">garder %1</t>
+    <t id="2220">ne jamais envoyer</t>
+    <t id="2221">ne pas accepter</t>
+    <!-- 3000-3499 FDN Alerts page -->
+    <t id="3001">Stations et DC que le FDN n'a pas pu servir, les plus récents d'abord</t>
+    <t id="3002">Pénuries \(%1 actives\)</t>
+    <t id="3003">Stations à court d'une marchandise que le FDN n'a pas pu fournir, et DC à court de stock. Une alerte apparaît quand une pénurie dure aussi longtemps que le paramètre Alerte de pénurie après</t>
+    <t id="3004">Aucune pénurie</t>
+    <t id="3005">Station / DC</t>
+    <t id="3006">Manque, besoin, raison</t>
+    <t id="3007">DC bas : utilisable %1, besoin des stations %2</t>
+    <t id="3008">besoin %1 : %2</t>
+    <t id="3009">%1 min, %2</t>
+    <t id="3010">À surveiller</t>
+    <t id="3011">Aucun DC n'existe, le FDN ne fournit donc rien et les stations commercent normalement</t>
+    <t id="3012">Rien à surveiller</t>
+    <t id="3013">Station</t>
+    <t id="3014">Raison, vu en dernier</t>
+    <t id="3015">%1, il y a %2 min</t>
+    <t id="3016">Problèmes \(aucun parmi %1 entrées d'activité enregistrées\)</t>
+    <t id="3017">Problèmes \(page %1 sur %2, entrées %3-%4 sur %5\)</t>
+    <t id="3018">Aucun problème enregistré</t>
+    <!-- 3500-3999 FDN History page -->
+    <t id="3501">Tous les DC</t>
+    <t id="3502">Affichage : %1</t>
+    <t id="3503">Afficher le DC suivant \(par nom\), puis de nouveau tous les DC</t>
+    <t id="3504">Dernières 24 heures par tranches d'une heure. Livraisons, retours, collectes et unités sont comptés depuis FDN 1.02 ; les frais remontent jusqu'à 24 heures.</t>
+    <t id="3505">Heure</t>
+    <t id="3506">Livraisons</t>
+    <t id="3507">Retours</t>
+    <t id="3508">Collectes</t>
+    <t id="3509">Unités</t>
+    <t id="3510">Frais</t>
+    <t id="3511">cette heure</t>
+    <t id="3512">il y a %1 h</t>
+    <t id="3513">Dernières 24h</t>
+    <t id="3514">Tout</t>
+    <t id="3515">Livraisons</t>
+    <t id="3516">Retours</t>
+    <t id="3517">PNJ</t>
+    <t id="3518">Problèmes</t>
+    <t id="3519">Activité récente, tout le réseau \(%1 : %2 sur %3 entrées enregistrées\)</t>
+    <t id="3520">Afficher : %1</t>
+    <t id="3521">Changer ce qu'affiche Activité récente : Tout, Livraisons, Retours \(collecte incluse\), PNJ, Problèmes</t>
+    <t id="3522">Aucune livraison ni aucun retour enregistré</t>
+    <t id="3523">Aucune entrée %1</t>
+    <!-- 4000-4999 FDN Ware Rules page -->
+    <t id="4001">Ce DC n'existe plus ou n'a pas de charte. Revenez à DC FDN et ouvrez les règles d'un autre DC</t>
+    <t id="4002">Tout remettre sur Stock \(%1 définies\)</t>
+    <t id="4003">Cliquez encore pour remettre %1 règles sur Stock</t>
+    <t id="4004">Remettre chaque marchandise de ce DC sur Stock \(comportement normal\). Nécessite un second clic</t>
+    <t id="4005">Toutes les marchandises sur Stock</t>
+    <t id="4006">Règles de marchandises à %1, %2</t>
+    <t id="4007">Stock : normal. Garder % : garde cette part de son objectif de stockage et ne fournit qu'au-dessus. Ne jamais envoyer : ne la fournit jamais aux stations, accepte toujours retours et collectes.</t>
+    <t id="4008">Garder % utilise l'objectif de stockage, ou le stock actuel si la marchandise n'a pas d'objectif. La réserve globale du DC s'applique toujours ; la plus grande réserve l'emporte</t>
+    <t id="4009">Ne pas accepter : n'accepte ni retours ni surstock collecté de cette marchandise et n'est jamais choisi comme destination, fournit toujours ce qu'il a. Cliquez sur un bouton pour la valeur suivante, clic droit pour la précédente.</t>
+    <t id="4010">Règle</t>
+    <t id="4011">Garder %</t>
+    <t id="4012">Stock / objectif</t>
+    <t id="4013">Aucune marchandise en stock ou échangée ici</t>
+    <t id="4014">Stock</t>
+    <t id="4015">Garder %</t>
+    <t id="4016">Ne jamais envoyer</t>
+    <t id="4017">Ne pas accepter</t>
+    <t id="4018">Clic : règle suivante \(Stock, Garder %, Ne jamais envoyer, Ne pas accepter\). Clic droit : règle précédente</t>
+    <t id="4019">Clic : +10 \(après 100, retour à 10\). Clic droit : -10</t>
+    <!-- 5000-5099 Station right-click menu: entries and mouseovers -->
+    <t id="5001">FDN : pas prêt</t>
+    <t id="5002">Le FDN n'est pas encore configuré dans cette sauvegarde. Sauvegardez et rechargez, puis réessayez</t>
+    <t id="5003">FDN : %1 ACTIVÉ</t>
+    <t id="5004">FDN : %1 DÉSACTIVÉ</t>
+    <t id="5005">%1. Cliquer pour le désactiver pour cette station</t>
+    <t id="5006">%1. Cliquer pour l'activer pour cette station</t>
+    <t id="5007">FDN : charte active</t>
+    <t id="5008">Cette station a une charte FDN et est un centre de distribution tant qu'elle a un quai ou une jetée fonctionnels</t>
+    <t id="5009">FDN : révoquer la charte \(sans remboursement\)</t>
+    <t id="5010">Cliquer pour mettre fin immédiatement à la charte FDN de cette station. Sans confirmation ni remboursement. La station cesse d'être un centre de distribution</t>
+    <t id="5011">FDN : acheter une charte \(%1 Cr\)</t>
+    <t id="5012">Cliquer pour payer maintenant %1 Cr pour une charte FDN sur cette station. Elle devient un centre de distribution. Sans confirmation ni remboursement</t>
+    <t id="5013">FDN : charte bloquée - %1</t>
+    <t id="5014">Charte FDN impossible ici : %1</t>
+    <t id="5015">approvisionnement en ressources</t>
+    <t id="5016">Le FDN livre les ressources dont cette station a besoin et fixe ses niveaux de stockage de ressources \(les marchandises qu'elle fabrique elle-même sont laissées au jeu\)</t>
+    <t id="5017">envoi des produits au DC</t>
+    <t id="5018">Les produits de cette station sont envoyés au centre de distribution le plus proche. Les ressources en surplus sont aussi collectées</t>
+    <!-- 5100-5199 Charter: reasons a purchase is refused (shown in the menu and the logbook) -->
+    <t id="5101">aucun quai ni jetée qualifiants</t>
+    <t id="5102">réputation trop basse auprès de %1 \(actuelle %2, requise %3\)</t>
+    <t id="5103">pas assez d'argent \(requis %1 Cr, disponible %2 Cr\)</t>
+    <t id="5104">la station n'existe plus ou ne vous appartient pas</t>
+    <t id="5105">une charte est déjà active</t>
+    <t id="5106">le paiement de %1 Cr n'a pas été prélevé \(prélevé %2 Cr\), rien n'a été facturé</t>
+    <t id="5107">la charte n'a pas pu être enregistrée, paiement remboursé</t>
+    <!-- 5200-5299 Charter: logbook titles and texts -->
+    <t id="5201">charte achetée pour %1</t>
+    <t id="5202">Charte FDN achetée pour %1 pour %2 Cr \(réputation %3 auprès de %4, remise de %5 pour cent\). La station devient un centre de distribution à la prochaine passe FDN.</t>
+    <t id="5203">charte refusée à %1</t>
+    <t id="5204">Charte FDN non achetée pour %1 : %2. Rien n'a été facturé.</t>
+    <t id="5205">charte non révoquée à %1</t>
+    <t id="5206">Charte FDN de %1 non révoquée : la station n'a pas de charte ou n'existe plus.</t>
+    <t id="5207">charte révoquée pour %1</t>
+    <t id="5208">La charte FDN de %1 a été révoquée. Sans remboursement. La station n'est plus un centre de distribution.</t>
+    <t id="5209">charte terminée pour %1 \(%2\)</t>
+    <t id="5210">La charte FDN de %1 a pris fin : %2. La station n'est plus un centre de distribution. Une nouvelle charte doit être achetée.</t>
+    <!-- 5300-5399 Station menu: logbook titles and texts for the on/off settings -->
+    <t id="5301">%1 ACTIVÉ à %2</t>
+    <t id="5302">%1 DÉSACTIVÉ à %2</t>
+    <t id="5303">Paramètre de station %1 à %2 activé depuis le menu de la station.</t>
+    <t id="5304">Paramètre de station %1 à %2 désactivé depuis le menu de la station.</t>
+    <t id="5305">paramètre de station inchangé</t>
+    <t id="5306">Le paramètre de station %1 à %2 n'a pas pu être modifié : la station n'existe plus ou le paramètre est inconnu.</t>
+    <!-- 6000-6999 Logbook titles and texts, ticker -->
+    <t id="6001">FDN : %1</t>
+    <t id="6002">%1 \(coût des marchandises %2, frais %3\)</t>
+    <t id="6011">DC %1 de nouveau en ligne</t>
+    <t id="6012">Le centre de distribution %1 est de nouveau utilisé par le FDN : %2.</t>
+    <t id="6013">DC %1 sans gestionnaire</t>
+    <t id="6014">Le centre de distribution %1 n'a pas de gestionnaire de station, le FDN ne l'utilise donc pas : ni livraisons, ni retours, ni collectes, ni liaisons DC. Affectez un gestionnaire et il reviendra tout seul à la prochaine vérification.</t>
+    <t id="6021">DC à court de stock à %1</t>
+    <t id="6022">DC %1 à court de %2 depuis %3 min : utilisable %4, besoin des stations %5</t>
+    <t id="6023">pénurie à %1</t>
+    <t id="6024">%1 à court de %2 depuis %3 min \(besoin %4\) : %5</t>
+    <t id="6031">Niveaux de stockage FDN sans réponse</t>
+    <t id="6032">Le FDN n'a pas pu joindre son assistant d'interface pour fixer les niveaux de stockage. Vérifiez que SirNuke Mod Support APIs est activé. Les niveaux d'origine enregistrés sont conservés.</t>
+    <t id="6041">aucun centre de distribution</t>
+    <t id="6042">Aucune station n'a de charte FDN et de quai fonctionnel, il n'y a donc pas de centre de distribution. Achetez une charte dans le menu clic droit d'une station.</t>
+    <t id="6043">Réseau de DC trouvé</t>
+    <t id="6044">%1 DC dans %2 réseau\(x\) : %3</t>
+    <t id="6045">Réseau de DC modifié</t>
+    <t id="6046">Désormais %1 DC dans %2 réseau\(x\).</t>
+    <t id="6047">Désormais %1 DC dans %2 réseau\(x\). Ajoutés : %3.</t>
+    <t id="6048">Désormais %1 DC dans %2 réseau\(x\). Retirés : %3.</t>
+    <t id="6049">Désormais %1 DC dans %2 réseau\(x\). Ajoutés : %3. Retirés : %4.</t>
+    <t id="6051">%1 livré à %2</t>
+    <t id="6052">tirage réseau %1 vers %2</t>
+    <t id="6053">%1 %2 de %3, %4 sauts, frais %5 payés par %6</t>
+    <t id="6054">%1 %2 de %3</t>
+    <t id="6055">%1 %2 de %3 \(tirage réseau\)</t>
+    <t id="6056">%1 livré</t>
+    <t id="6057">%1. %2 DC utilisé\(s\), frais totaux %3</t>
+    <t id="6058">%1 acheté pour %2</t>
+    <t id="6059">%1 %2 du PNJ %3, %4 sauts, prix unitaire %5, payé par %6</t>
+    <t id="6060">%1 %2 acheté\(s\) à %3 vendeur\(s\) PNJ, coût %4</t>
+    <t id="6061">%1 %2</t>
+    <t id="6062">%1 %2 \(vers le DC %3\)</t>
+    <t id="6063">%1 renvoyé depuis %2</t>
+    <t id="6064">%1 %2 vers le DC %3, %4 sauts, frais %5 payés par le DC</t>
+    <t id="6065">renvoyé depuis %1</t>
+    <t id="6066">Vers le DC %1 : %2. Frais totaux %3 payés par le DC</t>
+    <t id="6071">approvisionnement ignoré à %1</t>
+    <t id="6072">tirage ignoré à %1</t>
+    <t id="6073">retour ignoré à %1</t>
+    <t id="6074">surstock ignoré à %1</t>
+    <t id="6075">niveau de stock ignoré à %1</t>
+    <t id="6076">%1 ignoré à %2</t>
+    <t id="6077">marchandise illicite bloquée à %1</t>
+    <t id="6078">DC %1 à court de stock</t>
+    <t id="6079">frais de secours à %1</t>
+    <t id="6080">achat PNJ ignoré à %1, prix d'achat de la station trop bas</t>
+    <t id="6081">achat PNJ ignoré à %1, le DC ne peut pas payer</t>
+    <t id="6082">échec de l'achat PNJ à %1</t>
+    <t id="6083">stock PNJ insuffisant à %1</t>
+    <t id="6084">Le DC %1 est à court de %2 : utilisable %3, besoin des stations %4</t>
+    <t id="6085">%1 \(besoin %2\) : %3</t>
+    <t id="6086">%1 \(stock %2\) : %3</t>
+    <t id="6087">%1 ignoré à %2, le DC ne peut pas payer</t>
+    <!-- 7000-7999 Reasons (shown in the logbook, FDN Alerts and FDN History) -->
+    <t id="7001">station détruite</t>
+    <t id="7002">la station n'appartient plus au joueur</t>
+    <t id="7003">aucun quai qualifiant fonctionnel</t>
+    <t id="7004">raison inconnue</t>
+    <t id="7011">un gestionnaire a été affecté \(%1 étoiles\)</t>
+    <t id="7012">la règle du gestionnaire a été désactivée</t>
+    <t id="7013">pas de gestionnaire : le FDN n'utilise pas ce DC tant qu'aucun gestionnaire n'est affecté</t>
+    <t id="7021">le niveau de stockage n'a pas pu être fixé, le FDN réessaie</t>
+    <t id="7022">le niveau de stockage n'a pas pu être rétabli, le FDN réessaie</t>
+    <t id="7031">le DC détient %1 %2, illicite dans %3 \(police : %4\) ; laissé sur place, le FDN n'en apporte plus</t>
+    <t id="7032">aucun DC à portée</t>
+    <t id="7033">illicite dans le secteur de ce DC \(police : %1\) ; non apporté</t>
+    <t id="7034">aucun DC à portée n'a de stock disponible</t>
+    <t id="7035">la station n'a pas d'espace libre pour cela</t>
+    <t id="7036">le DC %1 ne peut pas payer les frais \(%2 requis, %3 sur le compte\)</t>
+    <t id="7037">le DC d'origine %1 n'a pas pu payer les frais de tirage %2, le DC source %3 a payé les frais complets %4</t>
+    <t id="7038">transfert depuis %1 échoué et remboursé</t>
+    <t id="7039">chaque DC à portée la retient par une règle de marchandise</t>
+    <t id="7040">approvisionnement partiel, %1</t>
+    <t id="7041">les offres PNJ commencent à %1, le prix d'achat du DC est %2 \(augmentez le prix d'achat de %3 sur %4 pour permettre l'achat PNJ\)</t>
+    <t id="7042">les offres PNJ commencent à %1, le prix d'achat de la station est %2 \(le DC %4 n'a pas de prix d'achat pour %3 ; fixez-en un sur le DC, ou augmentez le prix d'achat de la station, pour permettre l'achat PNJ\)</t>
+    <t id="7043">le DC d'origine %1 ne peut pas payer %2 au PNJ \(une unité coûte %3 plus les frais, %4 sur le compte\)</t>
+    <t id="7044">les frais n'ont pas pu être prélevés</t>
+    <t id="7045">le vendeur %1 n'a fourni que %2 sur %3, remis en place</t>
+    <t id="7046">le paiement de %1 à %2 a échoué, stock remis en place</t>
+    <t id="7047">%1 n'a pris que %2 sur %3, stock rendu à %4 et argent remboursé</t>
+    <t id="7048">achat PNJ auprès de %1 annulé : %2</t>
+    <t id="7049">%1 de %2 acheté aux stations PNJ, plus d'offre utilisable</t>
+    <t id="7050">livraison échouée \(station disparue ou pleine\), cargaison rendue au DC et frais remboursés</t>
+    <t id="7051">illicite dans le secteur du DC %1 \(police : %2\) et aucun autre DC à portée où elle est légale et a de la place ; gardée à la station</t>
+    <t id="7052">aucun DC à portée pour prendre le produit</t>
+    <t id="7053">le DC %1 est plein pour cela \(libre %2\)</t>
+    <t id="7054">le DC %1 ne peut pas payer les frais de retour \(%2 requis, %3 sur le compte\)</t>
+    <t id="7055">les frais de retour n'ont pas pu être prélevés au DC %1, rien n'a été déplacé</t>
+    <t id="7056">le DC %1 n'a pris que %2, tout remis à la station et frais remboursés</t>
+    <t id="7057">utilisable %1, besoin des stations %2</t>
+    <t id="7058">illicite dans le secteur du DC %1 \(police : %2\) et aucun autre DC à portée où elle est légale et a de la place ; non collectée</t>
+    <t id="7059">stockage du DC plein</t>
+    <t id="7060">le DC %1 ne peut pas payer les frais de collecte \(%2 requis, %3 sur le compte\)</t>
+    <t id="7061">les frais de collecte n'ont pas pu être prélevés au DC %1, rien n'a été déplacé</t>
+    <!-- 8000-8099 Kind names shown on FDN Alerts and FDN History (8001-8006 activity kinds, 8011-8019 skip kinds) -->
+    <t id="8001">approvisionnement</t>
+    <t id="8002">tirage</t>
+    <t id="8003">achat PNJ</t>
+    <t id="8004">retour</t>
+    <t id="8005">collecte</t>
+    <t id="8006">ignoré</t>
+    <t id="8011">surstock</t>
+    <t id="8012">illicite</t>
+    <t id="8013">stock bas</t>
+    <t id="8014">tirage-secours</t>
+    <t id="8015">prix-PNJ</t>
+    <t id="8016">argent-PNJ</t>
+    <t id="8017">échec-PNJ</t>
+    <t id="8018">aucun-PNJ</t>
+    <t id="8019">niveau de stock</t>
+  </page>
+</language>
