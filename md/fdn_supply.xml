@@ -1006,6 +1006,7 @@
             </do_if>
             <set_value name="$Moved" exact="0" />
             <set_value name="$Reason" exact="'no DC in range has spare stock'" />
+            <set_value name="$NoRoom" exact="false" comment="card X4-23a: true while the last reason is 'station has no free storage for it' (replaces a text compare, so it works in every language)" />
             <set_value name="$Kind" exact="'supply'" />
             <set_value name="$NoMoney" exact="false" comment="card 09o: true when the last reason is a fee the DC cannot pay" />
             <set_value name="$RuleSkips" exact="0" comment="card X4-22b: candidates held back only by their ware rule" />
@@ -1058,6 +1059,7 @@
                 <do_if value="$Free le 0">
                   <set_value name="$Reason" exact="'station has no free storage for it'" />
                   <set_value name="$NoMoney" exact="false" />
+                  <set_value name="$NoRoom" exact="true" />
                 </do_if>
                 <do_if value="$Qty gt 0">
                   <set_value name="$FeeFactor" exact="($Pct * (1.0 + $Jumps * $RangeMult) * $VolMult * $TypeMult * 1000)i" comment="all multipliers as one whole number, percent x 1000 (2 pct x 1.6 = 3200). Money x float is not allowed (log: Loss of data ... 3840000ct * 1.6f). Proven in game (fee tests): (x)i converts to integer, as vanilla crisis_xenon_khaak_combo.xml uses ($ValueFactor * 100)i" />
@@ -1094,6 +1096,7 @@
                   <do_if value="$Payer.money lt $Fee">
                     <set_value name="$Reason" exact="'DC %1 cannot pay the fee (%2 needed, %3 in account)'.[$Payer.knownname, $Fee.formatted.default + ' Cr', $Payer.money.formatted.default + ' Cr']" />
                     <set_value name="$NoMoney" exact="true" />
+                    <set_value name="$NoRoom" exact="false" />
                   </do_if>
                   <do_else>
                     <set_value name="$SrcBefore" exact="$DC.money" comment="card 9h: logging only, source DC balance before the fee" />
@@ -1141,6 +1144,7 @@
                     <do_else>
                       <set_value name="$Reason" exact="'transfer from %1 failed and was refunded'.[$DC.knownname]" />
                       <set_value name="$NoMoney" exact="false" />
+                      <set_value name="$NoRoom" exact="false" />
                     </do_else>
                   </do_else>
                 </do_if>
@@ -1193,7 +1197,7 @@
                 <param name="NoMoney" value="$NoMoney" />
               </run_actions>
             </do_elseif>
-            <do_if value="$Left gt 0 and $Reason != 'station has no free storage for it'" comment="card X4-22d: still short after DCs and NPC fallback (a full station is not short)">
+            <do_if value="$Left gt 0 and not $NoRoom" comment="card X4-22d: still short after DCs and NPC fallback (a full station is not short); card X4-23a: flag instead of comparing the reason text">
               <append_to_list name="$ShortNow" exact="$Ware" />
               <run_actions ref="md.FDN_Core.Shortage_Track">
                 <param name="Station" value="$Station" />

@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LI Freight Distribution Network (FDN) text, page 477605. English.
+  t/0001-l044.xml (English) and t/0001.xml (default for languages without their own file) are identical.
+  Card X4-23a: options page and the five Overview pages. Rules for this file:
+  - %1, %2 ... are filled in by the game (names, numbers). Keep every one of them; their order may change.
+  - Write literal brackets as \( and \). A plain ( ... ) is a comment and is not shown.
+  - "FDN" and "Cr" are not translated. No text starts or ends with a space; spaces around parts are added in md.
+  - A text that gets %1 values never contains a plain % sign (a percent sign is added in md after formatting).
+  - Check with: python tools/check_l10n.py
+  Id blocks:
+    1-99  Common words (reserved for X4-23b)
+    1000-1099  Options page: unit words (the space before them is added in md/fdn_options.xml)
+    1100-1199  Options page: option names, in display order (1199 = Reset all)
+    1200-1299  Options page: option mouseovers, same order (1299 = Reset all)
+    2000-2009  Overview pages: page titles
+    2010-2099  Overview pages: text shared by several pages
+    2100-2199  FDN Overview page
+    2200-2299  FDN DCs page
+    3000-3499  FDN Alerts page
+    3500-3999  FDN History page
+    4000-4999  FDN Ware Rules page
+    5000-5999  Station right-click menu and charter (reserved for X4-23b)
+    6000-6999  Logbook titles and texts, ticker (reserved for X4-23b)
+    7000-7999  Reasons (reserved for X4-23b)
+    8000-8099  Kind names shown on FDN Alerts and FDN History (8001-8006 activity kinds, 8011-8019 skip kinds)
+-->
+<language>
+  <page id="477605" title="LI Freight Distribution Network (FDN)" descr="0" voice="no">
+    <!-- 1000-1099 Options page: unit words (the space before them is added in md/fdn_options.xml) -->
+    <t id="1001">jumps</t>
+    <t id="1002">min</t>
+    <t id="1003">pct</t>
+    <t id="1004">s</t>
+    <!-- 1100-1199 Options page: option names, in display order (1199 = Reset all) -->
+    <t id="1101">NPC purchase fallback</t>
+    <t id="1102">Logbook detail</t>
+    <t id="1103">Notify when a DC cannot pay</t>
+    <t id="1104">Repeat skip entries after</t>
+    <t id="1105">Shortage alerts</t>
+    <t id="1106">Shortage alert after</t>
+    <t id="1107">Repeat shortage alert after</t>
+    <t id="1108">Supply check interval</t>
+    <t id="1109">Stations per supply pass</t>
+    <t id="1110">Minimum gap between checks</t>
+    <t id="1111">Production cycles to cover</t>
+    <t id="1112">Supply station resources</t>
+    <t id="1113">Set trade buy limits</t>
+    <t id="1114">Send products to DC</t>
+    <t id="1115">Overstock trigger</t>
+    <t id="1116">Product cycles to keep</t>
+    <t id="1117">Smallest product batch</t>
+    <t id="1118">DC network range</t>
+    <t id="1119">DC reserve</t>
+    <t id="1120">DC ledger size</t>
+    <t id="1121">Limit supply range</t>
+    <t id="1122">Maximum supply range</t>
+    <t id="1123">Manager skill sets range and fees</t>
+    <t id="1124">Delay transfers by distance</t>
+    <t id="1125">Delay per jump</t>
+    <t id="1126">Transfer fee</t>
+    <t id="1127">Fee increase per jump</t>
+    <t id="1128">Fee volume factor</t>
+    <t id="1129">Fee ware type factor</t>
+    <t id="1130">Return fee</t>
+    <t id="1131">DC to DC fee</t>
+    <t id="1132">Charter fee</t>
+    <t id="1133">Charter fee minimum</t>
+    <t id="1134">Charter fee maximum</t>
+    <t id="1135">Charter minimum standing</t>
+    <t id="1136">Charter discount 1 at standing</t>
+    <t id="1137">Charter discount 1</t>
+    <t id="1138">Charter discount 2 at standing</t>
+    <t id="1139">Charter discount 2</t>
+    <t id="1140">Charter discount 3 at standing</t>
+    <t id="1141">Charter discount 3</t>
+    <t id="1142">Write FDN debug log</t>
+    <t id="1143">Debug log detail</t>
+    <t id="1199">Reset all FDN settings</t>
+    <!-- 1200-1299 Options page: option mouseovers, same order (1299 = Reset all) -->
+    <t id="1201">Buy shortfalls from NPC stations when no DC can supply them</t>
+    <t id="1202">0 = off, 1 = problems only, 2 = problems and one summary per supply run, 3 = problems and every transfer</t>
+    <t id="1203">Show an on-screen message when a transfer is skipped because the DC cannot pay the fee</t>
+    <t id="1204">Seconds before the same skipped station and ware is written to the logbook again</t>
+    <t id="1205">On-screen message and logbook entry when a station stays short of a ware FDN cannot supply, or a DC stays low on stock</t>
+    <t id="1206">Game minutes a shortage must last before the first alert</t>
+    <t id="1207">Minimum game minutes between two alerts for the same station or DC and ware</t>
+    <t id="1208">Seconds between FDN supply passes</t>
+    <t id="1209">How many stations each supply pass looks at</t>
+    <t id="1210">Minimum seconds between two production-finished checks of the same station</t>
+    <t id="1211">How many production cycles of resources FDN keeps stations supplied ahead. Also sets the station resource stock levels for wares it does not make itself \(wares it makes are left to the game\)</t>
+    <t id="1212">FDN delivers the resources your production stations need and sets their resource stock levels \(wares a station makes itself are left to the game\)</t>
+    <t id="1213">FDN also sets the trade buy limit of each resource it sets a stock level for to that same level, and turns buying on. Off puts your own buy limits back</t>
+    <t id="1214">Station products are moved to the nearest Distribution Centre. Surplus resources are collected too</t>
+    <t id="1215">Only collect when stock is this percent above the keep amount \(0 = any surplus\). For resources the station also makes, keep is the FDN cycles-to-cover need; for other resources it is the station storage level. Surplus above keep is moved, limited by DC free storage</t>
+    <t id="1216">Cycles of each product a station keeps before sending the rest to the DC. 0 = send everything once the smallest batch has built up</t>
+    <t id="1217">Smallest amount of a product sent to the DC in one go</t>
+    <t id="1218">Maximum gate jumps between two DCs for them to share stock</t>
+    <t id="1219">Share of each ware a DC always keeps for itself</t>
+    <t id="1220">Maximum ledger entries kept per DC</t>
+    <t id="1221">Only supply stations within the maximum range below</t>
+    <t id="1222">Maximum gate jumps between a DC and the station it supplies</t>
+    <t id="1223">Each DC manager sets that DC range \(3 to 5 jumps\), DC link range \(6 to 10 jumps\) and fee discount \(10% per star\). A DC with no manager is offline. Off = flat ranges and fees</t>
+    <t id="1224">Transfers take time per gate jump instead of arriving instantly</t>
+    <t id="1225">Seconds of delay per gate jump when transfers are delayed</t>
+    <t id="1226">Fee as a percentage of the value of the wares moved \(0.0 to 10.0 in steps of 0.5\)</t>
+    <t id="1227">Fee rises by this share of the base fee for every gate jump \(0.2 = +20% per jump\)</t>
+    <t id="1228">Multiplier on the fee for ware volume \(1.0 = no change\)</t>
+    <t id="1229">Multiplier on the fee for ware type \(1.0 = no change\)</t>
+    <t id="1230">Fee for products returned to a DC, as a multiplier of the normal fee \(0.5 = half\). The DC pays</t>
+    <t id="1231">Fee for stock pulled between DCs, as a multiplier of the normal fee. 0 makes pulls free</t>
+    <t id="1232">Charter fee as a share of the price of the most expensive qualifying dock on the station</t>
+    <t id="1233">Lowest charter fee before the reputation discount</t>
+    <t id="1234">Highest charter fee before the reputation discount</t>
+    <t id="1235">Standing needed with the sector owner \(or your best main faction\) to buy a charter. -30 = no limit</t>
+    <t id="1236">Standing that gives the first charter discount</t>
+    <t id="1237">Percent off the charter fee at the first standing step</t>
+    <t id="1238">Standing that gives the second charter discount</t>
+    <t id="1239">Percent off the charter fee at the second standing step</t>
+    <t id="1240">Standing that gives the third charter discount</t>
+    <t id="1241">Percent off the charter fee at the third standing step</t>
+    <t id="1242">Write FDN lines to the game debug log \(fdn.log\)</t>
+    <t id="1243">1 = errors, 2 = and warnings, 3 = and info, 4 = and debug detail</t>
+    <t id="1299">Click to put every FDN setting back to its default. Reopen this page to see the new values</t>
+    <!-- 2000-2009 Overview pages: page titles -->
+    <t id="2001">FDN Overview</t>
+    <t id="2002">FDN DCs</t>
+    <t id="2003">FDN Alerts</t>
+    <t id="2004">FDN History</t>
+    <t id="2005">FDN Ware Rules</t>
+    <!-- 2010-2099 Overview pages: text shared by several pages -->
+    <t id="2010">Refresh</t>
+    <t id="2011">Reload the figures. The page does not update by itself</t>
+    <t id="2012">No Freight Distribution Centres. Buy an FDN charter from a station right-click menu to make one</t>
+    <t id="2013">More not shown: the page holds at most 160 rows. %1 of %2 DCs listed</t>
+    <t id="2014">More not shown: the page holds at most 160 rows. %1 of %2 wares listed</t>
+    <t id="2015">More not shown: the page holds at most 160 rows. %1 of %2 entries listed</t>
+    <t id="2016">%1 more not shown</t>
+    <t id="2017">Ware</t>
+    <t id="2018">Stock</t>
+    <t id="2019">%1 min ago, %2</t>
+    <t id="2023">fee %1</t>
+    <t id="2024">Newer</t>
+    <t id="2025">Show the previous \(newer\) 10 entries</t>
+    <t id="2026">Older</t>
+    <t id="2027">Show the next \(older\) 10 entries</t>
+    <t id="2028">page %1 of %2</t>
+    <t id="2030">supply %1 / %2 / %3 | return %4 / %5 / %6 | collect %7 / %8 / %9</t>
+    <t id="2031">skipped</t>
+    <t id="2032">skipped %1</t>
+    <t id="2033">at %1</t>
+    <t id="2034">at %1: %2</t>
+    <t id="2035">from %1 to %2</t>
+    <!-- 2100-2199 FDN Overview page -->
+    <t id="2101">FDN DCs: full detail for each DC</t>
+    <t id="2102">FDN Alerts: shortages, needs attention and problems</t>
+    <t id="2103">FDN History: last 24 hours and recent activity</t>
+    <t id="2104">Freight Distribution Network, read only. Totals since charter bought</t>
+    <t id="2105">DCs online: %1</t>
+    <t id="2106">Totals: %1 sent, %2 returned, %3 units, %4 fees</t>
+    <t id="2107">Network fees \(last 1h / 6h / 24h\): %1 / %2 / %3</t>
+    <t id="2109">Needs attention: %1 \(see FDN Alerts\)</t>
+    <t id="2110">Needs attention: nothing</t>
+    <t id="2111">DC</t>
+    <t id="2112">Status</t>
+    <t id="2113">Total stock as a percent of the storage targets of the wares in stock that have a target</t>
+    <t id="2114">Fees 24h</t>
+    <t id="2115">online</t>
+    <t id="2116">no manager, offline</t>
+    <t id="2117">no working dock</t>
+    <!-- 2200-2299 FDN DCs page -->
+    <t id="2201">Next DC \(%1 of %2\)</t>
+    <t id="2202">Show the next DC \(by name\)</t>
+    <t id="2203">DC 1 of 1</t>
+    <t id="2204">\(no working dock, the charter ends soon if none returns\)</t>
+    <t id="2205">FDN Ware Rules for this DC \(%1 set\)</t>
+    <t id="2206">Stock, Keep %, Never send, Do not accept</t>
+    <t id="2207">Network: none in range</t>
+    <t id="2208">Network: %1</t>
+    <t id="2209">%1 \(%2 jump\)</t>
+    <t id="2210">%1 \(%2 jumps\)</t>
+    <t id="2211">+%1 more</t>
+    <t id="2212">Manager: %1 stars \(skill %2\). Supply range %3 jumps, DC links %4 jumps, fee discount %5</t>
+    <t id="2213">Manager: none. FDN does not use this DC until a manager is assigned</t>
+    <t id="2214">Totals: %1 supplies sent, %2 returns received, %3 units moved, fees paid %4</t>
+    <t id="2215">Fees \(last 1h / 6h / 24h\): %1 / %2 / %3</t>
+    <t id="2216">Target</t>
+    <t id="2217">% of target</t>
+    <t id="2218">No wares in stock</t>
+    <t id="2219">keep %1</t>
+    <t id="2220">never send</t>
+    <t id="2221">do not accept</t>
+    <!-- 3000-3499 FDN Alerts page -->
+    <t id="3001">Stations and DCs FDN could not serve, newest first</t>
+    <t id="3002">Shortages \(%1 active\)</t>
+    <t id="3003">Stations short of a ware FDN could not supply, and DCs running low. An alert is shown once a shortage lasts the Shortage alert after setting</t>
+    <t id="3004">No shortages</t>
+    <t id="3005">Station / DC</t>
+    <t id="3006">Short for, need, reason</t>
+    <t id="3007">DC low: usable %1, stations need %2</t>
+    <t id="3008">need %1: %2</t>
+    <t id="3009">%1 min, %2</t>
+    <t id="3010">Needs attention</t>
+    <t id="3011">No DC exists, so the FDN supplies nothing and stations trade as normal</t>
+    <t id="3012">Nothing needs attention</t>
+    <t id="3013">Station</t>
+    <t id="3014">Reason, last seen</t>
+    <t id="3015">%1, %2 min ago</t>
+    <t id="3016">Problems \(none of %1 stored activity entries\)</t>
+    <t id="3017">Problems \(page %1 of %2, entries %3-%4 of %5\)</t>
+    <t id="3018">No problems recorded</t>
+    <!-- 3500-3999 FDN History page -->
+    <t id="3501">All DCs</t>
+    <t id="3502">Showing: %1</t>
+    <t id="3503">Show the next DC \(by name\), then All DCs again</t>
+    <t id="3504">Last 24 hours in 1-hour buckets. Supplies, returns, collects and units are counted from FDN 1.02 on; fees go back up to 24 hours.</t>
+    <t id="3505">Hour</t>
+    <t id="3506">Supplies</t>
+    <t id="3507">Returns</t>
+    <t id="3508">Collects</t>
+    <t id="3509">Units</t>
+    <t id="3510">Fees</t>
+    <t id="3511">this hour</t>
+    <t id="3512">%1 h ago</t>
+    <t id="3513">Last 24h</t>
+    <t id="3514">All</t>
+    <t id="3515">Supplies</t>
+    <t id="3516">Returns</t>
+    <t id="3517">NPC</t>
+    <t id="3518">Problems</t>
+    <t id="3519">Recent activity, whole network \(%1: %2 of %3 stored entries\)</t>
+    <t id="3520">Show: %1</t>
+    <t id="3521">Change what Recent activity shows: All, Supplies, Returns \(incl. collect\), NPC, Problems</t>
+    <t id="3522">No supplies or returns recorded yet</t>
+    <t id="3523">No %1 entries</t>
+    <!-- 4000-4999 FDN Ware Rules page -->
+    <t id="4001">This DC no longer exists or has no charter. Go back to FDN DCs and open the rules for another DC</t>
+    <t id="4002">Reset all to Stock \(%1 set\)</t>
+    <t id="4003">Click again to reset %1 rules to Stock</t>
+    <t id="4004">Set every ware at this DC back to Stock \(normal behaviour\). Needs a second click</t>
+    <t id="4005">All wares on Stock</t>
+    <t id="4006">Ware rules at %1, %2</t>
+    <t id="4007">Stock: normal. Keep %: keeps that share of its storage target and supplies only above it. Never send: never supplies it to stations, still takes returns and collects.</t>
+    <t id="4008">Keep % uses the storage target, or the current stock when the ware has no target. The global DC reserve still applies; the larger reserve wins</t>
+    <t id="4009">Do not accept: takes no returns or collected overstock of it and is never picked as a destination for it, still supplies what it has. Click a button for the next value, right-click for the previous one.</t>
+    <t id="4010">Rule</t>
+    <t id="4011">Keep %</t>
+    <t id="4012">Stock / target</t>
+    <t id="4013">No wares in stock or set to trade here</t>
+    <t id="4014">Stock</t>
+    <t id="4015">Keep %</t>
+    <t id="4016">Never send</t>
+    <t id="4017">Do not accept</t>
+    <t id="4018">Click: next rule \(Stock, Keep %, Never send, Do not accept\). Right-click: previous rule</t>
+    <t id="4019">Click: +10 \(after 100 back to 10\). Right-click: -10</t>
+    <!-- 8000-8099 Kind names shown on FDN Alerts and FDN History (8001-8006 activity kinds, 8011-8019 skip kinds) -->
+    <t id="8001">supply</t>
+    <t id="8002">pull</t>
+    <t id="8003">NPC buy</t>
+    <t id="8004">return</t>
+    <t id="8005">collect</t>
+    <t id="8006">skip</t>
+    <t id="8011">overstock</t>
+    <t id="8012">illegal</t>
+    <t id="8013">lowstock</t>
+    <t id="8014">pull-fallback</t>
+    <t id="8015">npc-price</t>
+    <t id="8016">npc-money</t>
+    <t id="8017">npc-failed</t>
+    <t id="8018">npc-none</t>
+    <t id="8019">stock level</t>
+  </page>
+</language>

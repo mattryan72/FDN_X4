@@ -112,6 +112,12 @@
       The On_Newer / On_Older buttons now page the Alerts Problems list; the History activity list is not paged.
       Shared gathering is in the include_actions libraries Ov_Keep, Ov_Gather and Ov_Attention below (same code as
       before, moved). Each page writes one log level 4 line when built.
+    - Card X4-23a (text only): every text the five pages show comes from the FDN text page 477605 (t/0001-l044.xml,
+      same text in t/0001.xml): 2001-2005 page titles, 2010-2035 shared, 2101-2117 FDN Overview, 2201-2221 FDN DCs,
+      3001-3018 FDN Alerts, 3501-3523 FDN History, 4001-4019 FDN Ware Rules, 8001-8019 kind names (Ov_Kind_Name).
+      Station, sector and ware names, numbers, ' Cr', ' %' and the punctuation between parts stay here. Saved
+      values, view ids and the fdn.log lines are unchanged (fdn.log stays English: $ViewIds, 'All DCs').
+      Reasons (Needs attention, Shortages, Problems) are shown as stored; they move to page 477605 in X4-23b.
   -->
   <cues>
     <cue name="Register" instantiate="true">
@@ -121,30 +127,30 @@
       <actions>
         <signal_cue_instantly cue="md.Simple_Menu_API.Register_Options_Menu" param="table[
           $id = 'fdn_overview',
-          $title = 'FDN Overview',
+          $title = {477605,2001},
           $columns = 4,
           $onOpen = On_Open]" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Register_Options_Menu" param="table[
           $id = 'fdn_overview_dcs',
-          $title = 'FDN DCs',
+          $title = {477605,2002},
           $columns = 4,
           $private = 1,
           $onOpen = On_Open_DCs]" comment="card X4-22a" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Register_Options_Menu" param="table[
           $id = 'fdn_overview_alerts',
-          $title = 'FDN Alerts',
+          $title = {477605,2003},
           $columns = 4,
           $private = 1,
           $onOpen = On_Open_Alerts]" comment="card X4-22a" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Register_Options_Menu" param="table[
           $id = 'fdn_overview_history',
-          $title = 'FDN History',
+          $title = {477605,2004},
           $columns = 6,
           $private = 1,
           $onOpen = On_Open_History]" comment="card X4-22a" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Register_Options_Menu" param="table[
           $id = 'fdn_overview_rules',
-          $title = 'FDN Ware Rules',
+          $title = {477605,2005},
           $columns = 4,
           $private = 1,
           $onOpen = On_Open_Rules]" comment="card X4-22b" />
@@ -317,6 +323,65 @@
       </actions>
     </library>
 
+    <!--
+      Card X4-23a: shown name of an activity kind (Init.$Activity item 2) or skip kind (item 9) on FDN Alerts and
+      FDN History. The saved kinds stay as they are (internal ids, compared in many places); only the shown word
+      comes from page 477605 (8001-8006 activity kinds, 8011-8019 skip kinds). An unknown kind is shown as stored.
+    -->
+    <library name="Ov_Kind_Name" purpose="run_actions">
+      <params>
+        <param name="K" />
+      </params>
+      <actions>
+        <do_if value="$K == 'supply'">
+          <return value="{477605,8001}" />
+        </do_if>
+        <do_if value="$K == 'pull'">
+          <return value="{477605,8002}" />
+        </do_if>
+        <do_if value="$K == 'NPC buy'">
+          <return value="{477605,8003}" />
+        </do_if>
+        <do_if value="$K == 'return'">
+          <return value="{477605,8004}" />
+        </do_if>
+        <do_if value="$K == 'collect'">
+          <return value="{477605,8005}" />
+        </do_if>
+        <do_if value="$K == 'skip'">
+          <return value="{477605,8006}" />
+        </do_if>
+        <do_if value="$K == 'overstock'">
+          <return value="{477605,8011}" />
+        </do_if>
+        <do_if value="$K == 'illegal'">
+          <return value="{477605,8012}" />
+        </do_if>
+        <do_if value="$K == 'lowstock'">
+          <return value="{477605,8013}" />
+        </do_if>
+        <do_if value="$K == 'pull-fallback'">
+          <return value="{477605,8014}" />
+        </do_if>
+        <do_if value="$K == 'npc-price'">
+          <return value="{477605,8015}" />
+        </do_if>
+        <do_if value="$K == 'npc-money'">
+          <return value="{477605,8016}" />
+        </do_if>
+        <do_if value="$K == 'npc-failed'">
+          <return value="{477605,8017}" />
+        </do_if>
+        <do_if value="$K == 'npc-none'">
+          <return value="{477605,8018}" />
+        </do_if>
+        <do_if value="$K == 'stock level'">
+          <return value="{477605,8019}" />
+        </do_if>
+        <return value="$K" />
+      </actions>
+    </library>
+
     <cue name="On_Open" instantiate="true">
       <conditions>
         <event_cue_signalled />
@@ -332,53 +397,53 @@
         <set_value name="$Shown" exact="0" />
         <set_value name="$Cut" exact="false" />
 
-        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Submenu_Link" param="table[$id = 'fdn_overview_dcs', $text = 'FDN DCs: full detail for each DC']" comment="card X4-22a" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Submenu_Link" param="table[$id = 'fdn_overview_alerts', $text = 'FDN Alerts: shortages, needs attention and problems']" comment="card X4-22a" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Submenu_Link" param="table[$id = 'fdn_overview_history', $text = 'FDN History: last 24 hours and recent activity']" comment="card X4-22a" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Submenu_Link" param="table[$id = 'fdn_overview_dcs', $text = {477605,2101}]" comment="card X4-22a" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Submenu_Link" param="table[$id = 'fdn_overview_alerts', $text = {477605,2102}]" comment="card X4-22a" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Add_Submenu_Link" param="table[$id = 'fdn_overview_history', $text = {477605,2103}]" comment="card X4-22a" />
         <set_value name="$Rows" exact="$Rows + 3" />
 
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
           $col = 1,
-          $text = table[$text = 'Refresh', $halign = 'center'],
-          $mouseOverText = 'Reload the figures. The page does not update by itself',
+          $text = table[$text = {477605,2010}, $halign = 'center'],
+          $mouseOverText = {477605,2011},
           $onClick = On_Refresh]" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 3, $text = 'Freight Distribution Network, read only. Totals since charter bought']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 3, $text = {477605,2104}]" />
         <set_value name="$Rows" exact="$Rows + 1" />
 
         <include_actions ref="Ov_Gather" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'DCs online: %1'.[$DCs.count]]" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 3, $text = 'Totals: %1 sent, %2 returned, %3 units, %4 fees'.[$Sum.$Supplies, $Sum.$Returns, $Sum.$Units, $Sum.$Fees.formatted.default + ' Cr']]" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = {477605,2105}.[$DCs.count]]" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 3, $text = {477605,2106}.[$Sum.$Supplies, $Sum.$Returns, $Sum.$Units, $Sum.$Fees.formatted.default + ' Cr']]" />
         <set_value name="$Rows" exact="$Rows + 1" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Network fees (last 1h / 6h / 24h): %1 / %2 / %3'.[$Net.{1}.formatted.default + ' Cr', $Net.{2}.formatted.default + ' Cr', $Net.{3}.formatted.default + ' Cr']]" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2107}.[$Net.{1}.formatted.default + ' Cr', $Net.{2}.formatted.default + ' Cr', $Net.{3}.formatted.default + ' Cr']]" />
         <set_value name="$Rows" exact="$Rows + 1" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '  supply %1 / %2 / %3 | return %4 / %5 / %6 | collect %7 / %8 / %9'.[$NetS.{1}.formatted.default + ' Cr', $NetS.{2}.formatted.default + ' Cr', $NetS.{3}.formatted.default + ' Cr', $NetR.{1}.formatted.default + ' Cr', $NetR.{2}.formatted.default + ' Cr', $NetR.{3}.formatted.default + ' Cr', $NetC.{1}.formatted.default + ' Cr', $NetC.{2}.formatted.default + ' Cr', $NetC.{3}.formatted.default + ' Cr']]" comment="card X4-18j" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '  ' + {477605,2030}.[$NetS.{1}.formatted.default + ' Cr', $NetS.{2}.formatted.default + ' Cr', $NetS.{3}.formatted.default + ' Cr', $NetR.{1}.formatted.default + ' Cr', $NetR.{2}.formatted.default + ' Cr', $NetR.{3}.formatted.default + ' Cr', $NetC.{1}.formatted.default + ' Cr', $NetC.{2}.formatted.default + ' Cr', $NetC.{3}.formatted.default + ' Cr']]" comment="card X4-18j" />
         <set_value name="$Rows" exact="$Rows + 1" />
 
         <include_actions ref="Ov_Attention" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="card X4-22a: one line, the list is on FDN Alerts" />
         <do_if value="$Att.count gt 0">
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Needs attention: %1 (see FDN Alerts)'.[$Att.count], $color = 'Color.text_warning']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2109}.[$Att.count], $color = 'Color.text_warning']" />
         </do_if>
         <do_else>
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Needs attention: nothing']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2110}]" />
         </do_else>
         <set_value name="$Rows" exact="$Rows + 1" />
 
         <do_if value="$DCs.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No Freight Distribution Centres. Buy an FDN charter from a station right-click menu to make one']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2012}]" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
         <do_else>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="card X4-22a: short DC list" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'DC', $font = 'Zekton bold']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Status', $font = 'Zekton bold']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = 'Stock', $halign = 'right', $font = 'Zekton bold', $mouseOverText = 'Total stock as a percent of the storage targets of the wares in stock that have a target']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = 'Fees 24h', $halign = 'right', $font = 'Zekton bold']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = {477605,2111}, $font = 'Zekton bold']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = {477605,2112}, $font = 'Zekton bold']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = {477605,2018}, $halign = 'right', $font = 'Zekton bold', $mouseOverText = {477605,2113}]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = {477605,2114}, $halign = 'right', $font = 'Zekton bold']" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_else>
         <do_all exact="$DCs.count" counter="$d">
@@ -387,14 +452,14 @@
             <break />
           </do_if>
           <set_value name="$S" exact="$DCs.{$d}" />
-          <set_value name="$StTxt" exact="'online'" />
+          <set_value name="$StTxt" exact="{477605,2115}" />
           <set_value name="$StWarn" exact="false" />
           <do_if value="$Mgr.{$S}.$On == 1 and not $Mgr.{$S}.$Online">
-            <set_value name="$StTxt" exact="'no manager, offline'" />
+            <set_value name="$StTxt" exact="{477605,2116}" />
             <set_value name="$StWarn" exact="true" />
           </do_if>
           <do_elseif value="$Init.$Charters.{$S}.$DockMiss?">
-            <set_value name="$StTxt" exact="'no working dock'" />
+            <set_value name="$StTxt" exact="{477605,2117}" />
             <set_value name="$StWarn" exact="true" />
           </do_elseif>
           <set_value name="$Wares" exact="$S.cargo.list" />
@@ -438,7 +503,7 @@
         </do_all>
         <do_if value="$Cut">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'More not shown: the page holds at most 160 rows. %1 of %2 DCs listed'.[$Shown, $DCs.count]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2013}.[$Shown, $DCs.count]]" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
 
@@ -476,32 +541,32 @@
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="control row" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
           $col = 1,
-          $text = table[$text = 'Refresh', $halign = 'center'],
-          $mouseOverText = 'Reload the figures. The page does not update by itself',
+          $text = table[$text = {477605,2010}, $halign = 'center'],
+          $mouseOverText = {477605,2011},
           $onClick = On_Refresh]" />
         <do_if value="$DCs.count gt 1">
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
             $col = 2,
             $colSpan = 2,
-            $text = table[$text = 'Next DC (%1 of %2)'.[$Idx, $DCs.count], $halign = 'center'],
-            $mouseOverText = 'Show the next DC (by name)',
+            $text = table[$text = {477605,2201}.[$Idx, $DCs.count], $halign = 'center'],
+            $mouseOverText = {477605,2202},
             $onClick = On_Next_DC]" />
         </do_if>
         <do_elseif value="$DCs.count == 1">
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = 'DC 1 of 1', $halign = 'center']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = {477605,2203}, $halign = 'center']" />
         </do_elseif>
         <set_value name="$Rows" exact="$Rows + 1" />
 
         <do_if value="$DCs.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No Freight Distribution Centres. Buy an FDN charter from a station right-click menu to make one']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2012}]" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
         <do_else>
           <set_value name="$S" exact="$DCs.{$Idx}" />
           <set_value name="$State" exact="''" />
           <do_if value="$Init.$Charters.{$S}.$DockMiss?">
-            <set_value name="$State" exact="' (no working dock, the charter ends soon if none returns)'" />
+            <set_value name="$State" exact="' ' + {477605,2204}" />
           </do_if>
           <set_value name="$Where" exact="', ' + $S.sector.knownname" />
           <substitute_text text="$Probe" source="$S.knownname" comment="card X4-15b: removes the sector name from the station name; if anything changed, the name already contains the sector">
@@ -523,7 +588,7 @@
               <set_value name="$DRules" exact="$Init.$DCWareRules.{$S}" />
             </do_if>
           </do_if>
-          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Submenu_Link" param="table[$id = 'fdn_overview_rules', $text = 'FDN Ware Rules for this DC (%1 set)'.[$DRules.keys.count] + ': Stock, Keep %, Never send, Do not accept']" comment="card X4-22b" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Add_Submenu_Link" param="table[$id = 'fdn_overview_rules', $text = {477605,2205}.[$DRules.keys.count] + ': ' + {477605,2206}]" comment="card X4-22b" />
           <set_value name="$Rows" exact="$Rows + 1" />
           <set_value name="$Near" exact="table[]" comment="card X4-16a: other DC -> gate jumps, within DCNetworkRange" />
           <do_all exact="$DCs.count" counter="$o">
@@ -543,18 +608,19 @@
             </do_if>
           </do_all>
           <set_value name="$NearList" exact="$Near.keys.sorted" comment="sorted by value (jumps), nearest first (keys.sorted, as used in md/fdn_supply.xml)" />
-          <set_value name="$NetText" exact="'Network: none in range'" />
-          <do_if value="$NearList.count gt 0">
-            <set_value name="$NetText" exact="'Network: '" />
+          <set_value name="$NetText" exact="{477605,2207}" />
+          <do_if value="$NearList.count gt 0" comment="card X4-23a: the names are joined first, then put into the 'Network: %1' text">
+            <set_value name="$NetList" exact="''" />
             <do_all exact="[$NearList.count, 3].min" counter="$n">
               <do_if value="$n gt 1">
-                <set_value name="$NetText" exact="$NetText + ', '" />
+                <set_value name="$NetList" exact="$NetList + ', '" />
               </do_if>
-              <set_value name="$NetText" exact="$NetText + '%1 (%2 %3)'.[$NearList.{$n}.knownname, $Near.{$NearList.{$n}}, (if $Near.{$NearList.{$n}} == 1 then 'jump' else 'jumps')]" />
+              <set_value name="$NetList" exact="$NetList + (if $Near.{$NearList.{$n}} == 1 then {477605,2209}.[$NearList.{$n}.knownname, $Near.{$NearList.{$n}}] else {477605,2210}.[$NearList.{$n}.knownname, $Near.{$NearList.{$n}}])" />
             </do_all>
             <do_if value="$NearList.count gt 3">
-              <set_value name="$NetText" exact="$NetText + ', +%1 more'.[$NearList.count - 3]" />
+              <set_value name="$NetList" exact="$NetList + ', ' + {477605,2211}.[$NearList.count - 3]" />
             </do_if>
+            <set_value name="$NetText" exact="{477605,2208}.[$NetList]" />
           </do_if>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = $NetText]" />
@@ -571,10 +637,10 @@
               <do_if value="$NetRange != null">
                 <set_value name="$ELink" exact="[$MI.$Link, $NetRange].min" />
               </do_if>
-              <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Manager: %1 stars (skill %2). Supply range %3 jumps, DC links %4 jumps, fee discount %5'.[$MI.$Stars, $MI.$Skill, $ERange, $ELink, $MI.$Disc] + ' %']" comment="the percent sign is added after formatting" />
+              <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2212}.[$MI.$Stars, $MI.$Skill, $ERange, $ELink, $MI.$Disc] + ' %']" comment="the percent sign is added after formatting" />
             </do_if>
             <do_else>
-              <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Manager: none. FDN does not use this DC until a manager is assigned', $color = 'Color.text_warning']" />
+              <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2213}, $color = 'Color.text_warning']" />
             </do_else>
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
@@ -586,22 +652,22 @@
             </do_if>
           </do_if>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Totals: %1 supplies sent, %2 returns received, %3 units moved, fees paid %4'.[$St.$Supplies, $St.$Returns, $St.$Units, $St.$Fees.formatted.default + ' Cr']]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2214}.[$St.$Supplies, $St.$Returns, $St.$Units, $St.$Fees.formatted.default + ' Cr']]" />
           <set_value name="$Rows" exact="$Rows + 1" />
           <set_value name="$Td" exact="$Trend.{$S}" comment="card X4-16d/18j" />
           <set_value name="$T3" exact="$Td.$T" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Fees (last 1h / 6h / 24h): %1 / %2 / %3'.[$T3.{1}.formatted.default + ' Cr', $T3.{2}.formatted.default + ' Cr', $T3.{3}.formatted.default + ' Cr']]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2215}.[$T3.{1}.formatted.default + ' Cr', $T3.{2}.formatted.default + ' Cr', $T3.{3}.formatted.default + ' Cr']]" />
           <set_value name="$Rows" exact="$Rows + 1" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '  supply %1 / %2 / %3 | return %4 / %5 / %6 | collect %7 / %8 / %9'.[$Td.$S.{1}.formatted.default + ' Cr', $Td.$S.{2}.formatted.default + ' Cr', $Td.$S.{3}.formatted.default + ' Cr', $Td.$R.{1}.formatted.default + ' Cr', $Td.$R.{2}.formatted.default + ' Cr', $Td.$R.{3}.formatted.default + ' Cr', $Td.$C.{1}.formatted.default + ' Cr', $Td.$C.{2}.formatted.default + ' Cr', $Td.$C.{3}.formatted.default + ' Cr']]" comment="card X4-18j" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '  ' + {477605,2030}.[$Td.$S.{1}.formatted.default + ' Cr', $Td.$S.{2}.formatted.default + ' Cr', $Td.$S.{3}.formatted.default + ' Cr', $Td.$R.{1}.formatted.default + ' Cr', $Td.$R.{2}.formatted.default + ' Cr', $Td.$R.{3}.formatted.default + ' Cr', $Td.$C.{1}.formatted.default + ' Cr', $Td.$C.{2}.formatted.default + ' Cr', $Td.$C.{3}.formatted.default + ' Cr']]" comment="card X4-18j" />
           <set_value name="$Rows" exact="$Rows + 1" />
 
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Ware']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Stock', $halign = 'right']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = 'Target', $halign = 'right']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = '% of target', $halign = 'right']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = {477605,2017}]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = {477605,2018}, $halign = 'right']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = {477605,2216}, $halign = 'right']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = {477605,2217}, $halign = 'right']" />
           <set_value name="$Rows" exact="$Rows + 1" />
 
           <set_value name="$Wares" exact="$S.cargo.list" comment="wares with a non-zero amount" />
@@ -617,7 +683,7 @@
           <sort_list list="$Wares" sortbyvalue="$PctOf.{loop.element}" comment="card X4-15c: emptiest first" />
           <do_if value="$Wares.count == 0">
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No wares in stock']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2218}]" />
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
           <set_value name="$WShown" exact="0" />
@@ -634,13 +700,13 @@
             <set_value name="$WName" exact="$W.name" />
             <do_if value="$DRules.{$W}?" comment="card X4-22b: rule after the ware name">
               <do_if value="$DRules.{$W}.$Rule == 'keep'">
-                <set_value name="$WName" exact="$WName + ' [keep %1'.[$DRules.{$W}.$Pct] + ' %]'" />
+                <set_value name="$WName" exact="$WName + ' [' + {477605,2219}.[$DRules.{$W}.$Pct] + ' %]'" />
               </do_if>
               <do_elseif value="$DRules.{$W}.$Rule == 'never'">
-                <set_value name="$WName" exact="$WName + ' [never send]'" />
+                <set_value name="$WName" exact="$WName + ' [' + {477605,2220} + ']'" />
               </do_elseif>
               <do_elseif value="$DRules.{$W}.$Rule == 'noaccept'">
-                <set_value name="$WName" exact="$WName + ' [do not accept]'" />
+                <set_value name="$WName" exact="$WName + ' [' + {477605,2221} + ']'" />
               </do_elseif>
             </do_if>
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
@@ -666,7 +732,7 @@
           </do_all>
           <do_if value="$Cut">
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'More not shown: the page holds at most 160 rows. %1 of %2 wares listed'.[$WShown, $Wares.count]]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2014}.[$WShown, $Wares.count]]" />
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
         </do_else>
@@ -695,10 +761,10 @@
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
           $col = 1,
-          $text = table[$text = 'Refresh', $halign = 'center'],
-          $mouseOverText = 'Reload the figures. The page does not update by itself',
+          $text = table[$text = {477605,2010}, $halign = 'center'],
+          $mouseOverText = {477605,2011},
           $onClick = On_Refresh]" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 3, $text = 'Stations and DCs FDN could not serve, newest first']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 3, $text = {477605,3001}]" />
         <set_value name="$Rows" exact="$Rows + 1" />
 
         <set_value name="$Sh" exact="[]" comment="card X4-22d: active shortages, md.FDN_Core.Init.$Shortages, display only" />
@@ -722,18 +788,18 @@
           <param name="Key" value="'ShortageAlertMinutes'" />
         </run_actions>
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="card X4-22d: Shortages" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Shortages (%1 active)'.[$Sh.count], $mouseOverText = 'Stations short of a ware FDN could not supply, and DCs running low. An alert is shown once a shortage lasts the Shortage alert after setting']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = {477605,3002}.[$Sh.count], $mouseOverText = {477605,3003}]" />
         <set_value name="$Rows" exact="$Rows + 1" />
         <do_if value="$Sh.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No shortages']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,3004}]" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
         <do_else>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Station / DC']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Ware']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = 'Short for, need, reason']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = {477605,3005}]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = {477605,2017}]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = {477605,3006}]" />
           <set_value name="$Rows" exact="$Rows + 1" />
           <set_value name="$ShShown" exact="0" />
           <do_all exact="$Sh.count" counter="$sha">
@@ -743,39 +809,39 @@
             <set_value name="$ShX" exact="$Sh.{$sha}" />
             <set_value name="$ShMins" exact="((player.age - $ShX.$E.$Since) / 60s)i" />
             <set_value name="$ShCol" exact="if $ShMin != null and $ShMins ge $ShMin then 'Color.text_negative' else 'Color.text_warning'" />
-            <set_value name="$ShDet" exact="if $ShX.$Low then 'DC low: usable %1, stations need %2'.[$ShX.$E.$Need, $ShX.$E.$NeedTotal] else 'need %1: %2'.[$ShX.$E.$Need, $ShX.$E.$Reason]" />
+            <set_value name="$ShDet" exact="if $ShX.$Low then {477605,3007}.[$ShX.$E.$Need, $ShX.$E.$NeedTotal] else {477605,3008}.[$ShX.$E.$Need, $ShX.$E.$Reason]" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = $ShX.$S.knownname, $color = $ShCol, $mouseOverText = $ShX.$S.sector.knownname]" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = $ShX.$W.name, $color = $ShCol]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = '%1 min, %2'.[$ShMins, $ShDet], $color = $ShCol]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = {477605,3009}.[$ShMins, $ShDet], $color = $ShCol]" />
             <set_value name="$Rows" exact="$Rows + 1" />
             <set_value name="$ShShown" exact="$ShShown + 1" />
           </do_all>
           <do_if value="$Sh.count gt $ShShown">
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '%1 more not shown'.[$Sh.count - $ShShown]]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2016}.[$Sh.count - $ShShown]]" />
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
         </do_else>
 
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="card X4-15e: Needs attention" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Needs attention']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = {477605,3010}]" />
         <set_value name="$Rows" exact="$Rows + 1" />
         <do_if value="$DCs.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No DC exists, so the FDN supplies nothing and stations trade as normal']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,3011}]" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
         <do_elseif value="$Att.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Nothing needs attention']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,3012}]" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_elseif>
         <do_else>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Station']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Ware']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = 'Reason, last seen']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = {477605,3013}]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = {477605,2017}]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = {477605,3014}]" />
           <set_value name="$Rows" exact="$Rows + 1" />
           <set_value name="$AttShown" exact="0" />
           <do_all exact="$Att.count" counter="$a" reverse="true">
@@ -788,13 +854,13 @@
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = $S.knownname, $color = 'Color.text_warning']" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = (if $E.$Ware then $E.$Ware.name else '-')]" comment="card X4-21a: manager entries have no ware" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = '%1, %2 min ago'.[$E.$Reason, $Mins]]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = {477605,3015}.[$E.$Reason, $Mins]]" />
             <set_value name="$Rows" exact="$Rows + 1" />
             <set_value name="$AttShown" exact="$AttShown + 1" />
           </do_all>
           <do_if value="$Att.count gt $AttShown">
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '%1 more not shown'.[$Att.count - $AttShown]]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2016}.[$Att.count - $AttShown]]" />
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
         </do_else>
@@ -815,50 +881,53 @@
         <set_value name="$Last" exact="[$View.$Page * 10, $F.count].min" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
         <do_if value="$F.count == 0">
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Problems (none of %1 stored activity entries)'.[$Act.count]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = {477605,3016}.[$Act.count]]" />
         </do_if>
         <do_else>
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Problems (page %1 of %2, entries %3-%4 of %5)'.[$View.$Page, $Pages, $First, $Last, $F.count]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = {477605,3017}.[$View.$Page, $Pages, $First, $Last, $F.count]]" />
         </do_else>
         <set_value name="$Rows" exact="$Rows + 1" />
         <do_if value="$Pages gt 1">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="card X4-16c: control row" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'page %1 of %2'.[$View.$Page, $Pages], $halign = 'center']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = {477605,2028}.[$View.$Page, $Pages], $halign = 'center']" />
           <do_if value="$View.$Page gt 1">
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
               $col = 3,
-              $text = table[$text = 'Newer', $halign = 'center'],
-              $mouseOverText = 'Show the previous (newer) 10 entries',
+              $text = table[$text = {477605,2024}, $halign = 'center'],
+              $mouseOverText = {477605,2025},
               $onClick = On_Newer]" />
           </do_if>
           <do_if value="$View.$Page lt $Pages">
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
               $col = 4,
-              $text = table[$text = 'Older', $halign = 'center'],
-              $mouseOverText = 'Show the next (older) 10 entries',
+              $text = table[$text = {477605,2026}, $halign = 'center'],
+              $mouseOverText = {477605,2027},
               $onClick = On_Older]" />
           </do_if>
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
         <do_if value="$F.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No problems recorded']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,3018}]" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
         <do_all exact="[$Last - $First + 1, 0].max" counter="$a">
           <set_value name="$E" exact="$F.{$First + $a - 1}" />
           <set_value name="$Mins" exact="((player.age - $E.{1}) / 60s)i" />
-          <set_value name="$SkipTxt" exact="'skipped'" />
-          <set_value name="$Why" exact="''" />
+          <set_value name="$SkipTxt" exact="{477605,2031}" />
+          <set_value name="$AtTxt" exact="{477605,2033}.[$E.{6}]" comment="card X4-23a: 'at station' or 'at station: reason' as one text each" />
           <do_if value="$E.count ge 9" comment="card X4-16b: skip entries with a reason and skip kind">
-            <set_value name="$SkipTxt" exact="if $E.{9} == 'supply' or $E.{9} == '' then 'skipped' else 'skipped ' + $E.{9}" />
-            <set_value name="$Why" exact="': ' + $E.{8}" />
+            <run_actions ref="Ov_Kind_Name" result="$KName" comment="card X4-23a: shown name of the saved skip kind">
+              <param name="K" value="$E.{9}" />
+            </run_actions>
+            <set_value name="$SkipTxt" exact="if $E.{9} == 'supply' or $E.{9} == '' then {477605,2031} else {477605,2032}.[$KName]" />
+            <set_value name="$AtTxt" exact="{477605,2034}.[$E.{6}, $E.{8}]" />
           </do_if>
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = '%1 min ago, %2'.[$Mins, $SkipTxt], $color = 'Color.text_warning']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = {477605,2019}.[$Mins, $SkipTxt], $color = 'Color.text_warning']" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = '%1 %2'.[$E.{4}, $E.{3}.name], $color = 'Color.text_warning']" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '    at %1%2'.[$E.{6}, $Why], $color = 'Color.text_warning']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = '    ' + $AtTxt, $color = 'Color.text_warning']" />
           <set_value name="$Rows" exact="$Rows + 2" />
         </do_all>
 
@@ -888,7 +957,7 @@
         <set_value name="$Idx" exact="if $Init.$HiView.$Idx lt 0 or $Init.$HiView.$Idx gt $DCs.count then 0 else $Init.$HiView.$Idx" comment="0 = All DCs; past the last DC wraps to All DCs" />
         <set_value name="$Init.$HiView.$Idx" exact="$Idx" />
         <set_value name="$Sel" exact="$DCs" />
-        <set_value name="$SelName" exact="'All DCs'" />
+        <set_value name="$SelName" exact="{477605,3501}" />
         <do_if value="$Idx gt 0">
           <set_value name="$Sel" exact="[$DCs.{$Idx}]" />
           <set_value name="$SelName" exact="$DCs.{$Idx}.knownname" />
@@ -897,20 +966,20 @@
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="control row" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
           $col = 1,
-          $text = table[$text = 'Refresh', $halign = 'center'],
-          $mouseOverText = 'Reload the figures. The page does not update by itself',
+          $text = table[$text = {477605,2010}, $halign = 'center'],
+          $mouseOverText = {477605,2011},
           $onClick = On_Refresh]" />
         <do_if value="$DCs.count gt 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
             $col = 2,
             $colSpan = 3,
-            $text = table[$text = 'Showing: ' + $SelName, $halign = 'center'],
-            $mouseOverText = 'Show the next DC (by name), then All DCs again',
+            $text = table[$text = {477605,3502}.[$SelName], $halign = 'center'],
+            $mouseOverText = {477605,3503},
             $onClick = On_Next_Hist]" />
         </do_if>
         <set_value name="$Rows" exact="$Rows + 1" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = 'Last 24 hours in 1-hour buckets. Supplies, returns, collects and units are counted from FDN 1.02 on; fees go back up to 24 hours.']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = {477605,3504}]" />
         <set_value name="$Rows" exact="$Rows + 1" />
 
         <set_value name="$HS" exact="[]" />
@@ -951,12 +1020,12 @@
         </do_if>
 
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Hour', $font = 'Zekton bold']" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Supplies', $halign = 'right', $font = 'Zekton bold']" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = 'Returns', $halign = 'right', $font = 'Zekton bold']" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = 'Collects', $halign = 'right', $font = 'Zekton bold']" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 5, $text = 'Units', $halign = 'right', $font = 'Zekton bold']" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 6, $text = 'Fees', $halign = 'right', $font = 'Zekton bold']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = {477605,3505}, $font = 'Zekton bold']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = {477605,3506}, $halign = 'right', $font = 'Zekton bold']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = {477605,3507}, $halign = 'right', $font = 'Zekton bold']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = {477605,3508}, $halign = 'right', $font = 'Zekton bold']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 5, $text = {477605,3509}, $halign = 'right', $font = 'Zekton bold']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 6, $text = {477605,3510}, $halign = 'right', $font = 'Zekton bold']" />
         <set_value name="$Rows" exact="$Rows + 1" />
         <set_value name="$Tot" exact="table[$S = 0, $R = 0, $C = 0, $U = 0, $F = 0Cr]" />
         <do_all exact="24" counter="$h">
@@ -966,7 +1035,7 @@
           <set_value name="$Tot.$U" exact="$Tot.$U + $HU.{$h}" />
           <set_value name="$Tot.$F" exact="$Tot.$F + $HF.{$h}" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = (if $h == 1 then 'this hour' else '%1 h ago'.[$h - 1])]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = (if $h == 1 then {477605,3511} else {477605,3512}.[$h - 1])]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = '%1'.[$HS.{$h}], $halign = 'right']" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = '%1'.[$HR.{$h}], $halign = 'right']" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = '%1'.[$HC.{$h}], $halign = 'right']" />
@@ -975,7 +1044,7 @@
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_all>
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Last 24h', $font = 'Zekton bold']" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = {477605,3513}, $font = 'Zekton bold']" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = '%1'.[$Tot.$S], $halign = 'right', $font = 'Zekton bold']" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = '%1'.[$Tot.$R], $halign = 'right', $font = 'Zekton bold']" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = '%1'.[$Tot.$C], $halign = 'right', $font = 'Zekton bold']" />
@@ -988,7 +1057,8 @@
           <set_value name="$Act" exact="$Init.$Activity" />
         </do_if>
         <set_value name="$View" exact="$Init.$OvView" />
-        <set_value name="$ViewNames" exact="['All', 'Supplies', 'Returns', 'NPC', 'Problems']" />
+        <set_value name="$ViewNames" exact="[{477605,3514}, {477605,3515}, {477605,3516}, {477605,3517}, {477605,3518}]" comment="card X4-23a: shown names" />
+        <set_value name="$ViewIds" exact="['All', 'Supplies', 'Returns', 'NPC', 'Problems']" comment="card X4-23a: the same names in English for fdn.log" />
         <do_if value="$View.$Filter lt 1 or $View.$Filter gt 5">
           <set_value name="$View.$Filter" exact="1" />
         </do_if>
@@ -1000,23 +1070,23 @@
           </do_if>
         </do_all>
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="card X4-15e: Recent activity, all network DCs" />
-        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $font = 'Zekton bold', $text = 'Recent activity, whole network (%1: %2 of %3 stored entries)'.[$ViewNames.{$View.$Filter}, $F.count, $Act.count]]" />
+        <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $font = 'Zekton bold', $text = {477605,3519}.[$ViewNames.{$View.$Filter}, $F.count, $Act.count]]" />
         <set_value name="$Rows" exact="$Rows + 1" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="card X4-16c: filter button" />
         <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
           $col = 1,
           $colSpan = 2,
-          $text = table[$text = 'Show: ' + $ViewNames.{$View.$Filter}, $halign = 'center'],
-          $mouseOverText = 'Change what Recent activity shows: All, Supplies, Returns (incl. collect), NPC, Problems',
+          $text = table[$text = {477605,3520}.[$ViewNames.{$View.$Filter}], $halign = 'center'],
+          $mouseOverText = {477605,3521},
           $onClick = On_Filter]" />
         <set_value name="$Rows" exact="$Rows + 1" />
         <do_if value="$F.count == 0">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
           <do_if value="$Act.count == 0">
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = 'No supplies or returns recorded yet']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = {477605,3522}]" />
           </do_if>
           <do_else>
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = 'No ' + $ViewNames.{$View.$Filter} + ' entries']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = {477605,3523}.[$ViewNames.{$View.$Filter}]]" />
           </do_else>
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
@@ -1029,33 +1099,39 @@
           <set_value name="$E" exact="$F.{$a}" />
           <set_value name="$Mins" exact="((player.age - $E.{1}) / 60s)i" />
           <do_if value="$E.{2} == 'skip' and $E.count ge 9" comment="card X4-16b: skip entry, warning colour">
-            <set_value name="$SkipTxt" exact="if $E.{9} == 'supply' or $E.{9} == '' then 'skipped' else 'skipped ' + $E.{9}" />
+            <run_actions ref="Ov_Kind_Name" result="$KName" comment="card X4-23a: shown name of the saved skip kind">
+              <param name="K" value="$E.{9}" />
+            </run_actions>
+            <set_value name="$SkipTxt" exact="if $E.{9} == 'supply' or $E.{9} == '' then {477605,2031} else {477605,2032}.[$KName]" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 2, $text = '%1 min ago, %2'.[$Mins, $SkipTxt], $color = 'Color.text_warning']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 2, $text = {477605,2019}.[$Mins, $SkipTxt], $color = 'Color.text_warning']" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = '%1 %2'.[$E.{4}, $E.{3}.name], $color = 'Color.text_warning']" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = '    at %1: %2'.[$E.{6}, $E.{8}], $color = 'Color.text_warning']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = '    ' + {477605,2034}.[$E.{6}, $E.{8}], $color = 'Color.text_warning']" />
           </do_if>
           <do_else>
+            <run_actions ref="Ov_Kind_Name" result="$KName" comment="card X4-23a: shown name of the saved activity kind">
+              <param name="K" value="$E.{2}" />
+            </run_actions>
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 2, $text = '%1 min ago, %2'.[$Mins, $E.{2}]]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 2, $text = {477605,2019}.[$Mins, $KName]]" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $colSpan = 2, $text = '%1 %2'.[$E.{4}, $E.{3}.name]]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 5, $colSpan = 2, $text = 'fee ' + $E.{7}.formatted.default + ' Cr', $halign = 'right']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 5, $colSpan = 2, $text = {477605,2023}.[$E.{7}.formatted.default + ' Cr'], $halign = 'right']" />
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="card X4-15f: route on its own full-width row" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = '    from %1 to %2'.[$E.{5}, $E.{6}]]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = '    ' + {477605,2035}.[$E.{5}, $E.{6}]]" />
           </do_else>
           <set_value name="$Rows" exact="$Rows + 2" />
           <set_value name="$ActShown" exact="$ActShown + 1" />
         </do_all>
         <do_if value="$Cut">
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = 'More not shown: the page holds at most 160 rows. %1 of %2 entries listed'.[$ActShown, $F.count]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 6, $text = {477605,2015}.[$ActShown, $F.count]]" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
 
         <run_actions ref="md.FDN_Core.Log">
           <param name="Level" value="4" />
-          <param name="Text" value="'history page opened: %1, 24h supplies %2, returns %3, collects %4, units %5, fees %6'.[$SelName, $Tot.$S, $Tot.$R, $Tot.$C, $Tot.$U, $Tot.$F.formatted.default + ' Cr'] + ', activity %1 %2 of %3, %4 rows'.[$ViewNames.{$View.$Filter}, $ActShown, $Act.count, $Rows]" />
+          <param name="Text" value="'history page opened: %1, 24h supplies %2, returns %3, collects %4, units %5, fees %6'.[(if $Idx gt 0 then $SelName else 'All DCs'), $Tot.$S, $Tot.$R, $Tot.$C, $Tot.$U, $Tot.$F.formatted.default + ' Cr'] + ', activity %1 %2 of %3, %4 rows'.[$ViewIds.{$View.$Filter}, $ActShown, $Act.count, $Rows]" />
         </run_actions>
       </actions>
     </cue>
@@ -1090,7 +1166,7 @@
         <do_if value="not $Ok">
           <set_value name="$Init.$RuView.$Wares" exact="[]" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'This DC no longer exists or has no charter. Go back to FDN DCs and open the rules for another DC']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,4001}]" />
           <set_value name="$Rows" exact="$Rows + 1" />
         </do_if>
         <do_else>
@@ -1105,40 +1181,40 @@
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" comment="control row" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
             $col = 1,
-            $text = table[$text = 'Refresh', $halign = 'center'],
-            $mouseOverText = 'Reload the figures. The page does not update by itself',
+            $text = table[$text = {477605,2010}, $halign = 'center'],
+            $mouseOverText = {477605,2011},
             $onClick = On_Refresh]" />
           <do_if value="$NRules gt 0">
-            <set_value name="$RText" exact="'Reset all to Stock (%1 set)'.[$NRules]" />
+            <set_value name="$RText" exact="{477605,4002}.[$NRules]" />
             <do_if value="$Init.$RuView.$Confirm">
-              <set_value name="$RText" exact="'Click again to reset %1 rules to Stock'.[$NRules]" />
+              <set_value name="$RText" exact="{477605,4003}.[$NRules]" />
             </do_if>
             <signal_cue_instantly cue="md.Simple_Menu_API.Make_Button" param="table[
               $col = 2,
               $colSpan = 2,
               $text = table[$text = $RText, $halign = 'center'],
-              $mouseOverText = 'Set every ware at this DC back to Stock (normal behaviour). Needs a second click',
+              $mouseOverText = {477605,4004},
               $onClick = On_Rule_Reset]" />
           </do_if>
           <do_else>
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = 'All wares on Stock', $halign = 'center']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $colSpan = 2, $text = {477605,4005}, $halign = 'center']" />
           </do_else>
           <set_value name="$Rows" exact="$Rows + 1" />
 
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = 'Ware rules at %1, %2'.[$S.knownname, $S.sector.knownname]]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $font = 'Zekton bold', $text = {477605,4006}.[$S.knownname, $S.sector.knownname]]" />
           <set_value name="$Rows" exact="$Rows + 1" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Stock: normal. Keep %: keeps that share of its storage target and supplies only above it. Never send: never supplies it to stations, still takes returns and collects.', $mouseOverText = 'Keep % uses the storage target, or the current stock when the ware has no target. The global DC reserve still applies; the larger reserve wins']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,4007}, $mouseOverText = {477605,4008}]" />
           <set_value name="$Rows" exact="$Rows + 1" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'Do not accept: takes no returns or collected overstock of it and is never picked as a destination for it, still supplies what it has. Click a button for the next value, right-click for the previous one.']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,4009}]" />
           <set_value name="$Rows" exact="$Rows + 1" />
           <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = 'Ware']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = 'Rule', $halign = 'center']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = 'Keep %', $halign = 'center']" />
-          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = 'Stock / target', $halign = 'right']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $text = {477605,2017}]" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 2, $text = {477605,4010}, $halign = 'center']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 3, $text = {477605,4011}, $halign = 'center']" />
+          <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 4, $text = {477605,4012}, $halign = 'right']" />
           <set_value name="$Rows" exact="$Rows + 1" />
 
           <set_value name="$Seen" exact="table[]" comment="wares in stock, products, resources, trade wares and wares that have a rule" />
@@ -1158,7 +1234,7 @@
           <set_value name="$Init.$RuView.$Wares" exact="$List" comment="the buttons echo an index into this list" />
           <do_if value="$List.count == 0">
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'No wares in stock or set to trade here']" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,4013}]" />
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
           <set_value name="$WShown" exact="0" />
@@ -1174,15 +1250,15 @@
               <set_value name="$R" exact="$Rules.{$W}.$Rule" />
               <set_value name="$P" exact="$Rules.{$W}.$Pct" />
             </do_if>
-            <set_value name="$RLabel" exact="'Stock'" />
+            <set_value name="$RLabel" exact="{477605,4014}" />
             <do_if value="$R == 'keep'">
-              <set_value name="$RLabel" exact="'Keep %'" />
+              <set_value name="$RLabel" exact="{477605,4015}" />
             </do_if>
             <do_elseif value="$R == 'never'">
-              <set_value name="$RLabel" exact="'Never send'" />
+              <set_value name="$RLabel" exact="{477605,4016}" />
             </do_elseif>
             <do_elseif value="$R == 'noaccept'">
-              <set_value name="$RLabel" exact="'Do not accept'" />
+              <set_value name="$RLabel" exact="{477605,4017}" />
             </do_elseif>
             <set_value name="$Target" exact="0" />
             <do_if value="$S.cargo.{$W}.target?">
@@ -1194,7 +1270,7 @@
               $col = 2,
               $echo = $w,
               $text = table[$text = $RLabel, $halign = 'center'],
-              $mouseOverText = 'Click: next rule (Stock, Keep %, Never send, Do not accept). Right-click: previous rule',
+              $mouseOverText = {477605,4018},
               $onClick = On_Rule_Cycle,
               $onRightClick = On_Rule_Cycle]" />
             <do_if value="$R == 'keep'">
@@ -1202,7 +1278,7 @@
                 $col = 3,
                 $echo = $w,
                 $text = table[$text = '%1'.[$P] + ' %', $halign = 'center'],
-                $mouseOverText = 'Click: +10 (after 100 back to 10). Right-click: -10',
+                $mouseOverText = {477605,4019},
                 $onClick = On_Rule_Pct,
                 $onRightClick = On_Rule_Pct]" />
             </do_if>
@@ -1215,7 +1291,7 @@
           </do_all>
           <do_if value="$Cut">
             <signal_cue_instantly cue="md.Simple_Menu_API.Add_Row" param="table[]" />
-            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = 'More not shown: the page holds at most 160 rows. %1 of %2 wares listed'.[$WShown, $List.count]]" />
+            <signal_cue_instantly cue="md.Simple_Menu_API.Make_Text" param="table[$col = 1, $colSpan = 4, $text = {477605,2014}.[$WShown, $List.count]]" />
             <set_value name="$Rows" exact="$Rows + 1" />
           </do_if>
         </do_else>
