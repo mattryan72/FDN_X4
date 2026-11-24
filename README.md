@@ -107,6 +107,13 @@ Workshop link: https://steamcommunity.com/sharedfiles/filedetails/?id=3835284205
 
 > **Workshop or GitHub — pick one.** Workshop installs use extension id `ws_3835284205` and GitHub/manual installs use `fdn_x4`, so saves don't carry over between them. Pick one and don't install both.
 
+### Updating from 1.02
+
+v1.00, v1.01 and v1.02 saves update in place; no steps needed.
+
+- **Steam Workshop:** Steam updates the mod for you.
+- **Manual zip:** close the game, delete the old `X4 Foundations\extensions\fdn_x4` folder, then extract the new zip into `X4 Foundations\extensions\`. 1.03 adds a `t\` folder, so delete the old folder first rather than overlaying. Settings, DC state, ware rules, shortage timers and saved buy limits live in the save, so nothing is lost.
+
 ### Updating from 1.01
 
 v1.00 and v1.01 saves update in place; no steps needed.
@@ -121,7 +128,7 @@ v1.00 and v1.01 saves update in place; no steps needed.
 
 v1.00 saves update in place; no steps needed. Follow the same Workshop / manual steps as Updating from 1.01, including the game restart for **Set trade buy limits**. **Manager skill sets range and fees** starts **on**: any DC without a station manager goes offline for FDN, and DCs with 0–3 star managers reach 3–4 jumps instead of 5. Check the FDN Overview after the first supply check, or turn the setting off for 1.00 behaviour.
 
-`README.md` and `LICENSE` ship in the extension root. The PDF user guide is on GitHub at https://github.com/mattryan72/FDN_X4/blob/main/docs/FDN_X4_User_Guide_v1.02_BETA.pdf and is also attached to each release (it is not shipped inside the mod package).
+`README.md` and `LICENSE` ship in the extension root. The PDF user guide is on GitHub at https://github.com/mattryan72/FDN_X4/blob/main/docs/FDN_X4_User_Guide_v1.03_BETA.pdf and is also attached to each release (it is not shipped inside the mod package).
 
 ## Save safety / Uninstall
 
@@ -204,7 +211,7 @@ MIT License — Copyright (c) 2026 Matthew Ryan (Logain Abler). See [LICENSE](LI
 - Steam Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=3835284205
 - GitHub: https://github.com/mattryan72/FDN_X4
 - Releases: https://github.com/mattryan72/FDN_X4/releases
-- User guide (PDF): https://github.com/mattryan72/FDN_X4/blob/main/docs/FDN_X4_User_Guide_v1.02_BETA.pdf
+- User guide (PDF): https://github.com/mattryan72/FDN_X4/blob/main/docs/FDN_X4_User_Guide_v1.03_BETA.pdf
 - SirNukes Mod Support APIs: https://steamcommunity.com/sharedfiles/filedetails/?id=2042901274
 
 Unofficial fan content. Requires a legally owned copy of X4: Foundations. Distributed free of charge under the MIT License (which permits commercial use). No Egosoft assets are redistributed.

@@ -51,7 +51,7 @@ Only change the text between `<t id="...">` and `</t>`. Keep every id, and do no
 - **Percent sign:** a text that has slots (`%1` …) must not contain a plain `%` sign (the game would read it as a slot). Write the word instead, for example `%5 Prozent`. Texts without slots, such as `Keep %`, may use `%`.
 - **No spaces at the start or end** of a text. Spaces around inserted parts are added by the scripts.
 - **No `{` or `}`.** In XML, write `&` as `&amp;` and `<` as `&lt;`.
-- **Do not translate:** `FDN`, `Cr`, `fdn.log`, `SirNuke Mod Support APIs`, and the abbreviation `DC` (Distribution Centre) is kept as `DC` in all drafts so labels stay short. Station, sector and ware names are inserted by the game in the player's language.
+- **Do not translate:** `FDN`, `Cr`, `fdn.log`, `SirNukes Mod Support APIs`, and the abbreviation `DC` (Distribution Centre) is kept as `DC` in all drafts so labels stay short. Station, sector and ware names are inserted by the game in the player's language.
 - **Use the game's own words** where the game has them (station, ware, sector, logbook, station manager, credits, storage, police, reputation …). Look them up in the game's own text file for your language.
 - **Keep labels short.** Option names, column headings, buttons and the station menu have limited width. If a translation is much longer than the English, look for a shorter word.
 - `fdn.log` stays in English on purpose. It is not in these files.

@@ -6,7 +6,7 @@ All notable changes to LI Freight Distribution Network (FDN) for X4: Foundations
 
 ### Added
 
-- **Localisation.** All player-facing FDN text now comes from the game's text files (text page **477605**): the settings page, the five Overview pages (FDN Overview, FDN DCs, FDN Alerts, FDN History, FDN Ware Rules), the station right-click menu, the charter, logbook entries, tickers, reasons and the kind names on FDN Alerts and FDN History. FDN follows the game language.
+- **Localisation.** All player-facing FDN text now comes from the game's text files (text page **477605**): the settings page, the four Overview pages plus FDN Ware Rules, the station right-click menu, the charter, logbook entries, tickers, reasons and the kind names on FDN Alerts and FDN History. FDN follows the game language.
   - **English** is the source text (`t/0001-l044.xml`). `t/0001.xml` is an identical copy used for any language without its own file.
   - **12 draft translations:** German, French, Spanish, Italian, Russian, Polish, Czech, Brazilian Portuguese, Japanese, Korean, Simplified Chinese and Traditional Chinese (`t/0001-l007.xml` … `t/0001-l088.xml`). They are **machine-drafted** and marked as drafts; corrections from native speakers are welcome on the forum or GitHub. Game terms (station, ware, sector, logbook, station manager and so on) follow the game's own wording for each language where it exists.
   - Sentences that were built from pieces are now whole texts with numbered slots (`%1`, `%2` …), so translators can change the word order. English reads as before.
